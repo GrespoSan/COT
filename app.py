@@ -10,21 +10,27 @@ st.header("1. Inserimento Dati")
 st.caption("Trascrivi i dati dal blocco base del terminale")
 
 col1, col2, col3, col4 = st.columns(4)
-
+cot_data = load_cot_data("GOLD")
 with col1:
     st.subheader("Open Interest")
-    oi_tot = st.number_input("Open Interest Totale", value=174440)
-    oi_var = st.number_input("Change in Open Interest", value=-9288)
+    # oi_tot = st.number_input("Open Interest Totale", value=174440)
+    # oi_var = st.number_input("Change in Open Interest", value=-9288)
+    oi_tot = cot_data["open_interest"]
+    oi_var = cot_data["oi_change"]
 
 with col2:
     st.subheader("Managed Money (MM)")
-    mm_long = st.number_input("MM Change Long", value=1261)
-    mm_short = st.number_input("MM Change Short", value=-3831)
+    # mm_long = st.number_input("MM Change Long", value=1261)
+    # mm_short = st.number_input("MM Change Short", value=-3831)
+    mm_long = cot_data["mm_long_change"]
+    mm_short = cot_data["mm_short_change"]
 
 with col3:
     st.subheader("Commercials")
-    comm_long = st.number_input("Comm Change Long", value=-5748)
-    comm_short = st.number_input("Comm Change Short", value=1044)
+    # comm_long = st.number_input("Comm Change Long", value=-5748)
+    # comm_short = st.number_input("Comm Change Short", value=1044)
+    comm_long = cot_data["comm_long_change"]
+    comm_short = cot_data["comm_short_change"]
 
 with col4:
     st.subheader("Term Structure")
