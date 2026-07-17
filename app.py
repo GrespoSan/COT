@@ -96,7 +96,7 @@ with col3:
 
 with col4:
     st.subheader("Term Structure")
-    term_struct = st.radio("Stato attuale:", ["Backwardation (verde)", "Contango (rosso)"])
+    term_struct = st.radio("Stato attuale della curva futures: inserimento manuale (non automatizzato)", ["Backwardation (verde)", "Contango (rosso)"])
 
 # =========================================================================
 # BLOCCO 2: Elaborazione Matematica
@@ -165,9 +165,9 @@ st.divider()
 st.header("4. Interpretazione Macro e Sequenza Temporale")
 
 if flusso_netto_mm > 0 and flusso_netto_comm < 0:
-    st.success("🟢 **CONVERGENZA RIALZISTA STRUTTURALE (Allineato con TradingView)**")
+    st.success("🟢 **CONVERGENZA RIALZISTA STRUTTURALE**")
     st.write(f"**Cosa sta succedendo in parole semplici:** Siamo in una fase di **piena armonia rialzista**. I grandi speculatori stanno comprando in modo aggressivo (Flusso: `{flusso_netto_mm:+.0f}`) e l'Open Interest sale. I commerciali stanno vendendo contratti commerciali per coprire la produzione futura, comportamento normalissimo in un mercato forte.")
-    st.error("**💡 Conclusione:** Il trend è solido, asseconda il segnale Long di TradingView e cerca conferme grafiche per l'operatività.")
+    st.error("**💡 Conclusione:** Il trend è solido, asseconda il segnale Long e cerca conferme grafiche sul prezzo prima di operare..")
 
 elif flusso_netto_mm < 0 and flusso_netto_comm > 0:
     st.warning("⚠️ **Rilevata DIVERGENZA ISTITUZIONALE: SHORT ➔ LONG**")
