@@ -10,7 +10,7 @@ import datetime
 st.set_page_config(page_title="Dashboard COMM_COT_T1", layout="wide")
 st.title("🛡️ Dashboard di Validazione Automatizzata")
 
-# --- FUNZIONE DI SCARICAMENTO E PARSING DATI COT ---
+# --- FUNZIONE DI SCARICAMENTO E PARSING DATI COT (VERSIONE BLINDATA) ---
 @st.cache_data(ttl=43200)  # Memorizza i dati per 12 ore
 def load_automagic_cot():
     current_year = datetime.datetime.now().year
@@ -25,6 +25,9 @@ def load_automagic_cot():
                 with zipfile.ZipFile(io.BytesIO(response.content)) as z:
                     file_name = z.namelist()[0]
                     df = pd.read_csv(z.open(file_name), low_memory=False)
+                    
+                    # FIX 1: Rimuove gli spazi bianchi bastardi dalle colonne CFTC
+                    df.columns = df.columns.str.strip()
                     dfs.append(df)
         except Exception:
             continue
@@ -46,16 +49,29 @@ def load_automagic_cot():
         'Swap_Positions_Short_All': 'Swap_Short'
     }
     
-    df_all = df_all[list(cols_mapping.keys())].rename(columns=cols_mapping)
-    df_all['Data'] = pd.to_datetime(df_all['Data'])
+    # Rinomina solo le colonne presenti
+    df_all = df_all.rename(columns=cols_mapping)
+    
+    # FIX 2: Assicura che TUTTE le colonne necessarie esistano (se mancano, le inizializza a 0)
+    for target_col in cols_mapping.values():
+        if target_col not in df_all.columns:
+            df_all[target_col] = 0
+            
+    # Converte la data in datetime
+    df_all['Data'] = pd.to_datetime(df_all['Data'], errors='coerce')
+    
+    # FIX 3: Forza tutti i dati numerici ed elimina i NaN che farebbero crashare i calcoli
+    numeric_cols = ['OI', 'MM_Long', 'MM_Short', 'Prod_Long', 'Prod_Short', 'Swap_Long', 'Swap_Short']
+    for col in numeric_cols:
+        df_all[col] = pd.to_numeric(df_all[col], errors='coerce').fillna(0).astype(int)
+        
     return df_all
 
 # Caricamento del database globale COT
 with st.spinner("Estrazione dati freschi dal server CFTC..."):
     df_cot = load_automagic_cot()
 
-# --- DIZIONARIO DI MAPPATURA (Lista Pulita per l'Utente) ---
-# Puoi aggiungere o modificare questa lista a piacimento inserendo il nome che vuoi leggere e la stringa CFTC esatta
+# --- DIZIONARIO DI MAPPATURA ---
 MAPPA_FUTURE = {
     "🥇 Oro (COMEX)": "GOLD - COMMODITY EXCHANGE INC.",
     "🥈 Argento (COMEX)": "SILVER - COMMODITY EXCHANGE INC.",
@@ -78,31 +94,30 @@ if df_cot is not None:
     # Estraggo tutti i mercati reali presenti nel file per il fallback globale
     tutti_i_mercati_cftc = sorted(df_cot['Asset'].dropna().unique())
     
-    # Costruisco la lista finale del menu a tendina: prima i preferiti mappati, poi l'elenco completo grezzo
+    # Costruisco la lista finale del menu a tendina
     opzioni_menu = list(MAPPA_FUTURE.keys()) + ["--- ELENCO COMPLETO CFTC DI SERVIZIO ---"] + tutti_i_mercati_cftc
     
-    # Menu di selezione principale
     scelta_utente = st.selectbox("Scegli il Future da analizzare:", opzioni_menu, index=0)
     
-    # Logica di risoluzione della scelta
     if scelta_utente in MAPPA_FUTURE:
         selected_asset = MAPPA_FUTURE[scelta_utente]
     elif scelta_utente == "--- ELENCO COMPLETO CFTC DI SERVIZIO ---":
         st.warning("⚠️ Seleziona un asset valido dalla lista sopra o scegli un nome grezzo sotto questa riga.")
         st.stop()
     else:
-        selected_asset = scelta_utente # Se l'utente ha scelto un nome grezzo dall'elenco completo
+        selected_asset = scelta_utente
         
     st.info(f"Target CFTC Attivo: `{selected_asset}`")
 
-    # Isoliamo lo storico dell'asset selezionato
+    # Isoliamo lo storico dell'asset selezionato, pulendo eventuali duplicati di data
     df_asset = df_cot[df_cot['Asset'] == selected_asset].sort_values('Data')
+    df_asset = df_asset.drop_duplicates(subset=['Data'], keep='last')
     
     if len(df_asset) >= 2:
         r_current = df_asset.iloc[-1]   
         r_previous = df_asset.iloc[-2]  
         
-        # Calcolo automatico dei valori
+        # I valori sono già convertiti in int e puliti dai NaN a monte
         auto_oi_tot = int(r_current['OI'])
         auto_oi_var = int(r_current['OI'] - r_previous['OI'])
         
@@ -119,13 +134,13 @@ if df_cot is not None:
         
         st.caption(f"📅 Data ultimo report rilasciato: **{r_current['Data'].strftime('%Y-%m-%d')}**")
     else:
-        st.error("Errore: Dati insufficienti nel database per calcolare il differenziale di questo asset.")
+        st.error("Errore: Dati storici insufficienti nel database per calcolare il differenziale di questo asset.")
         auto_oi_tot, auto_oi_var, auto_mm_long, auto_mm_short, auto_comm_long, auto_comm_short = 174440, -9288, 1261, -3831, -5748, 1044
 else:
     st.error("Impossibile scaricare i dati dalla CFTC. Fallback sui dati manuali.")
     auto_oi_tot, auto_oi_var, auto_mm_long, auto_mm_short, auto_comm_long, auto_comm_short = 174440, -9288, 1261, -3831, -5748, 1044
 
-# Layout delle colonne numeriche (popolate istantaneamente in base alla scelta nella lista)
+# Layout delle colonne numeriche
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
