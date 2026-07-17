@@ -17,11 +17,15 @@ def load_legacy_futures_cot():
     years = [current_year - 1, current_year]
     dfs = []
     
+    # 🔥 FIX FONDAMENTALE: Simula un browser reale. Senza questo la CFTC rifiuta la connessione (Errore 403)
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    }
+    
     for year in years:
-        # URL ufficiale CFTC per il report Legacy - Solo Futures
         url = f"https://www.cftc.gov/files/dea/history/deahist{year}.zip"
         try:
-            response = requests.get(url, timeout=15)
+            response = requests.get(url, headers=headers, timeout=15)
             if response.status_code == 200:
                 with zipfile.ZipFile(io.BytesIO(response.content)) as z:
                     file_name = z.namelist()[0]
@@ -225,7 +229,7 @@ elif flusso_netto_mm < 0 and flusso_netto_comm > 0:
     st.write(f"**Cosa succede:** Nel breve i fondi speculativi vendono (`{flusso_netto_mm:+.0f}`), ma i Commercials stanno accumulando posizioni Long fabbricando un pavimento di medio termine.")
 elif flusso_netto_mm > 0 and flusso_netto_comm > 0:
     st.warning("⚠️ **Rilevata DIVERGENZA ISTITUZIONALE: LONG ➔ SHORT**")
-    st.write(f"**Cosa succede:** I fondi spingono ancora in alto, ma i Commercials vendono massicciamente (`{flusso_netto_comm:+.0f}`) ponendo un tetto al mercato per le próximas settimane.")
+    st.write(f"**Cosa succede:** I fondi spingono ancora in alto, ma i Commercials vendono massicciamente (`{flusso_netto_comm:+.0f}`) ponendo un tetto al mercato per le prossime settimane.")
 elif flusso_netto_mm < 0 and flusso_netto_comm < 0:
     st.error("🔴 **CONVERGENZA RIBASSISTA STRUTTURALE**")
     st.write("Il mercato è strutturalmente debole a tutti i livelli temporali, la pressione ribassista è totale.")
