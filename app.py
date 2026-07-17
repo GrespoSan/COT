@@ -211,8 +211,8 @@ if row:
     oi_var_default = to_num(row, "change_in_open_interest_all")
 
     if rtype == "Materie prime":
-        mm_long_default = to_num(row, "change_in_noncomm_long_all")
-        mm_short_default = to_num(row, "change_in_noncomm_short_all")
+        mm_long_default = to_num(row, "change_in_noncomm_long")
+        mm_short_default = to_num(row, "change_in_noncomm_short")
     else:
         mm_long_default = to_num(row, "change_in_lev_money_long")
         mm_short_default = to_num(row, "change_in_lev_money_short")
