@@ -56,23 +56,18 @@ MERCATI = {
     "6J JEN": ("JAPANESE YEN - CHICAGO MERCANTILE EXCHANGE", "LEGACY"),
     "Bitcoin": ("BITCOIN - CHICAGO MERCANTILE EXCHANGE", "LEGACY"),
     "Ether": ("ETHER CASH SETTLED - CHICAGO MERCANTILE EXCHANGE", "LEGACY"),
-    "CC1 Cacao": ("COCOA - ICE FUTURES U.S.", "LEGACY"),
-    "KC1 Coffee": ("COFFEE C - ICE FUTURES U.S.", "LEGACY"),
-    "CT1 Coton": ("COTTON NO. 2 - ICE FUTURES U.S.", "LEGACY"),
-    "SB1 Sugar": ("SUGAR NO. 11 - ICE FUTURES U.S.", "LEGACY"),
-    "ZW  Wheat (Grano)": ("WHEAT-SRW - CHICAGO BOARD OF TRADE"),
-    "ZW1 Corn (Mais)": ("CORN - CHICAGO BOARD OF TRADE", "LEGACY"),
-    "ZS1 Soybeans (Soia)": ("SOYBEANS - CHICAGO BOARD OF TRADE", "LEGACY"),
-    "ZL1 Soybeans Oil (Olia di soia)": ("SOYBEAN OIL - CHICAGO BOARD OF TRADE", "LEGACY"),
-    "ZM1 Soybeans Meal (Farina di soia)": ("SOYBEAN MEAL - CHICAGO BOARD OF TRADE", "LEGACY"),
-    
-
-
-
-    
+    "CC Cacao": ("COCOA - ICE FUTURES U.S.", "LEGACY"),
+    "KC Coffee": ("COFFEE C - ICE FUTURES U.S.", "LEGACY"),
+    "CT Coton": ("COTTON NO. 2 - ICE FUTURES U.S.", "LEGACY"),
+    "SB Sugar": ("SUGAR NO. 11 - ICE FUTURES U.S.", "LEGACY"),
+    "ZC Corn (Mais)": ("CORN - CHICAGO BOARD OF TRADE", "LEGACY"),
+    "ZS Soybeans (Soia)": ("SOYBEANS - CHICAGO BOARD OF TRADE", "LEGACY"),
+    "ZL Soybeans Oil (Olia di soia)": ("SOYBEAN OIL - CHICAGO BOARD OF TRADE", "LEGACY"),
+    "ZM Soybeans Meal (Farina di soia)": ("SOYBEAN MEAL - CHICAGO BOARD OF TRADE", "LEGACY"),
+    "ZW Wheat SRW (Grano)": ("WHEAT-SRW - CHICAGO BOARD OF TRADE"),
+    "KE Wheat HRW (Grano)": ("WHEAT-HRW - CHICAGO BOARD OF TRADE"),
     "Orange Juice": ("FRZN CONCENTRATED ORANGE JUICE - ICE FUTURES U.S.", "LEGACY"),
     "Lumber": ("LUMBER - CHICAGO MERCANTILE EXCHANGE", "LEGACY")
-    
 }
 
 asset_scelto = st.selectbox("Seleziona Mercato:", list(MERCATI.keys()))
