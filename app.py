@@ -95,10 +95,18 @@ st.header("1. Selezione automatica del mercato")
 
 col_type, col_search, col_pick = st.columns([1, 1.3, 1.7])
 
+
+def _reset_preset():
+    st.session_state["preset_select"] = "— nessuno —"
+    st.session_state["market_query"] = ""
+
+
 with col_type:
     report_type = st.radio(
         "Categoria",
         ["Materie prime", "Valute / Indici / Tassi"],
+        key="cat_radio",
+        on_change=_reset_preset,
         help=(
             "Materie prime → report 'Legacy' (Non-Commercial vs Commercial, come nella tabella CFTC classica).\n"
             "Valute/Indici/Tassi → report 'TFF' (Leveraged Funds vs Dealer/Intermediary, "
@@ -109,11 +117,24 @@ with col_type:
 base_url = LEGACY_URL if report_type == "Materie prime" else TFF_URL
 presets = COMMODITY_PRESETS if report_type == "Materie prime" else FINANCIAL_PRESETS
 
+
+def _apply_preset():
+    label = st.session_state.get("preset_select")
+    st.session_state["market_query"] = presets.get(label, "") if label != "— nessuno —" else ""
+
+
 with col_search:
-    preset_label = st.selectbox("Preset rapido", ["— nessuno —"] + list(presets.keys()))
+    st.session_state.setdefault("preset_select", "— nessuno —")
+    st.session_state.setdefault("market_query", "")
+    st.selectbox(
+        "Preset rapido",
+        ["— nessuno —"] + list(presets.keys()),
+        key="preset_select",
+        on_change=_apply_preset,
+    )
     free_query = st.text_input(
         "…oppure cerca liberamente (es. 'PLATINUM', 'BITCOIN')",
-        value="" if preset_label == "— nessuno —" else presets[preset_label],
+        key="market_query",
     )
 
 with col_pick:
