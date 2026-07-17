@@ -10,7 +10,7 @@ st.header("1. Inserimento Dati")
 st.caption("Trascrivi i dati dal blocco base del terminale")
 
 col1, col2, col3, col4 = st.columns(4)
-cot_data = load_cot_data("GOLD")
+#cot_data = load_cot_data("GOLD")
 with col1:
     st.subheader("Open Interest")
     # oi_tot = st.number_input("Open Interest Totale", value=174440)
