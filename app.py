@@ -18,31 +18,31 @@ LEGACY_URL = "https://publicreporting.cftc.gov/resource/6dca-aqww.json"  # Legac
 TFF_URL = "https://publicreporting.cftc.gov/resource/gpe5-46if.json"      # Traders in Financial Futures (valute/indici/tassi)
 
 COMMODITY_PRESETS = {
-    "Oro (COMEX)": "GOLD",
-    "Argento (COMEX)": "SILVER",
-    "Rame (COMEX)": "COPPER",
-    "Petrolio WTI (NYMEX)": "WTI",
-    "Gas Naturale (NYMEX)": "NAT GAS",
-    "Grano SRW (CBOT)": "WHEAT-SRW",
-    "Mais (CBOT)": "CORN",
-    "Soia (CBOT)": "SOYBEANS",
-    "Caffè (ICE)": "COFFEE",
-    "Zucchero (ICE)": "SUGAR",
-    "Cotone (ICE)": "COTTON",
+    "Oro (COMEX)": ("GOLD", "COMMODITY EXCHANGE INC."),
+    "Argento (COMEX)": ("SILVER", "COMMODITY EXCHANGE INC."),
+    "Rame (COMEX)": ("COPPER", "COMMODITY EXCHANGE INC."),
+    "Petrolio WTI (NYMEX)": ("WTI", "NEW YORK MERCANTILE EXCHANGE"),
+    "Gas Naturale (NYMEX)": ("NAT GAS", "NEW YORK MERCANTILE EXCHANGE"),
+    "Grano SRW (CBOT)": ("WHEAT-SRW", "CHICAGO BOARD OF TRADE"),
+    "Mais (CBOT)": ("CORN", "CHICAGO BOARD OF TRADE"),
+    "Soia (CBOT)": ("SOYBEANS", "CHICAGO BOARD OF TRADE"),
+    "Caffè (ICE)": ("COFFEE", "ICE FUTURES U.S."),
+    "Zucchero (ICE)": ("SUGAR", "ICE FUTURES U.S."),
+    "Cotone (ICE)": ("COTTON", "ICE FUTURES U.S."),
 }
 
 FINANCIAL_PRESETS = {
-    "Euro FX (CME)": "EURO FX",
-    "Sterlina GBP (CME)": "BRITISH POUND",
-    "Yen JPY (CME)": "JAPANESE YEN",
-    "Dollaro Australiano (CME)": "AUSTRALIAN DOLLAR",
-    "Dollaro Canadese (CME)": "CANADIAN DOLLAR",
-    "Franco Svizzero (CME)": "SWISS FRANC",
-    "S&P 500 E-mini (CME)": "E-MINI S&P 500",
-    "Nasdaq 100 E-mini (CME)": "NASDAQ-100",
-    "Dow Jones (CBOT)": "DOW JONES",
-    "VIX (CBOE)": "VIX",
-    "US 10Y Treasury Note (CBOT)": "10-YEAR U.S. TREASURY NOTES",
+    "Euro FX (CME)": ("EURO FX", "CHICAGO MERCANTILE EXCHANGE"),
+    "Sterlina GBP (CME)": ("BRITISH POUND", "CHICAGO MERCANTILE EXCHANGE"),
+    "Yen JPY (CME)": ("JAPANESE YEN", "CHICAGO MERCANTILE EXCHANGE"),
+    "Dollaro Australiano (CME)": ("AUSTRALIAN DOLLAR", "CHICAGO MERCANTILE EXCHANGE"),
+    "Dollaro Canadese (CME)": ("CANADIAN DOLLAR", "CHICAGO MERCANTILE EXCHANGE"),
+    "Franco Svizzero (CME)": ("SWISS FRANC", "CHICAGO MERCANTILE EXCHANGE"),
+    "S&P 500 E-mini (CME)": ("E-MINI S&P 500", "CHICAGO MERCANTILE EXCHANGE"),
+    "Nasdaq 100 E-mini (CME)": ("NASDAQ-100", "CHICAGO MERCANTILE EXCHANGE"),
+    "Dow Jones (CBOT)": ("DOW JONES", "CHICAGO BOARD OF TRADE"),
+    "VIX (CBOE)": ("VIX", "CBOE FUTURES EXCHANGE"),
+    "US 10Y Treasury Note (CBOT)": ("10-YEAR U.S. TREASURY NOTES", "CHICAGO BOARD OF TRADE"),
 }
 
 # =========================================================================
@@ -99,6 +99,7 @@ col_type, col_search, col_pick = st.columns([1, 1.3, 1.7])
 def _reset_preset():
     st.session_state["preset_select"] = "— nessuno —"
     st.session_state["market_query"] = ""
+    st.session_state["preferred_exchange"] = ""
 
 
 with col_type:
@@ -120,12 +121,24 @@ presets = COMMODITY_PRESETS if report_type == "Materie prime" else FINANCIAL_PRE
 
 def _apply_preset():
     label = st.session_state.get("preset_select")
-    st.session_state["market_query"] = presets.get(label, "") if label != "— nessuno —" else ""
+    if label and label != "— nessuno —":
+        query, preferred_exchange = presets[label]
+        st.session_state["market_query"] = query
+        st.session_state["preferred_exchange"] = preferred_exchange
+    else:
+        st.session_state["market_query"] = ""
+        st.session_state["preferred_exchange"] = ""
+
+
+def _clear_preferred():
+    # se l'utente modifica la ricerca a mano, l'exchange "preferito" del preset non è più valido
+    st.session_state["preferred_exchange"] = ""
 
 
 with col_search:
     st.session_state.setdefault("preset_select", "— nessuno —")
     st.session_state.setdefault("market_query", "")
+    st.session_state.setdefault("preferred_exchange", "")
     st.selectbox(
         "Preset rapido",
         ["— nessuno —"] + list(presets.keys()),
@@ -135,11 +148,18 @@ with col_search:
     free_query = st.text_input(
         "…oppure cerca liberamente (es. 'PLATINUM', 'BITCOIN')",
         key="market_query",
+        on_change=_clear_preferred,
     )
 
 with col_pick:
     matches = search_markets(base_url, free_query) if free_query else []
+    preferred_exchange = st.session_state.get("preferred_exchange", "")
     if matches:
+        if preferred_exchange:
+            # porta in cima i risultati sull'exchange ufficiale (es. COMEX per oro/argento)
+            matches = sorted(matches, key=lambda m: (preferred_exchange.upper() not in m.upper(), m))
+        else:
+            matches = sorted(matches)
         selected_market = st.selectbox("Mercato esatto trovato su CFTC.gov", matches)
     else:
         selected_market = None
