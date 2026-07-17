@@ -1,6 +1,8 @@
 import streamlit as st
 import yfinance as yf
 
+from cot_loader import load_cot_data
+
 # --- Configurazione Pagina ---
 st.set_page_config(page_title="Dashboard COMM_COT_T1", layout="wide")
 st.title("🛡️ Dashboard di Validazione")
