@@ -207,7 +207,7 @@ with col4:
     st.subheader("Term Structure")
     st.caption("Non automatizzabile gratuitamente: richiede la curva futures live.")
     term_struct = st.radio(
-        "Stato attuale (vedi indicatore in TradingView):",
+        "Stato attuale della curva futures:",
         ["Backwardation (verde)", "Contango (rosso)"],
     )
 
@@ -291,12 +291,12 @@ st.divider()
 st.header("5. Interpretazione Macro e Sequenza Temporale")
 
 if flusso_netto_mm > 0 and flusso_netto_comm < 0:
-    st.success("🟢 **CONVERGENZA RIALZISTA STRUTTURALE (Allineato con TradingView)**")
+    st.success("🟢 **CONVERGENZA RIALZISTA STRUTTURALE**")
     st.write(f"""
     **Cosa sta succedendo in parole semplici:**
     Siamo in una fase di **piena armonia rialzista**. I grandi speculatori stanno comprando in modo aggressivo (Flusso: `{flusso_netto_mm:+.0f}`) e l'Open Interest sale. I commerciali stanno vendendo contratti per coprire la produzione futura, comportamento normalissimo in un mercato forte.
     """)
-    st.error("💡 **Conclusione:** Il trend è solido, asseconda il segnale Long di TradingView e cerca conferme grafiche per l'operatività.")
+    st.error("💡 **Conclusione:** Il trend è solido, cerca conferme grafiche sul prezzo prima di operare.")
 
 elif flusso_netto_mm < 0 and flusso_netto_comm > 0:
     st.warning("⚠️ **Rilevata DIVERGENZA ISTITUZIONALE: SHORT ➔ LONG**")
@@ -329,6 +329,6 @@ else:
 
 st.divider()
 st.caption(
-    "Fonte dati: CFTC Commitments of Traders — publicreporting.cftc.gov (Disaggregated & TFF report). "
+    "Fonte dati: CFTC Commitments of Traders — publicreporting.cftc.gov (Legacy & TFF report). "
     "I report escono ogni venerdì pomeriggio (dati riferiti al martedì precedente)."
 )
