@@ -154,12 +154,17 @@ with col_search:
 with col_pick:
     matches = search_markets(base_url, free_query) if free_query else []
     preferred_exchange = st.session_state.get("preferred_exchange", "")
+
+    def _match_rank(name: str) -> tuple:
+        nu = name.upper()
+        qu = free_query.strip().upper()
+        starts_with_query = 0 if nu.startswith(qu) else 1          # priorità massima: nome che inizia proprio con la query
+        is_micro_or_mini = 1 if any(t in nu for t in ("MICRO", "E-MICRO", "MINI")) else 0
+        wrong_exchange = 1 if (preferred_exchange and preferred_exchange.upper() not in nu) else 0
+        return (starts_with_query, wrong_exchange, is_micro_or_mini, len(name), name)
+
     if matches:
-        if preferred_exchange:
-            # porta in cima i risultati sull'exchange ufficiale (es. COMEX per oro/argento)
-            matches = sorted(matches, key=lambda m: (preferred_exchange.upper() not in m.upper(), m))
-        else:
-            matches = sorted(matches)
+        matches = sorted(matches, key=_match_rank)
         selected_market = st.selectbox("Mercato esatto trovato su CFTC.gov", matches)
     else:
         selected_market = None
