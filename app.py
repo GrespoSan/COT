@@ -14,7 +14,7 @@ st.caption(
 # =========================================================================
 # COSTANTI: endpoint CFTC (Socrata) e preset di mercati comuni
 # =========================================================================
-DISAGG_URL = "https://publicreporting.cftc.gov/resource/72hh-3qpy.json"   # Disaggregated Futures Only (materie prime)
+LEGACY_URL = "https://publicreporting.cftc.gov/resource/6dca-aqww.json"  # Legacy Futures Only (materie prime) — Non-Commercial / Commercial
 TFF_URL = "https://publicreporting.cftc.gov/resource/gpe5-46if.json"      # Traders in Financial Futures (valute/indici/tassi)
 
 COMMODITY_PRESETS = {
@@ -100,13 +100,13 @@ with col_type:
         "Categoria",
         ["Materie prime", "Valute / Indici / Tassi"],
         help=(
-            "Materie prime → report 'Disaggregated' (Managed Money vs Producer/Merchant+Swap Dealer).\n"
+            "Materie prime → report 'Legacy' (Non-Commercial vs Commercial, come nella tabella CFTC classica).\n"
             "Valute/Indici/Tassi → report 'TFF' (Leveraged Funds vs Dealer/Intermediary, "
-            "l'analogo più vicino a MM/Commercials per questi strumenti)."
+            "l'analogo più vicino a MM/Commercials per questi strumenti, non disponibili nel Legacy)."
         ),
     )
 
-base_url = DISAGG_URL if report_type == "Materie prime" else TFF_URL
+base_url = LEGACY_URL if report_type == "Materie prime" else TFF_URL
 presets = COMMODITY_PRESETS if report_type == "Materie prime" else FINANCIAL_PRESETS
 
 with col_search:
@@ -165,8 +165,8 @@ if row:
     oi_var_default = to_num(row, "change_in_open_interest_all")
 
     if rtype == "Materie prime":
-        mm_long_default = to_num(row, "change_in_m_money_long_all")
-        mm_short_default = to_num(row, "change_in_m_money_short_all")
+        mm_long_default = to_num(row, "change_in_noncomm_long_all")
+        mm_short_default = to_num(row, "change_in_noncomm_short_all")
     else:
         mm_long_default = to_num(row, "change_in_lev_money_long_all")
         mm_short_default = to_num(row, "change_in_lev_money_short_all")
@@ -191,16 +191,8 @@ with col2:
 with col3:
     st.subheader("Commercials")
     if row and rtype == "Materie prime":
-        include_swap = st.checkbox(
-            "Includi Swap Dealer nei Commercials",
-            value=True,
-            help="Il 'Commercial' del report Legacy corrisponde a Producer/Merchant + Swap Dealer nel Disaggregated.",
-        )
-        comm_long_default = to_num(row, "change_in_prod_merc_long")
-        comm_short_default = to_num(row, "change_in_prod_merc_short")
-        if include_swap:
-            comm_long_default += to_num(row, "change_in_swap_long_all")
-            comm_short_default += to_num(row, "change_in_swap_short_all")
+        comm_long_default = to_num(row, "change_in_comm_long_all")
+        comm_short_default = to_num(row, "change_in_comm_short_all")
     elif row and rtype != "Materie prime":
         comm_long_default = to_num(row, "change_in_dealer_long_all")
         comm_short_default = to_num(row, "change_in_dealer_short_all")
