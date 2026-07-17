@@ -1,272 +1,107 @@
 import streamlit as st
+import yfinance as yf
 import requests
 
-# =========================================================================
-# CONFIGURAZIONE PAGINA
-# =========================================================================
-st.set_page_config(page_title="Dashboard COMM_COT_T1 (Auto)", layout="wide")
-st.title("🛡️ Dashboard di Validazione — COT Automatico")
-st.caption(
-    "Dati scaricati in automatico dall'API pubblica e gratuita della CFTC "
-    "(publicreporting.cftc.gov) — nessuna API key richiesta."
-)
+# --- Configurazione Pagina ---
+st.set_page_config(page_title="Dashboard COMM_COT_T1", layout="wide")
+st.title("🛡️ Dashboard di Validazione")
 
-# =========================================================================
-# COSTANTI: endpoint CFTC (Socrata) e preset di mercati comuni
-# =========================================================================
-LEGACY_URL = "https://publicreporting.cftc.gov/resource/6dca-aqww.json"  # Legacy Futures Only (materie prime) — Non-Commercial / Commercial
-TFF_URL = "https://publicreporting.cftc.gov/resource/gpe5-46if.json"      # Traders in Financial Futures (valute/indici/tassi)
-
-COMMODITY_PRESETS = {
-    "Oro (COMEX)": ("GOLD", "COMMODITY EXCHANGE INC."),
-    "Argento (COMEX)": ("SILVER", "COMMODITY EXCHANGE INC."),
-    "Rame (COMEX)": ("COPPER", "COMMODITY EXCHANGE INC."),
-    "Petrolio WTI (NYMEX)": ("WTI", "NEW YORK MERCANTILE EXCHANGE"),
-    "Gas Naturale (NYMEX)": ("NAT GAS", "NEW YORK MERCANTILE EXCHANGE"),
-    "Grano SRW (CBOT)": ("WHEAT-SRW", "CHICAGO BOARD OF TRADE"),
-    "Mais (CBOT)": ("CORN", "CHICAGO BOARD OF TRADE"),
-    "Soia (CBOT)": ("SOYBEANS", "CHICAGO BOARD OF TRADE"),
-    "Caffè (ICE)": ("COFFEE", "ICE FUTURES U.S."),
-    "Zucchero (ICE)": ("SUGAR", "ICE FUTURES U.S."),
-    "Cotone (ICE)": ("COTTON", "ICE FUTURES U.S."),
-}
-
-FINANCIAL_PRESETS = {
-    "Euro FX (CME)": ("EURO FX", "CHICAGO MERCANTILE EXCHANGE"),
-    "Sterlina GBP (CME)": ("BRITISH POUND", "CHICAGO MERCANTILE EXCHANGE"),
-    "Yen JPY (CME)": ("JAPANESE YEN", "CHICAGO MERCANTILE EXCHANGE"),
-    "Dollaro Australiano (CME)": ("AUSTRALIAN DOLLAR", "CHICAGO MERCANTILE EXCHANGE"),
-    "Dollaro Canadese (CME)": ("CANADIAN DOLLAR", "CHICAGO MERCANTILE EXCHANGE"),
-    "Franco Svizzero (CME)": ("SWISS FRANC", "CHICAGO MERCANTILE EXCHANGE"),
-    "S&P 500 E-mini (CME)": ("E-MINI S&P 500", "CHICAGO MERCANTILE EXCHANGE"),
-    "Nasdaq 100 E-mini (CME)": ("NASDAQ-100", "CHICAGO MERCANTILE EXCHANGE"),
-    "Dow Jones (CBOT)": ("DOW JONES", "CHICAGO BOARD OF TRADE"),
-    "VIX (CBOE)": ("VIX", "CBOE FUTURES EXCHANGE"),
-    "US 10Y Treasury Note (CBOT)": ("10-YEAR U.S. TREASURY NOTES", "CHICAGO BOARD OF TRADE"),
-}
-
-# =========================================================================
-# FUNZIONI DI FETCH (Ottimizzate solo nella lettura dei limiti per i delta veri)
-# =========================================================================
-
-@st.cache_data(ttl=3600, show_spinner=False)
-def search_markets(base_url: str, query: str, limit: int = 20):
-    """Cerca i nomi esatti dei mercati CFTC che contengono `query`."""
-    if not query or len(query.strip()) < 2:
-        return []
+# ==========================================
+# MOTORE DI AUTOMAZIONE (Estrazione API CFTC)
+# ==========================================
+@st.cache_data(ttl=43200)
+def fetch_cot_legacy_data(market_name):
+    """Scarica le ultime 2 settimane dal report Legacy CFTC per calcolare il delta"""
+    url = "https://publicreporting.cftc.gov/resource/6dca-aqww.json"
     params = {
-        "$select": "market_and_exchange_names",
-        "$group": "market_and_exchange_names",
-        "$where": f"upper(market_and_exchange_names) like '%{query.strip().upper()}%'",
-        "$limit": limit,
-    }
-    r = requests.get(base_url, params=params, timeout=15)
-    r.raise_for_status()
-    return sorted(row["market_and_exchange_names"] for row in r.json())
-
-
-@st.cache_data(ttl=3600, show_spinner=False)
-def fetch_latest_report(base_url: str, market_name: str):
-    """Scarica le ultime 2 righe storiche per poter calcolare la variazione reale."""
-    safe_name = market_name.replace("'", "''")
-    params = {
-        "$where": f"market_and_exchange_names='{safe_name}'",
+        "$where": f"market_and_exchange_names='{market_name}'",
         "$order": "report_date_as_yyyy_mm_dd DESC",
-        "$limit": 2,  # Cambiato a 2 per estrarre la settimana corrente e quella precedente
+        "$limit": 2
     }
-    r = requests.get(base_url, params=params, timeout=15)
-    r.raise_for_status()
-    return r.json()
-
-
-def to_num(row, key, default=0.0):
     try:
-        return float(row.get(key, default))
-    except (TypeError, ValueError):
-        return default
+        r = requests.get(url, params=params, timeout=10)
+        r.raise_for_status()
+        return r.json()
+    except:
+        return None
 
+# Mappatura dei mercati principali per facilitare la scelta
+MERCATI = {
+    "🥇 Oro (COMEX)": "GOLD - COMMODITY EXCHANGE INC.",
+    "🥈 Argento (COMEX)": "SILVER - COMMODITY EXCHANGE INC.",
+    "🥉 Rame (COMEX)": "COPPER - COMMODITY EXCHANGE INC.",
+    "🛢️ Petrolio WTI (NYMEX)": "CRUDE OIL, LIGHT SWEET - NEW YORK MERCANTILE EXCHANGE",
+    "🔥 Gas Naturale (NYMEX)": "NATURAL GAS - NEW YORK MERCANTILE EXCHANGE",
+    "📈 S&P 500 E-Mini (CME)": "E-MINI S&P 500 STOCK INDEX - CHICAGO MERCANTILE EXCHANGE",
+    "💻 Nasdaq 100 E-Mini (CME)": "E-MINI NASDAQ-100 STOCK INDEX - CHICAGO MERCANTILE EXCHANGE",
+    "🇪🇺 Euro FX (CME)": "EURO FX - CHICAGO MERCANTILE EXCHANGE",
+    "🪙 Bitcoin (CME)": "BITCOIN - CHICAGO MERCANTILE EXCHANGE"
+}
 
-# =========================================================================
-# BLOCCO 1: Selezione automatica del mercato
-# =========================================================================
-st.header("1. Selezione automatica del mercato")
+st.caption("Seleziona l'asset per autocompilare i dati dal server CFTC:")
+asset_scelto = st.selectbox("Mercato:", list(MERCATI.keys()), label_visibility="collapsed")
 
-col_type, col_search, col_pick = st.columns([1, 1.3, 1.7])
+# Valori di default (i tuoi originali, usati come paracadute in caso di errore)
+val_oi_tot, val_oi_var = 174440, -9288
+val_mm_long, val_mm_short = 1261, -3831
+val_comm_long, val_comm_short = -5748, 1044
 
+# Esecuzione della chiamata API e calcolo matematico
+dati_api = fetch_cot_legacy_data(MERCATI[asset_scelto])
 
-def _reset_preset():
-    st.session_state["preset_select"] = "— nessuno —"
-    st.session_state["market_query"] = ""
-    st.session_state["preferred_exchange"] = ""
-
-
-with col_type:
-    report_type = st.radio(
-        "Categoria",
-        ["Materie prime", "Valute / Indici / Tassi"],
-        key="cat_radio",
-        on_change=_reset_preset,
-        help=(
-            "Materie prime → report 'Legacy' (Non-Commercial vs Commercial, come nella tabella CFTC classica).\n"
-            "Valute/Indici/Tassi → report 'TFF' (Leveraged Funds vs Dealer/Intermediary, "
-            "l'analogo più vicino a MM/Commercials per questi strumenti, non disponibili nel Legacy)."
-        ),
-    )
-
-base_url = LEGACY_URL if report_type == "Materie prime" else TFF_URL
-presets = COMMODITY_PRESETS if report_type == "Materie prime" else FINANCIAL_PRESETS
-
-
-def _apply_preset():
-    label = st.session_state.get("preset_select")
-    if label and label != "— nessuno —":
-        query, preferred_exchange = presets[label]
-        st.session_state["market_query"] = query
-        st.session_state["preferred_exchange"] = preferred_exchange
-    else:
-        st.session_state["market_query"] = ""
-        st.session_state["preferred_exchange"] = ""
-
-
-def _clear_preferred():
-    st.session_state["preferred_exchange"] = ""
-
-
-with col_search:
-    st.session_state.setdefault("preset_select", "— nessuno —")
-    st.session_state.setdefault("market_query", "")
-    st.session_state.setdefault("preferred_exchange", "")
-    st.selectbox(
-        "Preset rapido",
-        ["— nessuno —"] + list(presets.keys()),
-        key="preset_select",
-        on_change=_apply_preset,
-    )
-    free_query = st.text_input(
-        "…oppure cerca liberamente (es. 'PLATINUM', 'BITCOIN')",
-        key="market_query",
-        on_change=_clear_preferred,
-    )
-
-with col_pick:
-    matches = search_markets(base_url, free_query) if free_query else []
-    preferred_exchange = st.session_state.get("preferred_exchange", "")
-
-    def _match_rank(name: str) -> tuple:
-        nu = name.upper()
-        qu = free_query.strip().upper()
-        starts_with_query = 0 if nu.startswith(qu) else 1
-        is_micro_or_mini = 1 if any(t in nu for t in ("MICRO", "E-MICRO", "MINI")) else 0
-        wrong_exchange = 1 if (preferred_exchange and preferred_exchange.upper() not in nu) else 0
-        return (starts_with_query, wrong_exchange, is_micro_or_mini, len(name), name)
-
-    if matches:
-        matches = sorted(matches, key=_match_rank)
-        selected_market = st.selectbox("Mercato esatto trovato su CFTC.gov", matches)
-    else:
-        selected_market = None
-        if free_query:
-            st.warning("Nessun mercato trovato con questo termine. Prova con un'altra parola chiave.")
-
-fetch_col, info_col = st.columns([1, 3])
-with fetch_col:
-    do_fetch = st.button("🔄 Scarica ultimo report COT", type="primary", disabled=selected_market is None)
-
-if do_fetch and selected_market:
-    with st.spinner("Interrogo l'API CFTC..."):
-        rows = fetch_latest_report(base_url, selected_market)
-    if not rows:
-        st.error("Nessun dato restituito per questo mercato.")
-    else:
-        st.session_state["cot_row"] = rows
-        st.session_state["cot_market"] = selected_market
-        st.session_state["cot_report_type"] = report_type
-
-if "cot_row" in st.session_state:
-    rows = st.session_state["cot_row"]
-    if rows:
-        r = rows[0]
-        st.success(
-            f"Ultimo report caricato: **{st.session_state['cot_market']}** — "
-            f"settimana del **{r.get('report_date_as_yyyy_mm_dd', '')[:10]}**"
-        )
+if dati_api and len(dati_api) >= 2:
+    try:
+        curr, prev = dati_api[0], dati_api[1]
+        
+        val_oi_tot = int(float(curr.get("open_interest_all", 0)))
+        val_oi_var = val_oi_tot - int(float(prev.get("open_interest_all", 0)))
+        
+        val_mm_long = int(float(curr.get("noncomm_positions_long_all", 0))) - int(float(prev.get("noncomm_positions_long_all", 0)))
+        val_mm_short = int(float(curr.get("noncomm_positions_short_all", 0))) - int(float(prev.get("noncomm_positions_short_all", 0)))
+        
+        val_comm_long = int(float(curr.get("commercial_positions_long_all", 0))) - int(float(prev.get("commercial_positions_long_all", 0)))
+        val_comm_short = int(float(curr.get("commercial_positions_short_all", 0))) - int(float(prev.get("commercial_positions_short_all", 0)))
+        
+        data_report = curr.get("report_date_as_yyyy_mm_dd", "")[:10]
+        st.success(f"Dati sincronizzati con il report CFTC del **{data_report}**")
+    except Exception:
+        st.error("Errore di calcolo dati. Fallback manuale attivato.")
+else:
+    st.warning("Impossibile contattare la CFTC al momento. Fallback manuale attivato.")
 
 st.divider()
 
-# =========================================================================
-# BLOCCO 2: Inserimento Dati (Mappatura e Calcolo Delta Reali dalle chiavi Socrata)
-# =========================================================================
-st.header("2. Dati del report (modificabili)")
-st.caption(
-    "I campi sono pre-compilati con l'ultimo report CFTC scaricato. "
-    "Puoi comunque correggerli a mano se necessario."
-)
-
-data_rows = st.session_state.get("cot_row")
-rtype = st.session_state.get("cot_report_type", report_type)
-
-if data_rows and isinstance(data_rows, list) and len(data_rows) >= 1:
-    row_curr = data_rows[0]
-    row_prev = data_rows[1] if len(data_rows) > 1 else {}
-    
-    # 1. Assegnazione Open Interest Abs e calcolo Delta
-    oi_tot_default = to_num(row_curr, "open_interest_all")
-    oi_var_default = to_num(row_curr, "open_interest_all") - to_num(row_prev, "open_interest_all") if row_prev else 0.0
-
-    # 2. Assegnazione in base alla categoria selezionata (Chiavi esatte API Socrata)
-    if rtype == "Materie prime":
-        # Report Legacy (6dca-aqww): Non-Commercial vs Commercial
-        mm_long_default = to_num(row_curr, "noncomm_positions_long_all") - to_num(row_prev, "noncomm_positions_long_all") if row_prev else 0.0
-        mm_short_default = to_num(row_curr, "noncomm_positions_short_all") - to_num(row_prev, "noncomm_positions_short_all") if row_prev else 0.0
-        comm_long_default = to_num(row_curr, "commercial_positions_long_all") - to_num(row_prev, "commercial_positions_long_all") if row_prev else 0.0
-        comm_short_default = to_num(row_curr, "commercial_positions_short_all") - to_num(row_prev, "commercial_positions_short_all") if row_prev else 0.0
-    else:
-        # Report TFF (gpe5-46if): Leveraged Funds vs Dealer/Intermediary
-        mm_long_default = to_num(row_curr, "lev_money_positions_long_all") - to_num(row_prev, "lev_money_positions_long_all") if row_prev else 0.0
-        mm_short_default = to_num(row_curr, "lev_money_positions_short_all") - to_num(row_prev, "lev_money_positions_short_all") if row_prev else 0.0
-        comm_long_default = to_num(row_curr, "dealer_positions_long_all") - to_num(row_prev, "dealer_positions_long_all") if row_prev else 0.0
-        comm_short_default = to_num(row_curr, "dealer_positions_short_all") - to_num(row_prev, "dealer_positions_short_all") if row_prev else 0.0
-else:
-    oi_tot_default = 174440.0
-    oi_var_default = -9288.0
-    mm_long_default = 1261.0
-    mm_short_default = -3831.0
-    comm_long_default = -5748.0
-    comm_short_default = 1044.0
+# --- BLOCCO 1: Inserimento Dati (Rapporto COT) ---
+st.header("1. Inserimento Dati")
+st.caption("Trascrivi i dati dal blocco base del terminale (Autocompilati via API se disponibili)")
 
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     st.subheader("Open Interest")
-    oi_tot = st.number_input("Open Interest Totale", value=oi_tot_default)
-    oi_var = st.number_input("Change in Open Interest", value=oi_var_default)
+    oi_tot = st.number_input("Open Interest Totale", value=val_oi_tot)
+    oi_var = st.number_input("Change in Open Interest", value=val_oi_var)
 
 with col2:
     st.subheader("Managed Money (MM)")
-    mm_long = st.number_input("MM Change Long", value=mm_long_default)
-    mm_short = st.number_input("MM Change Short", value=mm_short_default)
+    mm_long = st.number_input("MM Change Long", value=val_mm_long)
+    mm_short = st.number_input("MM Change Short", value=val_mm_short)
 
 with col3:
     st.subheader("Commercials")
-    comm_long = st.number_input("Comm Change Long", value=comm_long_default)
-    comm_short = st.number_input("Comm Change Short", value=comm_short_default)
+    comm_long = st.number_input("Comm Change Long", value=val_comm_long)
+    comm_short = st.number_input("Comm Change Short", value=val_comm_short)
 
 with col4:
     st.subheader("Term Structure")
-    st.caption("Non automatizzabile gratuitamente: richiede la curva futures live.")
-    term_struct = st.radio(
-        "Stato attuale della curva futures:",
-        ["Backwardation (verde)", "Contango (rosso)"],
-    )
+    term_struct = st.radio("Stato attuale (inserimento manuale vedi indicatore in Tradingview):", ["Backwardation (verde)", "Contango (rosso)"])
 
-# =========================================================================
-# BLOCCO 3: Elaborazione Matematica (invariata)
-# =========================================================================
+# --- BLOCCO 2: Elaborazione Matematica ---
 pct_delta_oi = (oi_var / (oi_tot - oi_var)) * 100 if (oi_tot - oi_var) != 0 else 0
 flusso_netto_mm = mm_long - mm_short
 flusso_netto_comm = comm_long - comm_short
 
-st.header("3. Elaborazione Matematica")
+st.header("2. Elaborazione Matematica")
 calc1, calc2, calc3 = st.columns(3)
 calc1.metric("Variazione % Open Interest", f"{pct_delta_oi:.2f}%")
 calc2.metric("Flusso Netto Speculativo (MM)", f"{flusso_netto_mm:+.0f}")
@@ -274,11 +109,10 @@ calc3.metric("Flusso Netto Commerciale", f"{flusso_netto_comm:+.0f}")
 
 st.divider()
 
-# =========================================================================
-# BLOCCO 4 e 5: Matrice di Diagnosi e Azione Strategica (invariata)
-# =========================================================================
-st.header("4. Matrice di Diagnosi Microstrutturale: Il Verdetto")
+# --- BLOCCO 3 e 4: Matrice di Diagnosi e Azione Strategica ---
+st.header("3. Matrice di Diagnosi Microstrutturale: Il Verdetto")
 
+# Inizializziamo le variabili di default
 stato_colore = "orange"
 stato_testo = "FASE DI TRANSIZIONE / INCERTEZZA"
 verdetto = "Flussi misti in assestamento"
@@ -287,6 +121,7 @@ diag_mm = f"I grandi fondi speculativi mantengono un flusso netto di {flusso_net
 diag_comm = f"I Commercials registrano un flusso netto di {flusso_netto_comm:+.0f}."
 azione = "Resta in attesa di una chiara convergenza o divergenza strutturale."
 
+# 1. SCENARIO CONVERGENT LONG (Massima Forza)
 if flusso_netto_mm > 0 and flusso_netto_comm < 0 and pct_delta_oi > 0.5:
     stato_colore = "green"
     stato_testo = "CONVERGENT LONG / FORZA STRUTTURALE"
@@ -296,6 +131,7 @@ if flusso_netto_mm > 0 and flusso_netto_comm < 0 and pct_delta_oi > 0.5:
     diag_comm = f"I Commercials assecondano la salita vendendo coperture sui massimi (Flusso: {flusso_netto_comm:+.0f}), tipico dei mercati sani."
     azione = "Valuta ingressi Long sui supporti volumetrici o mantieni i Long attivi piramidando sulla forza."
 
+# 2. SCENARIO DISTRIBUZIONE / PERICOLO (Massima Debolezza)
 elif flusso_netto_mm < 0 and flusso_netto_comm > 0 and pct_delta_oi > 0.5:
     stato_colore = "red"
     stato_testo = "DISTRIBUZIONE / PERICOLO"
@@ -305,6 +141,7 @@ elif flusso_netto_mm < 0 and flusso_netto_comm > 0 and pct_delta_oi > 0.5:
     diag_comm = f"I Commercials stanno assorbendo la liquidità comprando a sconto (Flusso: {flusso_netto_comm:+.0f})."
     azione = "Chiudi o proteggi drasticamente le posizioni Long. Non comprare assolutamente in questa fase."
 
+# 3. SCENARIO SHORT COVERING SQUEEZE
 elif pct_delta_oi <= -0.5 and flusso_netto_mm > 0 and term_struct == "Backwardation (verde)":
     stato_colore = "green"
     stato_testo = "HOLD AGGRESSIVO / SQUEEZE"
@@ -314,6 +151,7 @@ elif pct_delta_oi <= -0.5 and flusso_netto_mm > 0 and term_struct == "Backwardat
     diag_comm = f"Flusso Commercials: {flusso_netto_comm:+.0f}."
     azione = "Mantieni l'acquisto effettuato. Alza i target protettivi e stringi lo stop-loss sotto i minimi di struttura."
 
+# Renderizzazione del Verdetto
 st.markdown(f"#### **Il Verdetto:** {verdetto}")
 st.info(f"""
 - **Diagnosi OI:** {diag_oi}
@@ -321,10 +159,7 @@ st.info(f"""
 - **Diagnosi Commercials:** {diag_comm}
 """)
 
-st.markdown(
-    f"### Stato Operativo Ricalibrato: <span style='color:{stato_colore}'>{stato_testo}</span>",
-    unsafe_allow_html=True,
-)
+st.markdown(f"### Stato Operativo Ricalibrato: <span style='color:{stato_colore}'>{stato_testo}</span>", unsafe_allow_html=True)
 
 st.success(f"""
 **Azione Strategica:**
@@ -333,27 +168,30 @@ st.success(f"""
 
 st.divider()
 
-# =========================================================================
-# BLOCCO 6: Interpretazione Macro e Sequenza Temporale (invariata)
-# =========================================================================
-st.header("5. Interpretazione Macro e Sequenza Temporale")
+# --- BLOCCO 4: Interpretazione Macro e Sequenza Temporale ---
+st.header("4. Interpretazione Macro e Sequenza Temporale")
 
+# Allineamento dinamico e interpretazione in parole semplici
 if flusso_netto_mm > 0 and flusso_netto_comm < 0:
-    st.success("🟢 **CONVERGENZA RIALZISTA STRUTTURALE**")
+    st.success("🟢 **CONVERGENZA RIALZISTA STRUTTURALE (Allineato con TradingView)**")
     st.write(f"""
     **Cosa sta succedendo in parole semplici:**
-    Siamo in una fase di **piena armonia rialzista**. I grandi speculatori stanno comprando in modo aggressivo (Flusso: `{flusso_netto_mm:+.0f}`) e l'Open Interest sale. I commerciali stanno vendendo contratti per coprire la produzione futura, comportamento normalissimo in un mercato forte.
+    Siamo in una fase di **piena armonia rialzista**. I grandi speculatori stanno comprando in modo aggressivo (Flusso: `{flusso_netto_mm:+.0f}`) e l'Open Interest sale. I commerciali stanno vendendo contratti commerciali per coprire la produzione futura, comportamento normalissimo in un mercato forte.
     """)
-    st.error("💡 **Conclusione:** Il trend è solido, cerca conferme grafiche sul prezzo prima di operare.")
+    st.error(f"""
+    **💡 Conclusione:** Il trend è solido, asseconda il segnale Long di TradingView e cerca conferme grafiche per l'operatività.
+    """)
 
 elif flusso_netto_mm < 0 and flusso_netto_comm > 0:
     st.warning("⚠️ **Rilevata DIVERGENZA ISTITUZIONALE: SHORT ➔ LONG**")
     st.write(f"""
     **Cosa sta succedendo in parole semplici:**
     1. **OGGI / BREVE TERMINE:** I grandi fondi speculativi stanno vendendo pesantemente (Flusso Speculativo: `{flusso_netto_mm:+.0f}`). Il prezzo risente della pressione immediata.
-    2. **PROSSIME SETTIMANE / MEDIO TERMINE:** I Commercials stanno assorbendo tutto e accumulano Long. Stanno fabbricando un pavimento.
+    2. **PROSSIME SETTIMANE / MEDIO TERMINE:** I Commerciali stanno assorbendo tutto e accumulano Long. Stanno fabbricando un pavimento.
     """)
-    st.error("💡 **Conclusione:** Nel brevissimo è Short, ma monitora il grafico perché ci stiamo preparando a girarci Long.")
+    st.error(f"""
+    **💡 Conclusione:** Nel brevissimo è Short, ma monitora il grafico perché ci stiamo preparando a girarci Long.
+    """)
 
 elif flusso_netto_mm > 0 and flusso_netto_comm > 0:
     st.warning("⚠️ **Rilevata DIVERGENZA ISTITUZIONALE: LONG ➔ SHORT**")
@@ -362,21 +200,17 @@ elif flusso_netto_mm > 0 and flusso_netto_comm > 0:
     1. **OGGI / BREVE TERMINE:** I grandi fondi speculativi stanno spingendo il mercato verso l'alto o ricoprendo le vendite (Flusso Speculativo: `{flusso_netto_mm:+.0f}`). Il prezzo attuale mostra ancora forza inerziale rialzista.
     2. **PROSSIME SETTIMANE / MEDIO TERMINE:** I Commerciali ritengono che questi prezzi siano ottimi per fare coperture e stanno vendendo massicciamente (Flusso Commerciale: `{flusso_netto_comm:+.0f}`). Stanno costruendo un tetto al mercato.
     """)
-    st.error("💡 **Conclusione:** Il trend di brevissimo è ancora Long, ma la Smart Money si sta posizionando Short per un'inversione ribassista nelle prossime settimane. Proteggi i profitti dei tuoi Long e non inseguire i massimi.")
+    st.error(f"""
+    **💡 Conclusione:** Il trend di brevissimo è ancora Long, ma la Smart Money si sta posizionando Short per un'inversione ribassista nelle prossime settimane. Proteggi i profitti dei tuoi Long e non inseguire i massimi.
+    """)
 
 elif flusso_netto_mm < 0 and flusso_netto_comm < 0:
     st.error("🔴 **CONVERGENZA RIBASSISTA STRUTTURALE**")
-    st.write("""
+    st.write(f"""
     **Cosa sta succedendo in parole semplici:**
     Sia i grandi fondi che i commerciali stanno togliendo liquidità o aumentando i contratti short. Il mercato è strutturalmente debole a tutti i livelli temporali, la pressione ribassista è totale.
     """)
 
 else:
-    st.info("⚪ **FLUSSI IN EQUILIBリオ NEUTRO**")
+    st.info("⚪ **FLUSSI IN EQUILIBRIO NEUTRO**")
     st.write("I flussi non mostrano sbilanciamenti direzionali o divergenze macroscopiche. Il mercato si trova in una fase di attesa o lateralità tecnica.")
-
-st.divider()
-st.caption(
-    "Fonte dati: CFTC Commitments of Traders — publicreporting.cftc.gov (Legacy & TFF report). "
-    "I report escono ogni venerdì pomeriggio (dati riferiti al martedì precedente)."
-)
