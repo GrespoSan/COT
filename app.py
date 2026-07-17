@@ -1,79 +1,59 @@
 import streamlit as st
-import yfinance as yf
-import pandas as pd
 import requests
-import zipfile
-import io
+import pandas as pd
 import datetime
 
 # --- Configurazione Pagina ---
 st.set_page_config(page_title="Dashboard COMM_COT_T1", layout="wide")
-st.title("🛡️ Dashboard Automatizzata COT (Legacy - Solo Futures)")
+st.title("🛡️ Dashboard Automatizzata COT (API Live — Legacy Futures)")
 
-# --- FUNZIONE DI SCARICAMENTO E PARSING DATI COT LEGACY ---
-@st.cache_data(ttl=43200)  # Memorizza i dati per 12 ore
-def load_legacy_futures_cot():
-    current_year = datetime.datetime.now().year
-    years = [current_year - 1, current_year]
-    dfs = []
-    
-    # 🔥 FIX FONDAMENTALE: Simula un browser reale. Senza questo la CFTC rifiuta la connessione (Errore 403)
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+# Endpoint Socrata ufficiale CFTC per il report Legacy Futures Only
+LEGACY_API_URL = "https://publicreporting.cftc.gov/resource/6dca-aqww.json"
+
+# --- FUNZIONI DI ACCESSO API (Prese dal tuo esempio e ottimizzate) ---
+@st.cache_data(ttl=43200)  # Cache di 12 ore per non sovraccaricare l'API cftc
+def fetch_all_market_names():
+    """Scarica la lista completa dei mercati disponibili sul server CFTC."""
+    params = {
+        "$select": "market_and_exchange_names",
+        "$group": "market_and_exchange_names",
+        "$limit": 2000,
     }
-    
-    for year in years:
-        url = f"https://www.cftc.gov/files/dea/history/deahist{year}.zip"
-        try:
-            response = requests.get(url, headers=headers, timeout=15)
-            if response.status_code == 200:
-                with zipfile.ZipFile(io.BytesIO(response.content)) as z:
-                    file_name = z.namelist()[0]
-                    df = pd.read_csv(z.open(file_name), low_memory=False)
-                    
-                    # Rimuove gli spazi bianchi dalle colonne
-                    df.columns = df.columns.str.strip()
-                    dfs.append(df)
-        except Exception:
-            continue
-            
-    if not dfs:
+    try:
+        r = requests.get(LEGACY_API_URL, params=params, timeout=15)
+        r.raise_for_status()
+        return sorted(row["market_and_exchange_names"] for row in r.json() if "market_and_exchange_names" in row)
+    except Exception:
+        return []
+
+@st.cache_data(ttl=21600)  # Cache di 6 ore per i dati storici dell'asset
+def fetch_latest_two_weeks(market_name: str):
+    """Scarica le ultime 2 settimane di dati reali per calcolare variazioni certe."""
+    safe_name = market_name.replace("'", "''")
+    params = {
+        "$where": f"market_and_exchange_names='{safe_name}'",
+        "$order": "report_date_as_yyyy_mm_dd DESC",
+        "$limit": 2,
+    }
+    try:
+        r = requests.get(LEGACY_API_URL, params=params, timeout=15)
+        r.raise_for_status()
+        return r.json()
+    except Exception:
         return None
-        
-    df_all = pd.concat(dfs, ignore_index=True)
-    
-    # Mappatura specifica delle colonne del report Legacy
-    cols_mapping = {
-        'Market_and_Exchange_Names': 'Asset',
-        'Report_Date_as_YYYY-MM-DD': 'Data',
-        'Open_Interest_All': 'OI',
-        'Noncommercial_Positions_Long_All': 'MM_Long',
-        'Noncommercial_Positions_Short_All': 'MM_Short',
-        'Commercial_Positions_Long_All': 'Comm_Long',
-        'Commercial_Positions_Short_All': 'Comm_Short'
-    }
-    
-    df_all = df_all.rename(columns=cols_mapping)
-    
-    # Controllo difensivo per evitare colonne mancanti
-    for col in cols_mapping.values():
-        if col not in df_all.columns:
-            df_all[col] = 0
-            
-    # Conversione formati
-    df_all['Data'] = pd.to_datetime(df_all['Data'], errors='coerce')
-    
-    numeric_cols = ['OI', 'MM_Long', 'MM_Short', 'Comm_Long', 'Comm_Short']
-    for col in numeric_cols:
-        df_all[col] = pd.to_numeric(df_all[col], errors='coerce').fillna(0).astype(int)
-        
-    return df_all
 
-# Caricamento del database globale COT
-with st.spinner("Estrazione dati in corso dal server della CFTC..."):
-    df_cot = load_legacy_futures_cot()
+def clean_num(val):
+    """Converte in modo sicuro i valori dell'API in interi puliti."""
+    try:
+        return int(float(val))
+    except (TypeError, ValueError):
+        return 0
 
-# --- DIZIONARIO DI MAPPATURA (Lista Pulita) ---
+# Caricamento iniziale asincrono di tutti i mercati della CFTC
+with st.spinner("Connessione ai server API della CFTC..."):
+    tutti_i_mercati_cftc = fetch_all_market_names()
+
+# --- DIZIONARIO DI MAPPATURA (Nomi puliti associati alle stringhe esatte dell'API) ---
 MAPPA_FUTURE = {
     "🥇 Oro (COMEX)": "GOLD - COMMODITY EXCHANGE INC.",
     "🥈 Argento (COMEX)": "SILVER - COMMODITY EXCHANGE INC.",
@@ -92,49 +72,64 @@ MAPPA_FUTURE = {
 # --- BLOCCO 1: Selezione Asset & Raccolta Dati ---
 st.header("1. Selezione Asset & Raccolta Dati")
 
-if df_cot is not None:
-    tutti_i_mercati_cftc = sorted(df_cot['Asset'].dropna().unique())
-    opzioni_menu = list(MAPPA_FUTURE.keys()) + ["--- ELENCO COMPLETO CFTC DI SERVIZIO ---"] + tutti_i_mercati_cftc
-    
-    scelta_utente = st.selectbox("Scegli il Future da analizzare:", opzioni_menu, index=0)
-    
-    if scelta_utente in MAPPA_FUTURE:
-        selected_asset = MAPPA_FUTURE[scelta_utente]
-    elif scelta_utente == "--- ELENCO COMPLETO CFTC DI SERVIZIO ---":
-        st.warning("⚠️ Seleziona un asset valido dalla lista.")
-        st.stop()
-    else:
-        selected_asset = scelta_utente
-        
-    st.info(f"Target CFTC Attivo: `{selected_asset}`")
+# Configurazione del menu di selezione rapida e fallback
+opzioni_menu = list(MAPPA_FUTURE.keys()) + ["--- ELENCO COMPLETO REALE CFTC ---"] + tutti_i_mercati_cftc
+scelta_utente = st.selectbox("Scegli il Future da analizzare:", opzioni_menu, index=0)
 
-    # Isoliamo lo storico dell'asset selezionato
-    df_asset = df_cot[df_cot['Asset'] == selected_asset].sort_values('Data')
-    df_asset = df_asset.drop_duplicates(subset=['Data'], keep='last')
-    
-    if len(df_asset) >= 2:
-        r_current = df_asset.iloc[-1]   
-        r_previous = df_asset.iloc[-2]  
-        
-        # Calcolo automatico dei valori e dei delta settimanali
-        auto_oi_tot = int(r_current['OI'])
-        auto_oi_var = int(r_current['OI'] - r_previous['OI'])
-        
-        auto_mm_long = int(r_current['MM_Long'] - r_previous['MM_Long'])
-        auto_mm_short = int(r_current['MM_Short'] - r_previous['MM_Short'])
-        
-        auto_comm_long = int(r_current['Comm_Long'] - r_previous['Comm_Long'])
-        auto_comm_short = int(r_current['Comm_Short'] - r_previous['Comm_Short'])
-        
-        st.caption(f"📅 Data ultimo report rilasciato: **{r_current['Data'].strftime('%Y-%m-%d')}**")
-    else:
-        st.error("Errore: Dati storici insufficienti nel database per questo asset.")
-        auto_oi_tot, auto_oi_var, auto_mm_long, auto_mm_short, auto_comm_long, auto_comm_short = 174440, -9288, 1261, -3831, -5748, 1044
+if scelta_utente in MAPPA_FUTURE:
+    selected_asset = MAPPA_FUTURE[scelta_utente]
+elif scelta_utente == "--- ELENCO COMPLETO REALE CFTC ---":
+    st.warning("Seleziona un asset valido dall'elenco sopra o sotto questa riga di servizio.")
+    st.stop()
 else:
-    st.error("Impossibile scaricare i dati dalla CFTC. Fallback sui dati manuali.")
-    auto_oi_tot, auto_oi_var, auto_mm_long, auto_mm_short, auto_comm_long, auto_comm_short = 174440, -9288, 1261, -3831, -5748, 1044
+    selected_asset = scelta_utente
 
-# Layout colonne di input (pre-compilate)
+st.info(f"Connessione API attiva su asset: `{selected_asset}`")
+
+# Fetching dei dati tramite il sistema di accesso dell'API Socrata
+api_data = fetch_latest_two_weeks(selected_asset)
+
+# Inizializzazione valori di default nel caso l'API fallisse
+auto_oi_tot, auto_oi_var, auto_mm_long, auto_mm_short, auto_comm_long, auto_comm_short = 174440, -9288, 1261, -3831, -5748, 1044
+
+if api_data and len(api_data) >= 2:
+    r_current = api_data[0]   # Settimana corrente (la più recente)
+    r_previous = api_data[1]  # Settimana precedente
+    
+    # Estrazione dei posizionamenti assoluti delle due settimane
+    oi_curr = clean_num(r_current.get("open_interest_all"))
+    oi_prev = clean_num(r_previous.get("open_interest_all"))
+    
+    m_long_curr = clean_num(r_current.get("noncommercial_positions_long_all"))
+    m_long_prev = clean_num(r_previous.get("noncommercial_positions_long_all"))
+    
+    m_short_curr = clean_num(r_current.get("noncommercial_positions_short_all"))
+    m_short_prev = clean_num(r_previous.get("noncommercial_positions_short_all"))
+    
+    c_long_curr = clean_num(r_current.get("commercial_positions_long_all"))
+    c_long_prev = clean_num(r_previous.get("commercial_positions_long_all"))
+    
+    c_short_curr = clean_num(r_current.get("commercial_positions_short_all"))
+    c_short_prev = clean_num(r_previous.get("commercial_positions_short_all"))
+    
+    # Calcolo matematico in tempo reale dei differenziali (Delta precisi al 100%)
+    auto_oi_tot = oi_curr
+    auto_oi_var = oi_curr - oi_prev
+    auto_mm_long = m_long_curr - m_long_prev
+    auto_mm_short = m_short_curr - m_short_prev
+    auto_comm_long = c_long_curr - c_long_prev
+    auto_comm_short = c_short_curr - c_short_prev
+    
+    # Estrazione e formattazione della data del report
+    raw_date = r_current.get("report_date_as_yyyy_mm_dd", "T00:00:00")
+    formatted_date = raw_date.split("T")[0]
+    st.caption(f"📅 Data ultimo report elaborato via API: **{formatted_date}**")
+elif api_data and len(api_data) == 1:
+    st.warning("Trovata solo una settimana di storico sull'API. Impossibile calcolare il delta.")
+else:
+    st.error("Errore di rete o asset non disponibile nell'API Legacy. Fallback sui dati manuali.")
+
+# Layout colonne di input (popolate automaticamente con i dati ricalcolati)
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
@@ -154,7 +149,7 @@ with col3:
 
 with col4:
     st.subheader("Term Structure")
-    term_struct = st.radio("Stato attuale (da Tradingview):", ["Backwardation (verde)", "Contango (rosso)"])
+    term_struct = st.radio("Stato attuale della curva (da Tradingview):", ["Backwardation (verde)", "Contango (rosso)"])
 
 # --- BLOCCO 2: Elaborazione Matematica ---
 pct_delta_oi = (oi_var / (oi_tot - oi_var)) * 100 if (oi_tot - oi_var) != 0 else 0
