@@ -59,8 +59,9 @@ if dati_api and len(dati_api) >= 2:
         val_mm_long = int(float(curr.get("noncomm_positions_long_all", 0))) - int(float(prev.get("noncomm_positions_long_all", 0)))
         val_mm_short = int(float(curr.get("noncomm_positions_short_all", 0))) - int(float(prev.get("noncomm_positions_short_all", 0)))
         
-        val_comm_long = int(float(curr.get("commercial_positions_long_all", 0))) - int(float(prev.get("commercial_positions_long_all", 0)))
-        val_comm_short = int(float(curr.get("commercial_positions_short_all", 0))) - int(float(prev.get("commercial_positions_short_all", 0)))
+        # CORREZIONE: La CFTC usa "comm_" non "commercial_"
+        val_comm_long = int(float(curr.get("comm_positions_long_all", 0))) - int(float(prev.get("comm_positions_long_all", 0)))
+        val_comm_short = int(float(curr.get("comm_positions_short_all", 0))) - int(float(prev.get("comm_positions_short_all", 0)))
         
         data_report = curr.get("report_date_as_yyyy_mm_dd", "")[:10]
         st.success(f"Dati sincronizzati con il report CFTC del **{data_report}**")
