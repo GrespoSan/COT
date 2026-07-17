@@ -214,8 +214,8 @@ if row:
         mm_long_default = to_num(row, "change_in_noncomm_long_all")
         mm_short_default = to_num(row, "change_in_noncomm_short_all")
     else:
-        mm_long_default = to_num(row, "change_in_lev_money_long_all")
-        mm_short_default = to_num(row, "change_in_lev_money_short_all")
+        mm_long_default = to_num(row, "change_in_lev_money_long")
+        mm_short_default = to_num(row, "change_in_lev_money_short")
 else:
     oi_tot_default = 174440.0
     oi_var_default = -9288.0
