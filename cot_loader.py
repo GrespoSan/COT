@@ -1,46 +1,53 @@
 import pandas as pd
-import requests
+import streamlit as st
 
 
+@st.cache_data(ttl=86400)
 def load_cot_data(asset):
 
-    url = (
-        "https://www.cftc.gov/dea/"
-        "newcot/Disaggregated_Futures.txt"
-    )
+    url = "https://www.cftc.gov/dea/newcot/Disaggregated_Futures.txt"
 
     df = pd.read_csv(url)
 
 
-    if asset=="GOLD":
-
-        data=df[
-            df["Market_and_Exchange_Names"]
-            .str.contains("GOLD",case=False)
-        ]
+    # controllo colonne
+    st.write("Colonne COT disponibili:")
+    st.write(df.columns)
 
 
-    row=data.iloc[-1]
+    data = df[
+        df["Market_and_Exchange_Names"]
+        .str.contains(asset, case=False, na=False)
+    ]
+
+
+    if data.empty:
+        raise Exception(
+            f"Nessun dato COT trovato per {asset}"
+        )
+
+
+    row = data.iloc[-1]
 
 
     return {
 
         "open_interest":
-            int(row["Open_Interest_All"]),
+            row["Open_Interest_All"],
 
         "oi_change":
-            int(row["Change_in_Open_Interest_All"]),
+            row["Change_in_Open_Interest_All"],
 
         "mm_long_change":
-            int(row["M_Money_Positions_Long_All"]),
+            row["M_Money_Positions_Long_All"],
 
         "mm_short_change":
-            int(row["M_Money_Positions_Short_All"]),
+            row["M_Money_Positions_Short_All"],
 
         "comm_long_change":
-            int(row["Prod_Merc_Positions_Long_All"]),
+            row["Prod_Merc_Positions_Long_All"],
 
         "comm_short_change":
-            int(row["Prod_Merc_Positions_Short_All"])
+            row["Prod_Merc_Positions_Short_All"]
 
     }
