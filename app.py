@@ -56,10 +56,20 @@ MERCATI = {
     "6J JEN": ("JAPANESE YEN - CHICAGO MERCANTILE EXCHANGE", "LEGACY"),
     "Bitcoin": ("BITCOIN - CHICAGO MERCANTILE EXCHANGE", "LEGACY"),
     "Ether": ("ETHER CASH SETTLED - CHICAGO MERCANTILE EXCHANGE", "LEGACY"),
-    "Cacao": ("COCOA - ICE FUTURES U.S.", "LEGACY"),
-    "Coffee": ("COFFEE C - ICE FUTURES U.S.", "LEGACY"),
-    "Cotone": ("COTTON NO. 2 - ICE FUTURES U.S.", "LEGACY"),
-    "Sugar": ("SUGAR NO. 11 - ICE FUTURES U.S.", "LEGACY"),
+    "CC1 Cacao": ("COCOA - ICE FUTURES U.S.", "LEGACY"),
+    "KC1 Coffee": ("COFFEE C - ICE FUTURES U.S.", "LEGACY"),
+    "CT1 Coton": ("COTTON NO. 2 - ICE FUTURES U.S.", "LEGACY"),
+    "SB1 Sugar": ("SUGAR NO. 11 - ICE FUTURES U.S.", "LEGACY"),
+    "ZW  Wheat (Grano)": ("WHEAT-SRW - CHICAGO BOARD OF TRADE"),
+    "ZW1 Corn (Mais)": ("CORN - CHICAGO BOARD OF TRADE", "LEGACY"),
+    "ZS1 Soybeans (Soia)": ("SOYBEANS - CHICAGO BOARD OF TRADE", "LEGACY"),
+    "ZL1 Soybeans Oil (Olia di soia)": ("SOYBEAN OIL - CHICAGO BOARD OF TRADE", "LEGACY"),
+    "ZM1 Soybeans Meal (Farina di soia)": ("SOYBEAN MEAL - CHICAGO BOARD OF TRADE", "LEGACY"),
+    
+
+
+
+    
     "Orange Juice": ("FRZN CONCENTRATED ORANGE JUICE - ICE FUTURES U.S.", "LEGACY"),
     "Lumber": ("LUMBER - CHICAGO MERCANTILE EXCHANGE", "LEGACY")
     
