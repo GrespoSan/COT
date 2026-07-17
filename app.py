@@ -40,11 +40,11 @@ MERCATI = {
     "Petrolio WTI (NYMEX)": ("WTI-PHYSICAL - NEW YORK MERCANTILE EXCHANGE", "LEGACY"),
     "GASOLINE BLENDSTOCK (RBOB)": ("GASOLINE RBOB - NEW YORK MERCANTILE EXCHANGE", "LEGACY"),
     "Natural Gas (NYMEX)": ("NAT GAS NYME - NEW YORK MERCANTILE EXCHANGE", "LEGACY"),
-    "Euro FX (CME)": ("EURO FX - CHICAGO MERCANTILE EXCHANGE", "TFF"),
-    "S&P 500 E-mini (CME)": ("S&P 500 Consolidated - CHICAGO MERCANTILE EXCHANGE", "TFF"),
-    "Nasdaq 100 E-mini (CME)": ("NASDAQ MINI - CHICAGO MERCANTILE EXCHANGE", "TFF"),
-    "Dow Jone": ("DJIA x $5 - CHICAGO BOARD OF TRADE", "TFF"),
-    "Russell 2000": ("RUSSELL E-MINI - CHICAGO MERCANTILE EXCHANGE", "TFF"),
+    "Euro FX (CME)": ("EURO FX - CHICAGO MERCANTILE EXCHANGE", "LEGACY"),
+    "S&P 500 E-mini (CME)": ("S&P 500 Consolidated - CHICAGO MERCANTILE EXCHANGE", "LEGACY"),
+    "Nasdaq 100 E-mini (CME)": ("NASDAQ MINI - CHICAGO MERCANTILE EXCHANGE", "LEGACYF"),
+    "Dow Jone": ("DJIA x $5 - CHICAGO BOARD OF TRADE", "LEGACY"),
+    "Russell 2000": ("RUSSELL E-MINI - CHICAGO MERCANTILE EXCHANGE", "LEGACY"),
     "Bitcoin (CME)": ("BITCOIN - CHICAGO MERCANTILE EXCHANGE", "TFF")
 }
 
@@ -170,7 +170,7 @@ st.header("4. Interpretazione Macro e Sequenza Temporale")
 if flusso_netto_mm > 0 and flusso_netto_comm < 0:
     st.success("🟢 **CONVERGENZA RIALZISTA STRUTTURALE**")
     st.write(f"**Cosa sta succedendo in parole semplici:** Siamo in una fase di **piena armonia rialzista**. I grandi speculatori stanno comprando in modo aggressivo (Flusso: `{flusso_netto_mm:+.0f}`) e l'Open Interest sale. I commerciali stanno vendendo contratti commerciali per coprire la produzione futura, comportamento normalissimo in un mercato forte.")
-    st.error("**💡 Conclusione:** Il trend è solido, asseconda il segnale Long e cerca conferme grafiche sul prezzo prima di operare..")
+    st.error("**💡 Conclusione:** Il trend è solido, asseconda il segnale Long e cerca conferme grafiche sul prezzo prima di operare.")
 
 elif flusso_netto_mm < 0 and flusso_netto_comm > 0:
     st.warning("⚠️ **Rilevata DIVERGENZA ISTITUZIONALE: SHORT ➔ LONG**")
