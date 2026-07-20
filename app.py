@@ -193,36 +193,39 @@ st.success(f"**Azione Strategica:**\n- {azione}")
 st.divider()
 
 # =========================================================================
-# BLOCCO 4: Interpretazione Macro e Sequenza Temporale (PERFETTAMENTE SINCRONIZZATO E FORMATTATO)
+# BLOCCO 4: Interpretazione Macro e Sequenza Temporale (CORRETTO CON MARKDOWN)
 # =========================================================================
 st.header("4. Interpretazione Macro e Sequenza Temporale")
 
 if flusso_netto_mm > 0 and flusso_netto_comm < 0 and pct_delta_oi > 0.5:
     st.success("🟢 **CONVERGENZA RIALZISTA STRUTTURALE [STADIO 1-A]**")
-    st.write("Siamo in una fase di **piena armonia rialzista**. I grandi speculatori stanno comprando in modo aggressivo e l'Open Interest sale. I commerciali stanno vendendo contratti di copertura sui massimi, comportamento normalissimo in un mercato forte.")
+    st.markdown("Siamo in una fase di **piena armonia rialzista**. I grandi speculatori stanno comprando in modo aggressivo e l'Open Interest sale. I commerciali stanno vendendo contratti di copertura sui massimi, comportamento normalissimo in un mercato forte.")
     st.error("**💡 Conclusione:** Il trend è solido, asseconda il segnale Long e cerca conferme grafiche sul prezzo prima di operare.")
 
 elif flusso_netto_mm < 0 and flusso_netto_comm > 0 and pct_delta_oi > 0.5:
     st.error("🔴 **PRESSIONE RIBASSISTA / DISTRIBUZIONE ISTITUZIONALE [STADIO 1-B]**")
-    st.write("1. **OGGI / BREVE TERMINE:** I grandi fondi speculativi stanno spingendo pesantemente al ribasso (flusso netto negativo), e il mercato risente di questa pressione immediata. <br><br> 2. **PROSSIME SETTIMANE / MEDIO TERMINE:** I Commerciali stanno assorbendo la liquidità a sconto comprando contratti long. In regime di Contango, questo accumulo non anticipa un'inversione immediata al rialzo, bensì una fase di copertura passiva o di accumulo difensivo in un contesto di debolezza.")
+    st.markdown("1. **OGGI / BREVE TERMINE:** I grandi fondi speculativi stanno spingendo pesantemente al ribasso (flusso netto negativo), e il mercato risente di questa pressione immediata.")
+    st.markdown("2. **PROSSIME SETTIMANE / MEDIO TERMINE:** I Commerciali stanno assorbendo la liquidità a sconto comprando contratti long. In regime di Contango, questo accumulo non anticipa un'inversione immediata al rialzo, bensì una fase di copertura passiva o di accumulo difensivo in un contesto di debolezza.")
     st.warning("**💡 Conclusione:** Il quadro resta orientato alla debolezza o alla distribuzione. La pressione ribassista dei fondi comanda il brevissimo termine: evita categoricamente di comprare in questa fase.")
 
 elif pct_delta_oi <= -0.5 and flusso_netto_mm > 0 and term_struct == "Backwardation (verde)":
     st.success("🟢 **SHORT COVERING SQUEEZE [STADIO 3-B]**")
-    st.write("1. **OGGI / BREVE TERMINE:** L'Open Interest crolla mentre i prezzi salgono o reagiscono; i venditori scoperti stanno subendo una ricopertura forzata (stop loss saltati). <br><br> 2. **PROSSIME SETTIMANE / MEDIO TERMINE:** Il movimento è alimentato dall'uscita di forza degli short e non da nuovo denaro fresco in acquisto strutturale, ma la spinta di prezzo è violenta.")
+    st.markdown("1. **OGGI / BREVE TERMINE:** L'Open Interest crolla mentre i prezzi salgono o reagiscono; i venditori scoperti stanno subendo una ricopertura forzata (stop loss saltati).")
+    st.markdown("2. **PROSSIME SETTIMANE / MEDIO TERMINE:** Il movimento è alimentato dall'uscita di forza degli short e non da nuovo denaro fresco in acquisto strutturale, ma la spinta di prezzo è violenta.")
     st.error("**💡 Conclusione:** Dinamica di squeeze in atto. Mantieni la posizione long protetta da trailing stop stretti, sfruttando la debolezza dei venditori intrappolati.")
 
 elif flusso_netto_mm > 0 and flusso_netto_comm > 0:
     st.warning("⚠️ **DIVERGENZA ISTITUZIONALE: LONG ➔ SHORT**")
-    st.write("1. **OGGI / BREVE TERMINE:** I grandi fondi speculativi stanno spingendo il mercato verso l'alto o ricoprendo le vendite. Il prezzo attuale mostra ancora forza inerziale rialzista. <br><br> 2. **PROSSIME SETTIMANE / MEDIO TERMINE:** I Commerciali ritengono che questi prezzi siano ottimi per fare coperture e stanno vendendo massicciamente. Stanno costruendo un tetto al mercato.")
+    st.markdown("1. **OGGI / BREVE TERMINE:** I grandi fondi speculativi stanno spingendo il mercato verso l'alto o ricoprendo le vendite. Il prezzo attuale mostra ancora forza inerziale rialzista.")
+    st.markdown("2. **PROSSIME SETTIMANE / MEDIO TERMINE:** I Commerciali ritengono che questi prezzi siano ottimi per fare coperture e stanno vendendo massicciamente. Stanno costruendo un tetto al mercato.")
     st.error("**💡 Conclusione:** Il trend di brevissimo è ancora Long, ma la Smart Money si sta posizionando Short per un'inversione ribassista nelle prossime settimane. Proteggi i profitti dei tuoi Long e non inseguire i massimi.")
 
 elif flusso_netto_mm < 0 and flusso_netto_comm < 0:
     st.error("🔴 **CONVERGENZA RIBASSISTA STRUTTURALE**")
-    st.write("Sia i grandi fondi che i commerciali stanno togliendo liquidità o aumentando i contratti short. Il mercato è strutturalmente debole a tutti i livelli temporali, la pressione ribassista è totale.")
+    st.markdown("Sia i grandi fondi che i commerciali stanno togliendo liquidità o aumentando i contratti short. Il mercato è strutturalmente debole a tutti i livelli temporali, la pressione ribassista è totale.")
 else:
     st.info("🟡 **FASE DI TRANSIZIONE / FLUSSI MISTI**")
-    st.write(f"I dati non mostrano una convergenza direzionale netta o l'Open Interest registra variazioni non indicative di trend forte (Variazione OI: {pct_delta_oi:.2f}%). I flussi tra speculatori e commerciali sono in fase di assestamento.")
+    st.markdown(f"I dati non mostrano una convergenza direzionale netta o l'Open Interest registra variazioni non indicative di trend forte (Variazione OI: {pct_delta_oi:.2f}%). I flussi tra speculatori e commerciali sono in fase di assestamento.")
     st.warning("**💡 Conclusione:** Il quadro macro è in una zona grigia. Nessuna forza direzionale dominante; attendi la configurazione di setup definiti prima di agire.")
     
 # =========================================================================
