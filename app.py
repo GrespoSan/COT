@@ -110,26 +110,28 @@ col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     st.subheader("Open Interest")
-    oi_tot = st.number_input("Open Interest Totale", value=int(val_oi_tot))
-    oi_var = st.number_input("Change in Open Interest", value=int(val_oi_var))
+    oi_tot = st.number_input("Open Interest Totale", value=int(val_oi_tot) if 'val_oi_tot' in locals() else 0)
+    oi_var = st.number_input("Change in Open Interest", value=int(val_oi_var) if 'val_oi_var' in locals() else 0)
 
 with col2:
     st.subheader("Managed Money (MM)")
-    mm_long = st.number_input("MM Change Long", value=int(val_mm_long))
-    mm_short = st.number_input("MM Change Short", value=int(val_mm_short))
+    mm_long = st.number_input("MM Change Long", value=int(val_mm_long) if 'val_mm_long' in locals() else 0)
+    mm_short = st.number_input("MM Change Short", value=int(val_mm_short) if 'val_mm_short' in locals() else 0)
 
 with col3:
     st.subheader("Commercials")
-    comm_long = st.number_input("Comm Change Long", value=int(val_comm_long))
-    comm_short = st.number_input("Comm Change Short", value=int(val_comm_short))
+    comm_long = st.number_input("Comm Change Long", value=int(val_comm_long) if 'val_comm_long' in locals() else 0)
+    comm_short = st.number_input("Comm Change Short", value=int(val_comm_short) if 'val_comm_short' in locals() else 0)
 
 with col4:
     st.subheader("Term Structure")
     term_struct = st.radio(
         "Stato attuale della curva futures: inserimento manuale (non automatizzato)", 
-        ["Backwardation (verde)", "Contango (rosso)"],
+        ["🟢 Backwardation", "🔴 Contango"],
         index=1
     )
+    # Converte la scelta del radio button in un booleano riutilizzabile nel codice
+    is_backwardation = "Backwardation" in term_struct
 
 # =========================================================================
 # BLOCCO 2: Elaborazione Matematica
