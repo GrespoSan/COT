@@ -125,7 +125,15 @@ with col3:
 
 with col4:
     st.subheader("Term Structure")
-    term_struct = st.radio("Stato attuale della curva futures: inserimento manuale (non automatizzato)", ["Backwardation (verde)", "Contango (rosso)"])
+    # PRIMA:
+    # term_struct = st.radio("Stato attuale della curva futures: inserimento manuale (non automatizzato)", ["Backwardation (verde)", "Contango (rosso)"])
+    
+    # DOPO (con default su Contango):
+    term_struct = st.radio(
+        "Stato attuale della curva futures: inserimento manuale (non automatizzato)", 
+        ["Backwardation (verde)", "Contango (rosso)"],
+        index=1
+    )
 
 # =========================================================================
 # BLOCCO 2: Elaborazione Matematica
