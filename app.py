@@ -236,6 +236,9 @@ st.header("5. Analisi e Commento di Gemini")
 if st.button("Genera Analisi con Gemini"):
     with st.spinner("Interrogo Gemini in corso..."):
         try:
+            # Importazione locale per garantire che il modulo sia sempre definito
+            from google import genai
+            
             # Prende la chiave direttamente dai segreti di Streamlit
             api_key = st.secrets["GEMINI_API_KEY"]
             
