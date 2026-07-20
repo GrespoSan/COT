@@ -188,7 +188,7 @@ elif pct_delta_oi <= -0.5 and flusso_netto_mm > 0 and term_struct == "Backwardat
     stato_colore = "green"
     stato_testo = "HOLD AGGRESSIVO / SQUEEZE"
     verdetto = "Short Covering Squeeze di continuazione strutturale [STADIO 3-B]"
-    bias_testo = "SQUEEZE LONG"
+    bias_testo = "SHORT COVERING SQUEEZE"
     bias_colore = "green"
     diag_oi = f"L'Open Interest subisce una contrazione massiccia ({pct_delta_oi:.2f}%), indicando la fuga dei venditori intrappolati."
     diag_mm = f"Flusso Speculativo positivo ({flusso_netto_mm:+.0f}) causato principalmente dalla chiusura forzata degli Short."
