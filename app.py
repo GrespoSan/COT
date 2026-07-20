@@ -249,14 +249,14 @@ else:
     st.warning("**💡 Conclusione:** Il quadro macro è in una zona grigia. Nessuna forza direzionale dominante; attendi la configurazione di setup definiti prima di agire.")
     
 # =========================================================================
-# BLOCCO 5: Analisi e Commento Multimodale con AI
+# BLOCCO 5: Analisi e Commento con AI
 # =========================================================================
 st.header("5. Analisi e Commento con AI")
 
-# Scelta del provider di intelligenza artificiale
+# Scelta del provider di intelligenza artificiale (solo Gemini e Groq)
 ai_provider = st.selectbox(
     "Seleziona il modello di IA da interrogare:",
-    ["Google Gemini (gemini-3.5-flash)", "OpenAI (GPT-4o-mini)", "Anthropic (Claude 3.5 Sonnet)", "Groq (Llama 3.3 Versatile)"]
+    ["Google Gemini (gemini-3.5-flash)", "Groq (Llama 3.3 Versatile)"]
 )
 
 if st.button("Genera Analisi con AI"):
@@ -287,33 +287,10 @@ if st.button("Genera Analisi con AI"):
                 )
                 risposta_ai = response.text
 
-            elif "OpenAI" in ai_provider:
-                from openai import OpenAI
-                client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-                response = client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=[
-                        {"role": "system", "content": "Sei un analista finanziario esperto di mercati e dati COT."},
-                        {"role": "user", "content": prompt_utente}
-                    ]
-                )
-                risposta_ai = response.choices[0].message.content
-
-            elif "Anthropic" in ai_provider:
-                import anthropic
-                client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
-                response = client.messages.create(
-                    model="claude-3-5-sonnet-20241022",
-                    max_tokens=1000,
-                    messages=[
-                        {"role": "user", "content": prompt_utente}
-                    ]
-                )
-                risposta_ai = response.content[0].text
-
             elif "Groq" in ai_provider:
                 from groq import Groq
-                client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+                api_key = st.secrets["GROQ_API_KEY"]
+                client = Groq(api_key=api_key)
                 response = client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
                     messages=[{"role": "user", "content": prompt_utente}]
@@ -327,6 +304,6 @@ if st.button("Genera Analisi con AI"):
         except Exception as e:
             error_str = str(e)
             if "503" in error_str or "UNAVAILABLE" in error_str:
-                st.warning("⚠️ I server di Google sono temporaneamente sovraccarichi (Errore 503). Per favore, attendi qualche secondo e riprova, oppure seleziona un'altra IA dal menu.")
+                st.warning("⚠️ I server di Google sono temporaneamente sovraccarichi (Errore 503). Per favore, attendi qualche secondo e riprova, oppure seleziona Groq dal menu.")
             else:
                 st.error(f"Errore durante la comunicazione con l'IA: {e}")
