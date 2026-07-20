@@ -256,16 +256,11 @@ st.header("5. Analisi e Commento di Gemini")
 if st.button("Genera Analisi con Gemini"):
     with st.spinner("Interrogo Gemini in corso..."):
         try:
-            # Importazione locale per garantire che il modulo sia sempre definito
             from google import genai
             
-            # Prende la chiave direttamente dai segreti di Streamlit
             api_key = st.secrets["GEMINI_API_KEY"]
-            
-            # Inizializza il client Google GenAI
             client = genai.Client(api_key=api_key)
             
-            # Prepara il prompt strutturato con i dati attuali della dashboard
             prompt_utente = f"""
             Analizza questi dati del report COT per il mercato {asset_scelto} in data {dati.get('report_date_as_yyyy_mm_dd', '')[:10]}:
             - Open Interest Totale: {oi_tot} (Variazione: {oi_var}, %: {pct_delta_oi:.2f}%)
@@ -273,19 +268,22 @@ if st.button("Genera Analisi con Gemini"):
             - Flusso Netto Commerciale: {flusso_netto_comm:+.0f}
             - Stato della struttura: {term_struct}
             - Verdetto tecnico della dashboard: {verdetto} ({stato_testo})
+            - Bias di Mercato: {bias_testo}
             
             Fornisci una sintesi operativa concisa, evidenziando cosa stanno facendo i grandi operatori e un giudizio di sintesi con un semaforo (🟢, 🔴 o 🟡).
             """
             
-            # Chiamata al modello corretto
             response = client.models.generate_content(
                 model='gemini-3.5-flash',
                 contents=prompt_utente,
             )
             
-            # Mostra la risposta nell'app
             st.markdown("### Risposta dell'AI:")
             st.write(response.text)
             
         except Exception as e:
-            st.error(f"Errore durante la comunicazione con Gemini: {e}")
+            # Controllo specifico se l'errore è dovuto al sovraccarico dei server (503)
+            if "503" in str(e) or "UNAVAILABLE" in str(e):
+                st.warning("⚠️ I server di Google sono temporaneamente sovraccarichi (Errore 503). Per favore, attendi qualche secondo e riprova a cliccare il pulsante.")
+            else:
+                st.error(f"Errore durante la comunicazione con Gemini: {e}")
