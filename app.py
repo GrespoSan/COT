@@ -231,7 +231,7 @@ st.header("5. Analisi e Commento di Gemini")
 if st.button("Genera Analisi con Gemini"):
     with st.spinner("Interrogo Gemini in corso..."):
         try:
-            # Prende la chiave direttamente dal file secrets.toml
+            # Prende la chiave direttamente dai segreti di Streamlit
             api_key = st.secrets["GEMINI_API_KEY"]
             
             # Inizializza il client Google GenAI
@@ -249,9 +249,9 @@ if st.button("Genera Analisi con Gemini"):
             Fornisci una sintesi operativa concisa, evidenziando cosa stanno facendo i grandi operatori e un giudizio di sintesi con un semaforo (🟢, 🔴 o 🟡).
             """
             
-            # Chiamata al modello
+            # Chiamata al modello corretto
             response = client.models.generate_content(
-                model='gemini-2.5-flash',
+                model='gemini-2.5',
                 contents=prompt_utente,
             )
             
