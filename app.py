@@ -193,22 +193,27 @@ st.success(f"**Azione Strategica:**\n- {azione}")
 st.divider()
 
 # =========================================================================
-# BLOCCO 4: Interpretazione Macro e Sequenza Temporale (CORRETTO E SINCRONIZZATO)
+# BLOCCO 4: Interpretazione Macro e Sequenza Temporale (PERFETTAMENTE SINCRONIZZATO)
 # =========================================================================
 st.header("4. Interpretazione Macro e Sequenza Temporale")
 
 if flusso_netto_mm > 0 and flusso_netto_comm < 0 and pct_delta_oi > 0.5:
-    st.success("🟢 **CONVERGENZA RIALZISTA STRUTTURALE**")
-    st.write("Siamo in una fase di **piena armonia rialzista**. I grandi speculatori stanno comprando in modo aggressivo e l'Open Interest sale. I commerciali stanno vendendo contratti commerciali per coprire la produzione futura, comportamento normalissimo in un mercato forte.")
+    st.success("🟢 **CONVERGENZA RIALZISTA STRUTTURALE [STADIO 1-A]**")
+    st.write("Siamo in una fase di **piena armonia rialzista**. I grandi speculatori stanno comprando in modo aggressivo e l'Open Interest sale. I commerciali stanno vendendo contratti di copertura sui massimi, comportamento normalissimo in un mercato forte.")
     st.error("**💡 Conclusione:** Il trend è solido, asseconda il segnale Long e cerca conferme grafiche sul prezzo prima di operare.")
 
 elif flusso_netto_mm < 0 and flusso_netto_comm > 0 and pct_delta_oi > 0.5:
-    st.warning("⚠️ **Rilevata DIVERGENZA ISTITUZIONALE: SHORT ➔ LONG**")
-    st.write("1. **OGGI / BREVE TERMINE:** I grandi fondi speculativi stanno vendendo pesantemente. Il prezzo risente della pressione immediata. 2. **PROSSIME SETTIMANE / MEDIO TERMINE:** I Commerciali stanno assorbendo tutto e accumulano Long. Stanno fabbricando un pavimento.")
-    st.error("**💡 Conclusione:** Nel brevissimo è Short, ma monitora il grafico perché ci stiamo preparando a girarci Long.")
+    st.error("🔴 **PRESSIONE RIBASSISTA / DISTRIBUZIONE ISTITUZIONALE [STADIO 1-B]**")
+    st.write("1. **OGGI / BREVE TERMINE:** I grandi fondi speculativi stanno spingendo pesantemente al ribasso (flusso netto negativo), e il mercato risente di questa pressione immediata. 2. **PROSSIME SETTIMANE / MEDIO TERMINE:** I Commerciali stanno assorbendo la liquidità a sconto comprando contratti long. In regime di Contango, questo accumulo non anticipa un'inversione immediata al rialzo, bensì una fase di copertura passiva o di accumulo difensivo in un contesto di debolezza.")
+    st.warning("**💡 Conclusione:** Il quadro resta orientato alla debolezza o alla distribuzione. La pressione ribassista dei fondi comanda il brevissimo termine: evita categoricamente di comprare in questa fase.")
+
+elif pct_delta_oi <= -0.5 and flusso_netto_mm > 0 and term_struct == "Backwardation (verde)":
+    st.success("🟢 **SHORT COVERING SQUEEZE [STADIO 3-B]**")
+    st.write("1. **OGGI / BREVE TERMINE:** L'Open Interest crolla mentre i prezzi salgono o reagiscono; i venditori scoperti stanno subendo una ricopertura forzata (stop loss saltati). 2. **PROSSIME SETTIMANE / MEDIO TERMINE:** Il movimento è alimentato dall'uscita di forza degli short e non da nuovo denaro fresco in acquito strutturale, ma la spinta di prezzo è violenta.")
+    st.error("**💡 Conclusione:** Dinamica di squeeze in atto. Mantieni la posizione long protetta da trailing stop stretti, sfruttando la debolezza dei venditori intrappolati.")
 
 elif flusso_netto_mm > 0 and flusso_netto_comm > 0:
-    st.warning("⚠️ **Rilevata DIVERGENZA ISTITUZIONALE: LONG ➔ SHORT**")
+    st.warning("⚠️ **DIVERGENZA ISTITUZIONALE: LONG ➔ SHORT**")
     st.write("1. **OGGI / BREVE TERMINE:** I grandi fondi speculativi stanno spingendo il mercato verso l'alto o ricoprendo le vendite. Il prezzo attuale mostra ancora forza inerziale rialzista. 2. **PROSSIME SETTIMANE / MEDIO TERMINE:** I Commerciali ritengono che questi prezzi siano ottimi per fare coperture e stanno vendendo massicciamente. Stanno costruendo un tetto al mercato.")
     st.error("**💡 Conclusione:** Il trend di brevissimo è ancora Long, ma la Smart Money si sta posizionando Short per un'inversione ribassista nelle prossime settimane. Proteggi i profitti dei tuoi Long e non inseguire i massimi.")
 
@@ -251,7 +256,7 @@ if st.button("Genera Analisi con Gemini"):
             
             # Chiamata al modello corretto
             response = client.models.generate_content(
-                model='gemini-3.5-flash',
+                model='gemini-2.5-flash',
                 contents=prompt_utente,
             )
             
