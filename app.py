@@ -256,7 +256,7 @@ st.header("5. Analisi e Commento con AI")
 # Scelta del provider di intelligenza artificiale
 ai_provider = st.selectbox(
     "Seleziona il modello di IA da interrogare:",
-    ["Google Gemini (gemini-2.5-flash)", "OpenAI (GPT-4o-mini)", "Anthropic (Claude 3.5 Sonnet)", "Groq (Llama 3.3 Versatile)"]
+    ["Google Gemini (gemini-3.5-flash)", "OpenAI (GPT-4o-mini)", "Anthropic (Claude 3.5 Sonnet)", "Groq (Llama 3.3 Versatile)"]
 )
 
 if st.button("Genera Analisi con AI"):
