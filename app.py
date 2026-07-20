@@ -147,13 +147,16 @@ calc3.metric("Flusso Netto Commerciale", f"{flusso_netto_comm:+.0f}")
 st.divider()
 
 # =========================================================================
-# BLOCCO 3: Matrice di Diagnosi Microstrutturale
+# BLOCCO 3: Matrice di Diagnosi Microstrutturale e Calcolo Bias
 # =========================================================================
 st.header("3. Matrice di Diagnosi Microstrutturale: Il Verdetto")
 
 stato_colore = "orange"
 stato_testo = "FASE DI TRANSIZIONE / INCERTEZZA"
 verdetto = "Flussi misti in assestamento"
+bias_testo = "NEUTRAL / MISTO"
+bias_colore = "orange"
+
 diag_oi = f"La variazione dell'OI ({pct_delta_oi:.2f}%) mostra un posizionamento standard."
 diag_mm = f"I grandi fondi speculativi mantengono un flusso netto di {flusso_netto_mm:+.0f}."
 diag_comm = f"I Commercials registrano un flusso netto di {flusso_netto_comm:+.0f}."
@@ -163,6 +166,8 @@ if flusso_netto_mm > 0 and flusso_netto_comm < 0 and pct_delta_oi > 0.5:
     stato_colore = "green"
     stato_testo = "CONVERGENT LONG / FORZA STRUTTURALE"
     verdetto = "Espansione Rialzista Istituzionale - Ingresso di Capitale Buyer [STADIO 1-A]"
+    bias_testo = "CONVERGENT LONG"
+    bias_colore = "green"
     diag_oi = f"L'Open Interest è in forte espansione ({pct_delta_oi:.2f}%), confermando l'ingresso di nuova liquidità direzionale."
     diag_mm = f"I grandi fondi speculativi guidano il trend immettendo flussi nettamente rialzisti ({flusso_netto_mm:+.0f})."
     diag_comm = f"I Commercials assecondano la salita vendendo coperture sui massimi (Flusso: {flusso_netto_comm:+.0f}), tipico dei mercati sani."
@@ -172,6 +177,8 @@ elif flusso_netto_mm < 0 and flusso_netto_comm > 0 and pct_delta_oi > 0.5:
     stato_colore = "red"
     stato_testo = "DISTRIBUZIONE / PERICOLO"
     verdetto = "Fase di Distribuzione Istituzionale e Accumulo Short [STADIO 1-B]"
+    bias_testo = "DISTRIBUZIONE / SHORT"
+    bias_colore = "red"
     diag_oi = f"L'Open Interest è in espansione ({pct_delta_oi:.2f}%), ma i contratti aperti sono guidati dai venditori."
     diag_mm = f"I fondi speculativi stanno immettendo massicci flussi ribassisti ({flusso_netto_mm:+.0f}), shortando il mercato."
     diag_comm = f"I Commercials stanno assorbendo la liquidità comprando a sconto (Flusso: {flusso_netto_comm:+.0f})."
@@ -181,13 +188,26 @@ elif pct_delta_oi <= -0.5 and flusso_netto_mm > 0 and term_struct == "Backwardat
     stato_colore = "green"
     stato_testo = "HOLD AGGRESSIVO / SQUEEZE"
     verdetto = "Short Covering Squeeze di continuazione strutturale [STADIO 3-B]"
+    bias_testo = "SQUEEZE LONG"
+    bias_colore = "green"
     diag_oi = f"L'Open Interest subisce una contrazione massiccia ({pct_delta_oi:.2f}%), indicando la fuga dei venditori intrappolati."
     diag_mm = f"Flusso Speculativo positivo ({flusso_netto_mm:+.0f}) causato principalmente dalla chiusura forzata degli Short."
     diag_comm = f"Flusso Commercials: {flusso_netto_comm:+.0f}."
     azione = "Mantieni l'acquisto effettuato. Alza i target protettivi e stringi lo stop-loss sotto i minimi di struttura."
 
+elif flusso_netto_mm > 0 and flusso_netto_comm > 0:
+    bias_testo = "DIVERG. LONG ➔ SHORT"
+    bias_colore = "orange"
+
+elif flusso_netto_mm < 0 and flusso_netto_comm < 0:
+    bias_testo = "CONVERGENT SHORT"
+    bias_colore = "red"
+
 st.markdown(f"#### **Il Verdetto:** {verdetto}")
 st.info(f"- **Diagnosi OI:** {diag_oi}\n- **Diagnosi MM:** {diag_mm}\n- **Diagnosi Commercials:** {diag_comm}")
+
+# Mostriamo a colpo d'occhio anche il Bias calcolato
+st.markdown(f"### Bias di Mercato: <span style='color:{bias_colore}'>{bias_testo}</span>", unsafe_allow_html=True)
 st.markdown(f"### Stato Operativo Ricalibrato: <span style='color:{stato_colore}'>{stato_testo}</span>", unsafe_allow_html=True)
 st.success(f"**Azione Strategica:**\n- {azione}")
 st.divider()
