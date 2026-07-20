@@ -240,7 +240,7 @@ if st.button("Genera Analisi con Gemini"):
             api_key = st.secrets["GEMINI_API_KEY"]
             
             # Inizializza il client Google GenAI
-            client = genai.Client(api_key=api_key)
+            client = gemini.Client(api_key=api_key)
             
             # Prepara il prompt strutturato con i dati attuali della dashboard
             prompt_utente = f"""
