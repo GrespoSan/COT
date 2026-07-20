@@ -219,3 +219,45 @@ else:
     st.info("🟡 **FASE DI TRANSIZIONE / FLUSSI MISTI**")
     st.write(f"I dati non mostrano una convergenza direzionale netta o l'Open Interest registra variazioni non indicative di trend forte (Variazione OI: {pct_delta_oi:.2f}%). I flussi tra speculatori e commerciali sono in fase di assestamento.")
     st.warning("**💡 Conclusione:** Il quadro macro è in una zona grigia. Nessuna forza direzionale dominante; attendi la configurazione di setup definiti prima di agire.")
+
+import streamlit as st
+from google import genai
+
+# =========================================================================
+# BLOCCO 5: Analisi Automatica con Gemini
+# =========================================================================
+st.header("5. Analisi e Commento di Gemini")
+
+if st.button("Genera Analisi con Gemini"):
+    with st.spinner("Interrogo Gemini in corso..."):
+        try:
+            # Prende la chiave direttamente dal file secrets.toml
+            api_key = st.secrets["GEMINI_API_KEY"]
+            
+            # Inizializza il client Google GenAI
+            client = genai.Client(api_key=api_key)
+            
+            # Prepara il prompt strutturato con i dati attuali della dashboard
+            prompt_utente = f"""
+            Analizza questi dati del report COT per il mercato {asset_scelto} in data {dati.get('report_date_as_yyyy_mm_dd', '')[:10]}:
+            - Open Interest Totale: {oi_tot} (Variazione: {oi_var}, %: {pct_delta_oi:.2f}%)
+            - Flusso Netto Speculativo (MM): {flusso_netto_mm:+.0f}
+            - Flusso Netto Commerciale: {flusso_netto_comm:+.0f}
+            - Stato della struttura: {term_struct}
+            - Verdetto tecnico della dashboard: {verdetto} ({stato_testo})
+            
+            Fornisci una sintesi operativa concisa, evidenziando cosa stanno facendo i grandi operatori e un giudizio di sintesi con un semaforo (🟢, 🔴 o 🟡).
+            """
+            
+            # Chiamata al modello
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt_utente,
+            )
+            
+            # Mostra la risposta nell'app
+            st.markdown("### Risposta dell'AI:")
+            st.write(response.text)
+            
+        except Exception as e:
+            st.error(f"Errore durante la comunicazione con Gemini: {e}")
