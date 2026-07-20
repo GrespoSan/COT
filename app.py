@@ -127,7 +127,7 @@ with col4:
     st.subheader("Term Structure")
     term_struct = st.radio(
         "Stato attuale della curva futures: inserimento manuale (non automatizzato)", 
-        ["Backwardation (verde)", "Contango (rosso)"],
+        ["🟢 Backwardation", "🔴 Contango"],
         index=1
     )
 
