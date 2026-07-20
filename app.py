@@ -251,7 +251,7 @@ if st.button("Genera Analisi con Gemini"):
             
             # Chiamata al modello corretto
             response = client.models.generate_content(
-                model='gemini-3.1 Flash-Lite',
+                model='gemini-1.5-flash',
                 contents=prompt_utente,
             )
             
