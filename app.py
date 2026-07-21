@@ -308,3 +308,4 @@ if st.button("Genera Analisi con AI"):
                 st.warning("⚠️ I server di Google sono temporaneamente sovraccarichi (Errore 503). Per favore, attendi qualche secondo e riprova, oppure seleziona Groq dal menu.")
             else:
                 st.error(f"Errore durante la comunicazione con l'IA: {e}")
+st.warning("⚠️ Nota Importante: Il report COT registra i dati rilevati nei giorni precedenti (di solito riferiti al martedì antecedente alla pubblicazione). Trattandosi di un dato in ritardo, va usato come contesto generale e non come un segnale tempestivo per comprare o vendere subito.")
