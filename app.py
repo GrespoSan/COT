@@ -476,6 +476,122 @@ else:
 st.subheader("Conclusione automatica")
 st.write(conclusione_automatica)
 
+# ============================================================================
+# ANALISI E COMMENTO CON AI
+# ============================================================================
+st.header("3. Analisi e commento con AI")
+st.caption(
+    "L'AI commenta il responso deterministico già calcolato. "
+    "Non modifica il Bias e non introduce il confronto 3-6 settimane."
+)
+
+ai_provider = st.selectbox(
+    "Provider AI",
+    ["Google Gemini", "Groq"],
+)
+
+default_gemini_model = st.secrets.get("GEMINI_MODEL", "gemini-3.5-flash")
+default_groq_model = st.secrets.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+
+if ai_provider == "Google Gemini":
+    ai_model = st.text_input("Modello Gemini", value=default_gemini_model)
+else:
+    ai_model = st.text_input("Modello Groq", value=default_groq_model)
+
+if st.button("Genera analisi con AI", type="primary"):
+    prompt_utente = f"""
+Analizza il seguente report COT Legacy Futures Only per il mercato {asset_scelto}.
+
+Confronto:
+- Ultimo report: {current_date}
+- Penultimo report: {previous_date}
+
+Dati calcolati:
+- Open Interest attuale: {oi_current:.0f}
+- Variazione Open Interest: {delta_oi:+.0f} ({pct_delta_oi:+.2f}%)
+- Variazione Noncommercial Long: {delta_noncomm_long:+.0f}
+- Variazione Noncommercial Short: {delta_noncomm_short:+.0f}
+- Flusso netto Noncommercial: {net_flow_noncomm:+.0f}
+- Variazione Commercial Long: {delta_comm_long:+.0f}
+- Variazione Commercial Short: {delta_comm_short:+.0f}
+- Flusso netto Commercial: {net_flow_comm:+.0f}
+- Term Structure: {term_structure}
+
+Responso deterministico:
+- Bias: {bias_testo}
+- Verdetto: {verdetto}
+- Stato: {stato_testo}
+- Indicazione operativa: {azione}
+
+Diagnosi:
+- Open Interest: {diag_oi}
+- Noncommercial: {diag_noncomm}
+- Commercial: {diag_comm}
+- Term Structure: {diag_term}
+
+Conclusione automatica:
+{conclusione_automatica}
+
+Scrivi una sintesi operativa chiara e concisa in italiano.
+Mantieni il responso coerente con i dati forniti.
+Non inventare dati mancanti.
+Non introdurre analisi a 3 o 6 settimane.
+Non trasformare il COT in un segnale immediato di ingresso.
+Concludi con un semaforo finale: 🟢, 🟡 oppure 🔴.
+"""
+
+    with st.spinner(f"Interrogo {ai_provider}..."):
+        try:
+            if ai_provider == "Google Gemini":
+                from google import genai
+
+                api_key = st.secrets["GEMINI_API_KEY"]
+                client = genai.Client(api_key=api_key)
+                response = client.models.generate_content(
+                    model=ai_model,
+                    contents=prompt_utente,
+                )
+                risposta_ai = response.text or "Nessuna risposta ricevuta da Gemini."
+
+            else:
+                from groq import Groq
+
+                api_key = st.secrets["GROQ_API_KEY"]
+                client = Groq(api_key=api_key)
+                response = client.chat.completions.create(
+                    model=ai_model,
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": (
+                                "Sei un analista COT. Rispetta rigorosamente i dati forniti, "
+                                "non inventare dati e non introdurre analisi 3-6 settimane."
+                            ),
+                        },
+                        {"role": "user", "content": prompt_utente},
+                    ],
+                    temperature=0.2,
+                )
+                risposta_ai = response.choices[0].message.content
+
+            st.markdown("### Risposta dell'AI")
+            st.write(risposta_ai)
+
+        except KeyError as exc:
+            st.error(
+                f"Chiave API mancante nei Secrets di Streamlit: {exc}. "
+                "Configura GEMINI_API_KEY oppure GROQ_API_KEY."
+            )
+        except Exception as exc:
+            error_text = str(exc)
+            if "503" in error_text or "UNAVAILABLE" in error_text:
+                st.warning(
+                    "Il provider AI è temporaneamente non disponibile. "
+                    "Riprova più tardi oppure seleziona l'altro provider."
+                )
+            else:
+                st.error(f"Errore durante la comunicazione con l'AI: {exc}")
+
 st.divider()
 st.warning(
     "Il report COT è un dato settimanale ritardato: descrive il posizionamento "
