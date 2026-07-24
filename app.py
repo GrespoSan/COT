@@ -236,7 +236,7 @@ term_structure = st.radio(
     horizontal=True,
     help=(
         "La CFTC non fornisce la curva dei contratti. "
-        "La Term Structure viene calcolata confrontando il primo e il secondo contratto future"
+        "La Term Structure viene calcolata confrontando il primo e il secondo contratto future (es. ES1! e ES2!)"
     ),
 )
 is_backwardation = term_structure == "Backwardation"
