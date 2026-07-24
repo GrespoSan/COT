@@ -236,7 +236,7 @@ term_structure = st.radio(
     horizontal=True,
     help=(
         "La CFTC non fornisce la curva dei contratti. "
-        "Per ottenere lo stesso responso del Pine seleziona lo stato mostrato su TradingView."
+        "Stato attuale della curva futures: inserimento manuale (non automatizzato)"
     ),
 )
 is_backwardation = term_structure == "Backwardation"
