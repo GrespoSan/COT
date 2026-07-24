@@ -231,12 +231,12 @@ st.success(
 )
 
 term_structure = st.radio(
-    "Term Structure",
+    "Term Structure: inserimento manuale (non automatizzato)",
     options=["Contango", "Backwardation"],
     horizontal=True,
     help=(
         "La CFTC non fornisce la curva dei contratti. "
-        "Stato attuale della curva futures: inserimento manuale (non automatizzato)"
+        "La Term Structure viene calcolata confrontando il primo e il secondo contratto future"
     ),
 )
 is_backwardation = term_structure == "Backwardation"
