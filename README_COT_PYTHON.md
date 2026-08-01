@@ -1,4 +1,4 @@
-# COT Smart Money — versione Python V4
+# COT Smart Money — versione Python V5
 
 ## File
 
@@ -92,6 +92,13 @@ La sezione AI riceve automaticamente:
 - stato e valore della Term Structure;
 - responso deterministico Smart Money.
 
+La modalità dell'interrogazione AI è automatica:
+
+- campo **Domanda specifica** vuoto: viene applicato integralmente `PROMPT.TXT` e sono prodotti gli output completi previsti dal file;
+- campo **Domanda specifica** compilato: `PROMPT.TXT` viene ignorato e l'AI risponde soltanto alla domanda inserita.
+
+In questo modo una richiesta mirata, come “concentrati solo sulla qualità dei flussi dell'ultimo report”, non viene diluita dalla struttura del prompt generale.
+
 Il prompt operativo viene caricato da `PROMPT.TXT`. Per modificarne stile, struttura o regole basta aggiornare quel file nel repository.
 
 L'app non calcola ancora POC, supporti o resistenze. Quando il prompt li richiede, l'AI riceve il vincolo di dichiarare `dato non chiaramente leggibile` e di non inventare livelli.
@@ -110,3 +117,10 @@ Quando cambi strumento oppure arriva una nuova data COT, l'app cancella automati
 - prezzo Weekly con EMA21, usando solo settimane completate;
 - interrogazione AI con prompt esterno modificabile;
 - export CSV del responso e dello storico.
+
+
+## Modifica V5
+
+- rimossa dalla schermata e dal contesto AI la dicitura di freschezza del tipo `FRESCO (4 giorni)`;
+- domanda specifica prioritaria: quando il campo è compilato, il prompt generale viene ignorato;
+- campo vuoto: resta disponibile l’analisi completa basata su `PROMPT.TXT`.

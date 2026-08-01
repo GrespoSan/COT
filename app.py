@@ -1478,16 +1478,43 @@ def secret_value(name: str, default: str) -> str:
         return default
 
 
-def build_ai_prompt(user_question: str, operational_prompt: str) -> str:
-    question = user_question.strip() or (
-        "Applica integralmente il prompt operativo preimpostato e produci sia la lettura "
-        "completa sia la versione breve per il post social."
-    )
+def build_ai_prompt(user_question: str, operational_prompt: str) -> tuple[str, str]:
+    """Costruisce il prompt AI in due modalità automatiche.
 
-    return f"""
+    - Campo domanda vuoto: applica integralmente PROMPT.TXT.
+    - Campo domanda compilato: ignora PROMPT.TXT e risponde soltanto alla domanda specifica.
+    """
+    custom_question = user_question.strip()
+    use_custom_question = bool(custom_question)
+
+    if use_custom_question:
+        instruction_block = f"""
+MODALITÀ: DOMANDA SPECIFICA
+
+Ignora completamente il prompt operativo preimpostato contenuto in {AI_PROMPT_FILENAME}.
+Non generare automaticamente la lettura completa né il post social.
+Rispondi esclusivamente e direttamente alla domanda dell'utente riportata sotto.
+Usa soltanto i dati strutturati della dashboard e mantieni una risposta semplice, concreta e coerente con il responso deterministico.
+
+DOMANDA DELL'UTENTE
+{custom_question}
+""".strip()
+        request_mode = "Domanda specifica — PROMPT.TXT ignorato"
+    else:
+        instruction_block = f"""
+MODALITÀ: ANALISI COMPLETA PREIMPOSTATA
+
 ISTRUZIONI OPERATIVE CARICATE DA {AI_PROMPT_FILENAME}
 
 {operational_prompt}
+
+RICHIESTA
+Applica integralmente il prompt operativo preimpostato e produci sia la lettura completa sia la versione breve per il post social.
+""".strip()
+        request_mode = f"Analisi completa — {AI_PROMPT_FILENAME}"
+
+    prompt = f"""
+{instruction_block}
 
 ==================================================
 FONTE DATI DISPONIBILE NELLA DASHBOARD PYTHON
@@ -1550,9 +1577,6 @@ RESPONSO DETERMINISTICO SMART MONEY
 - Cosa fare: {smart['action']}
 - Motivazione: {smart['reason']}
 
-RICHIESTA AGGIUNTIVA DELL'UTENTE
-{question}
-
 VINCOLI FINALI DELLA DASHBOARD
 - Il responso deterministico è il punto di partenza: non contraddirlo senza dichiarare chiaramente il limite dei dati.
 - Usa i valori calcolati dell'Alignment Map; non inventare screenshot, POC, supporti, resistenze o livelli tecnici.
@@ -1560,7 +1584,10 @@ VINCOLI FINALI DELLA DASHBOARD
 - Un COT Index estremo descrive affollamento relativo, non un segnale automatico di inversione.
 - Considera la Term Structure soltanto secondo lo stato d'uso indicato.
 - Il COT non è un segnale immediato di ingresso.
+- In modalità domanda specifica, rispondi soltanto a quella domanda senza applicare formato, sezioni o output imposti da {AI_PROMPT_FILENAME}.
 """.strip()
+
+    return prompt, request_mode
 
 
 operational_prompt, operational_prompt_source = load_operational_prompt()
@@ -1590,10 +1617,15 @@ with ai_col2:
 
 with st.form("cot_ai_form"):
     ai_question = st.text_area(
-        "Domanda facoltativa",
+        "Domanda specifica — se compilata sostituisce PROMPT.TXT",
         placeholder=(
-            "Il prompt completo è già preimpostato. Qui puoi aggiungere una richiesta specifica, "
-            "per esempio: concentrati soprattutto sulla qualità dei flussi dell'ultimo report."
+            "Lascia vuoto per ottenere l'analisi completa prevista da PROMPT.TXT. "
+            "Scrivi una domanda per ignorare PROMPT.TXT e ricevere soltanto una risposta mirata, "
+            "per esempio: concentrati solo sulla qualità dei flussi dell'ultimo report."
+        ),
+        help=(
+            "Campo vuoto: viene applicato PROMPT.TXT. Campo compilato: PROMPT.TXT viene ignorato "
+            "e l'AI risponde esclusivamente alla domanda inserita."
         ),
         height=105,
         key="cot_ai_question",
@@ -1601,7 +1633,7 @@ with st.form("cot_ai_form"):
     ai_submit = st.form_submit_button("Genera analisi con AI", type="primary", width="stretch")
 
 if ai_submit:
-    prompt_ai = build_ai_prompt(ai_question, operational_prompt)
+    prompt_ai, ai_request_mode = build_ai_prompt(ai_question, operational_prompt)
     with st.spinner(f"Interrogo {ai_provider}..."):
         try:
             if ai_provider == "Google Gemini":
@@ -1627,7 +1659,9 @@ if ai_submit:
                             "role": "system",
                             "content": (
                                 "Sei un analista COT prudente. Rispetta rigorosamente i dati forniti, "
-                                "non inventare informazioni e non sostituire il responso deterministico."
+                                "non inventare informazioni e non sostituire il responso deterministico. "
+                                "Segui la modalità dichiarata nel messaggio utente: quando è DOMANDA SPECIFICA, "
+                                "ignora il prompt operativo preimpostato e rispondi soltanto alla domanda."
                             ),
                         },
                         {"role": "user", "content": prompt_ai},
@@ -1638,7 +1672,7 @@ if ai_submit:
 
             st.session_state["cot_ai_answer"] = answer
             st.session_state["cot_ai_context"] = (
-                f"{spec.root}|{smart['report_date'].isoformat()}|{ai_provider}|{ai_model}"
+                f"{spec.root}|{smart['report_date'].isoformat()}|{ai_provider}|{ai_model}|{ai_request_mode}"
             )
         except KeyError as exc:
             st.error(
