@@ -969,11 +969,11 @@ def analyze_smart_money(
     conc_long_high = not pd.isna(conc_long_rank) and conc_long_rank >= 80
     conc_short_high = not pd.isna(conc_short_rank) and conc_short_rank >= 80
     if conc_long_high and conc_short_high:
-        concentration_state = "MOLTI GRANDI TRADER GIÀ LONG E SHORT"
+        concentration_state = "CONCENTRAZIONE TOP 8 LONG E SHORT ELEVATA — FRAGILITÀ ALTA"
     elif conc_long_high:
-        concentration_state = "MOLTI GRANDI TRADER GIÀ LONG"
+        concentration_state = "CONCENTRAZIONE TOP 8 LONG ELEVATA — RISCHIO LIQUIDAZIONE SE IL PREZZO SCENDE"
     elif conc_short_high:
-        concentration_state = "MOLTI GRANDI TRADER GIÀ SHORT"
+        concentration_state = "CONCENTRAZIONE TOP 8 SHORT ELEVATA — RISCHIO SQUEEZE SE IL PREZZO SALE"
     elif max(conc_long_rank if not pd.isna(conc_long_rank) else 0, conc_short_rank if not pd.isna(conc_short_rank) else 0) >= 60:
         concentration_state = "CONCENTRAZIONE SOPRA LA NORMA"
     elif pd.isna(conc_long_rank) or pd.isna(conc_short_rank):
