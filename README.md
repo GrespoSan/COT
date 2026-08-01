@@ -1,6 +1,6 @@
-# COT Smart Money — versione Python V6
+# COT Smart Money — versione Python V6.1
 
-La V6 mantiene separate le due funzioni principali dell'app:
+La V6.1 mantiene separate le due funzioni principali dell'app:
 
 1. **Analisi singolo strumento**: approfondimento completo di un future, con AI facoltativa e risposta soltanto a video.
 2. **COT Screener**: analisi su richiesta di tutti i mercati selezionati, classifica deterministica, esportazione Excel e spiegazione AI facoltativa dei primi 5 o 10 risultati.
@@ -109,14 +109,14 @@ La prima scansione completa può richiedere alcuni minuti. Le richieste CFTC e Y
 
 ## Stati sintetici
 
-Lo screener assegna una sola classificazione:
+Lo screener assegna una sola classificazione. Il filtro mostra sempre tutti gli stati possibili, anche quando uno di essi non compare nella scansione corrente:
 
 - `LONG CONFERMATO`;
 - `SHORT CONFERMATO`;
 - `LONG IN COSTRUZIONE`;
 - `SHORT IN COSTRUZIONE`;
-- `LONG CONFERMATO MA AFFOLLATO`;
-- `SHORT CONFERMATO MA AFFOLLATO`;
+- `LONG CONFERMATO MA AFFOLLATO (NON INSEGUIRE)`;
+- `SHORT CONFERMATO MA AFFOLLATO (NON INSEGUIRE)`;
 - `NEUTRALE / POCO CHIARO`.
 
 ## Qualità del flusso
