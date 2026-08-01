@@ -1,0 +1,340 @@
+PROMPT — LETTURA COT SEMPLICE, CHIARA E OPERATIVA
+
+Analizza lo screenshot allegato e prepara due output:
+
+A. LETTURA OPERATIVA COMPLETA
+B. VERSIONE BREVE PER POST SOCIAL
+
+Scrivi in italiano con frasi molto semplici, brevi e concrete.
+
+OBIETTIVO PRINCIPALE
+
+La prima cosa che devo capire è:
+
+- Il mercato è Long?
+- Il mercato è Short?
+- È ancora in costruzione?
+- È poco chiaro?
+- È confermato ma troppo affollato?
+
+Usa parole comprensibili anche a chi non conosce bene il COT.
+
+Evita frasi complicate come:
+“Il quadro istituzionale mostra una dinamica costruttiva ma ancora non pienamente validata.”
+
+Preferisci frasi come:
+“È Long in costruzione. Diventerebbe Long confermato soltanto sopra 350, con nuovi acquisti e Open Interest crescente.”
+
+==================================================
+ORDINE OBBLIGATORIO DELL’ANALISI
+==================================================
+
+1. Smart Money Report = verdetto iniziale.
+2. Tabella tecnica = verifica se il flusso è forte oppure debole.
+3. Alignment Map = indica se il posizionamento è normale oppure estremo.
+4. Prezzo e POC = decidono se il segnale è davvero operativo.
+
+Non cambiare questo ordine.
+
+==================================================
+1. QUADRO DIREZIONALE OBBLIGATORIO
+==================================================
+
+Prima di tutto scegli una sola classificazione:
+
+- LONG CONFERMATO
+- SHORT CONFERMATO
+- LONG IN COSTRUZIONE
+- SHORT IN COSTRUZIONE
+- NEUTRALE / POCO CHIARO
+- LONG CONFERMATO MA AFFOLLATO
+- SHORT CONFERMATO MA AFFOLLATO
+
+Usa questi criteri:
+
+LONG CONFERMATO
+- Smart Money Report rialzista.
+- Nuovi Long reali.
+- Open Interest coerente.
+- Struttura 3–6W positiva.
+- Prezzo sopra POC e resistenze importanti.
+
+SHORT CONFERMATO
+- Smart Money Report ribassista.
+- Nuovi Short reali.
+- Open Interest coerente.
+- Struttura 3–6W negativa.
+- Prezzo sotto POC e supporti importanti.
+
+LONG IN COSTRUZIONE
+- COT e Net Position migliorano.
+- Il prezzo non ha ancora confermato.
+- Oppure il miglioramento deriva soprattutto da short covering.
+
+SHORT IN COSTRUZIONE
+- COT e Net Position peggiorano.
+- Il prezzo non ha ancora confermato.
+- Oppure il peggioramento deriva soprattutto da liquidazione dei Long.
+
+NEUTRALE / POCO CHIARO
+- Report, flussi e prezzo sono discordanti.
+- Oppure il prezzo gira intorno al POC senza una direzione chiara.
+
+LONG O SHORT CONFERMATO MA AFFOLLATO
+- La direzione è chiara.
+- Però COT Index, Alignment Map o concentrazione mostrano eccesso.
+- Non suggerire di inseguire il prezzo.
+
+Dopo la classificazione scrivi sempre una frase semplice di questo tipo:
+
+“È Long in costruzione. Diventerebbe Long confermato soltanto sopra [livello], con nuovi acquisti e Open Interest crescente.”
+
+oppure:
+
+“È Short in costruzione. Diventerebbe Short confermato soltanto sotto [livello], con nuovi Short e Open Interest crescente.”
+
+oppure:
+
+“Il mercato è ancora poco chiaro. Finché resta intorno al POC non c’è un vantaggio operativo.”
+
+==================================================
+2. SMART MONEY REPORT — COSA DICE
+==================================================
+
+Leggi e riassumi:
+
+- Bias Smart Money.
+- Struttura speculativa.
+- Posizionamento COT.
+- Open Interest.
+- Concentrazione / Fragilità.
+- Indicazione operativa.
+- Conferma del prezzo Weekly.
+
+Scrivi una frase semplice:
+
+“Lo Smart Money Report è rialzista, ma il prezzo non ha ancora confermato.”
+
+oppure:
+
+“Lo Smart Money Report è ribassista e il prezzo conferma.”
+
+==================================================
+3. TABELLA TECNICA — PERCHÉ
+==================================================
+
+Controlla:
+
+- Managed Money / Leveraged Funds Long.
+- Managed Money / Leveraged Funds Short.
+- Net Flow 1W.
+- Open Interest.
+- Struttura 3W e 6W.
+- Controparte.
+- COT Index.
+- Concentrazione Top 8.
+
+Distingui sempre:
+
+- nuovi Long;
+- nuovi Short;
+- short covering;
+- liquidazione Long;
+- flusso misto.
+
+Regole semplici:
+
+- Long aumentano = nuovi acquisti, segnale rialzista più forte.
+- Short diminuiscono = short covering, segnale rialzista più debole.
+- Short aumentano = nuovi Short, segnale ribassista più forte.
+- Long diminuiscono = liquidazione Long, segnale ribassista più debole.
+
+Scrivi una frase chiara:
+
+“Il miglioramento è forte perché stanno entrando nuovi Long.”
+
+oppure:
+
+“Il miglioramento è debole perché deriva soprattutto dalla chiusura degli Short.”
+
+==================================================
+4. ALIGNMENT MAP — CONTESTO
+==================================================
+
+Riporta:
+
+- valore Managed Money / Leveraged Funds;
+- valore controparte;
+- valore Small Traders;
+- allineamento rialzista 0/3, 1/3, 2/3 o 3/3;
+- allineamento ribassista 0/3, 1/3, 2/3 o 3/3.
+
+Spiega in modo semplice:
+
+- 0/3 o 1/3 = nessun allineamento completo;
+- 2/3 = contesto interessante;
+- 3/3 = massimo allineamento COT;
+- 3/3 non significa entrare subito.
+
+Usa frasi come:
+
+“L’Alignment Map non mostra ancora un estremo.”
+
+oppure:
+
+“L’Alignment Map è 3/3 rialzista: il contesto è forte, ma serve ancora la conferma del prezzo.”
+
+==================================================
+5. PREZZO E POC — QUANDO DIVENTA OPERATIVO
+==================================================
+
+Il prezzo è sempre la conferma finale.
+
+Analizza:
+
+- trend principale;
+- fase attuale;
+- POC più vicino;
+- supporti e resistenze;
+- eventuale POC storico importante.
+
+Spiega se il POC è:
+
+- supporto;
+- resistenza;
+- area di equilibrio.
+
+Regole semplici:
+
+- sopra il POC e stabile = conferma rialzista;
+- sotto il POC e respinto = conferma ribassista;
+- intorno al POC = mercato indeciso;
+- recupero del POC = possibile attivazione Long;
+- perdita del POC = possibile deterioramento.
+
+Usa frasi come:
+
+“Il COT migliora, ma il prezzo è ancora sotto il POC. Il Long non è ancora confermato.”
+
+oppure:
+
+“Il prezzo ha recuperato il POC e lo sta mantenendo. Il segnale Long diventa più credibile.”
+
+Quando il POC non è leggibile scrivi:
+
+“POC non chiaramente leggibile: il timing operativo è meno preciso.”
+
+==================================================
+A. LETTURA OPERATIVA COMPLETA
+==================================================
+
+Usa questa struttura:
+
+## [STRUMENTO] — Quadro direzionale
+
+Stato attuale          LONG CONFERMATO / SHORT CONFERMATO / LONG IN COSTRUZIONE / SHORT IN COSTRUZIONE / NEUTRALE
+Prospettiva            continuazione / inversione / consolidamento / poco chiara
+Grado di conferma      alto / medio / basso
+Elemento favorevole    ...
+Elemento contrario     ...
+Trigger decisivo       ...
+Invalidazione          ...
+
+Subito dopo scrivi una frase molto semplice:
+
+“È Long in costruzione. Diventerebbe Long confermato soltanto sopra [livello], con nuovi acquisti e Open Interest crescente.”
+
+### Smart Money Report
+Massimo 3 frasi semplici.
+
+### Qualità dei flussi
+Massimo 3 frasi semplici.
+Dichiara se si tratta di nuovi Long, nuovi Short, short covering, liquidazione Long o flusso misto.
+
+### Alignment Map
+Massimo 3 frasi semplici.
+Dichiara chiaramente 0/3, 1/3, 2/3 o 3/3.
+
+### Prezzo e POC
+Massimo 4 frasi semplici.
+Spiega cosa deve fare il prezzo per confermare.
+
+### Concentrazione
+Massimo 2 frasi semplici.
+Citala solo se importante.
+
+## Piano pratico
+
+### Per diventare Long confermato
+Elenca solo le condizioni necessarie.
+
+### Per diventare Short confermato
+Elenca solo le condizioni necessarie.
+
+### Cosa fare adesso
+Scegli una sola frase:
+
+- attendere;
+- privilegiare Long sui pullback;
+- privilegiare Short sui rimbalzi;
+- non inseguire;
+- nessun vantaggio operativo.
+
+==================================================
+B. VERSIONE BREVE
+==================================================
+
+Dopo la lettura completa, genera anche un post autonomo.
+
+Usa questa struttura:
+
+**[STRUMENTO] — [LONG CONFERMATO / SHORT CONFERMATO / LONG IN COSTRUZIONE / SHORT IN COSTRUZIONE / POCO CHIARO]**
+
+Una frase molto semplice sullo stato attuale.
+
+Una frase sulla qualità del flusso.
+
+Una frase sull’Alignment Map.
+
+**Conferma Long:** livello + nuovi Long + Open Interest.
+
+**Conferma Short:** inseriscila solo se concreta.
+
+**Invalidazione:** livello o condizione.
+
+**Conclusione:** una frase netta e semplice.
+
+Esempio di stile:
+
+“È Long in costruzione. Diventerebbe Long confermato soltanto sopra 350, con nuovi acquisti e Open Interest crescente.”
+
+Regole per il post:
+
+- massimo 7–9 righe;
+- una sola idea per riga;
+- nessun linguaggio tecnico inutile;
+- nessuna spiegazione teorica;
+- non riportare troppi numeri;
+- il lettore deve capire subito se il mercato è Long, Short o ancora poco chiaro;
+- il post deve essere pronto da copiare e pubblicare.
+
+==================================================
+REGOLE FINALI
+==================================================
+
+- Prima dichiara se il mercato è Long, Short o poco chiaro.
+- Poi spiega perché.
+- Infine indica cosa deve succedere per confermare o invalidare.
+- Smart Money Report fornisce il verdetto.
+- Tabella tecnica verifica la qualità dei flussi.
+- Alignment Map definisce il contesto.
+- Prezzo e POC decidono il timing.
+- Non usare frasi vaghe.
+- Non forzare un segnale.
+- Non inventare valori non leggibili.
+- Quando un dato non è leggibile, scrivi “dato non chiaramente leggibile”.
+- Preferisci sempre frasi semplici come:
+  “È Long in costruzione.”
+  “Non è ancora Long confermato.”
+  “Diventa Long confermato sopra…”
+  “Sotto questo livello il segnale viene annullato.”

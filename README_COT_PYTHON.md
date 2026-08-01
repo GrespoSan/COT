@@ -3,6 +3,7 @@
 ## File
 
 - `app_cot_smart_money.py`: applicazione Streamlit completa.
+- `PROMPT.TXT`: istruzioni operative preimpostate per l'interrogazione AI.
 - `requirements_cot.txt`: dipendenze per Streamlit Cloud.
 - `term_structure.csv`: archivio manuale Contango / Backwardation per le commodity.
 - `.streamlit/secrets.toml.example`: esempio delle chiavi necessarie per l'interrogazione AI.
@@ -16,7 +17,7 @@ streamlit run app_cot_smart_money.py
 
 ## Streamlit Cloud
 
-1. Carica i file nel repository GitHub.
+1. Carica tutti i file nel repository GitHub, compreso `PROMPT.TXT`.
 2. Rinomina `requirements_cot.txt` in `requirements.txt` oppure copia il suo contenuto nel requirements già presente.
 3. Imposta come Main file path `app_cot_smart_money.py`.
 4. Apri **Settings → Secrets** e inserisci almeno una chiave AI.
@@ -64,7 +65,17 @@ La sezione AI riceve l'intero quadro deterministico:
 - stato e valore della Term Structure;
 - responso Smart Money e, quando attivo, modulo Legacy.
 
-È possibile scegliere Google Gemini oppure Groq e inserire una domanda personalizzata. L'AI può spiegare e contestualizzare il risultato, ma non modifica il Bias calcolato dall'app.
+Il prompt operativo viene caricato automaticamente da `PROMPT.TXT`. Per modificarne stile, struttura o regole basta aggiornare quel file nel repository: non serve intervenire nel codice Python.
+
+L'app non allega automaticamente uno screenshot all'AI e non calcola ancora Alignment Map, POC, supporti o resistenze. Quando il prompt li richiede, l'AI riceve il vincolo di dichiarare `dato non chiaramente leggibile` e di non inventare livelli.
+
+Quando cambi strumento oppure arriva una nuova data COT, l'app cancella automaticamente:
+
+- la precedente risposta AI;
+- la domanda personalizzata precedente;
+- il vecchio contesto AI.
+
+È possibile scegliere Google Gemini oppure Groq e aggiungere una domanda personalizzata. L'AI può spiegare e contestualizzare il risultato, ma non deve sostituire il responso deterministico calcolato dall'app.
 
 ## Logica inclusa
 
@@ -79,9 +90,5 @@ La sezione AI riceve l'intero quadro deterministico:
 - concentrazione Top 8 e percentile storico;
 - prezzo Weekly con EMA21, usando solo settimane completate;
 - modulo Legacy separato ultimo report vs penultimo;
-- interrogazione AI con domanda personalizzata;
+- interrogazione AI con prompt esterno modificabile;
 - export CSV del responso e dello storico.
-
-## Confronto con TradingView
-
-Prima di confrontare i due responsi, verifica che la **data delle posizioni COT** sia identica. Due report settimanali differenti possono mostrare flussi e Bias opposti senza che uno dei due calcoli sia necessariamente errato.

@@ -68,6 +68,7 @@ CFTC_API_BASES = (
 )
 
 TERM_OPTIONS = ["Non disponibile", "Contango", "Backwardation", "Curva piatta"]
+AI_PROMPT_FILENAME = "PROMPT.TXT"
 
 
 @dataclass(frozen=True)
@@ -1091,6 +1092,24 @@ def bundled_term_defaults() -> dict[str, str]:
     return read_term_csv(path) if path.exists() else {}
 
 
+def load_operational_prompt() -> tuple[str, str]:
+    """Carica le istruzioni AI da PROMPT.TXT senza memorizzarle in cache."""
+    prompt_path = Path(__file__).with_name(AI_PROMPT_FILENAME)
+    try:
+        prompt_text = prompt_path.read_text(encoding="utf-8").strip()
+        if prompt_text:
+            return prompt_text, AI_PROMPT_FILENAME
+    except (OSError, UnicodeError):
+        pass
+
+    fallback = (
+        "Scrivi in italiano con frasi semplici. Dichiara prima se il mercato è Long, "
+        "Short, in costruzione oppure poco chiaro. Poi spiega la qualità dei flussi e "
+        "indica quali conferme attendere. Non inventare dati o livelli mancanti."
+    )
+    return fallback, "prompt interno di emergenza"
+
+
 # =============================================================================
 # GRAFICI
 # =============================================================================
@@ -1214,16 +1233,21 @@ if not smart.get("available"):
     st.stop()
 
 
+# Una risposta AI appartiene sempre a un solo strumento e a una sola data COT.
+# Se cambia il mercato oppure arriva un nuovo report, la vecchia interrogazione viene eliminata.
+current_ai_data_context = f"{spec.root}|{smart['report_date'].isoformat()}"
+if st.session_state.get("_cot_ai_data_context") != current_ai_data_context:
+    for state_key in ("cot_ai_answer", "cot_ai_context", "cot_ai_question"):
+        st.session_state.pop(state_key, None)
+    st.session_state["_cot_ai_data_context"] = current_ai_data_context
+
+
 # =============================================================================
 # INTESTAZIONE DATI
 # =============================================================================
 st.success(
     f"{spec.label} | Report {spec.specific_report} | posizioni al {smart['report_date'].strftime('%d/%m/%Y')} "
     f"| mercato CFTC: {specific_market_name} ({specific_resolution})."
-)
-st.caption(
-    "Confronto con TradingView: verifica sempre che la data delle posizioni COT sia identica. "
-    "Due report settimanali diversi possono produrre letture opposte senza che vi sia un errore di calcolo."
 )
 if price_error:
     st.warning(price_error)
@@ -1367,7 +1391,7 @@ def secret_value(name: str, default: str) -> str:
         return default
 
 
-def build_ai_prompt(user_question: str) -> str:
+def build_ai_prompt(user_question: str, operational_prompt: str) -> str:
     legacy_text = "Modulo Legacy disattivato o non disponibile."
     if show_legacy and legacy.get("available"):
         legacy_text = (
@@ -1380,12 +1404,24 @@ def build_ai_prompt(user_question: str) -> str:
         )
 
     question = user_question.strip() or (
-        "Spiega in parole semplici il quadro COT, le eventuali divergenze tra ultimo report, "
-        "struttura 3-6 settimane e prezzo Weekly, e indica cosa osservare nelle prossime settimane."
+        "Applica integralmente il prompt operativo preimpostato e produci sia la lettura "
+        "completa sia la versione breve per il post social."
     )
 
     return f"""
-Sei un analista specializzato nei report COT. Analizza esclusivamente i dati forniti dalla dashboard.
+ISTRUZIONI OPERATIVE CARICATE DA {AI_PROMPT_FILENAME}
+
+{operational_prompt}
+
+==================================================
+FONTE DATI DISPONIBILE NELLA DASHBOARD PYTHON
+==================================================
+
+In questa interrogazione non è allegato automaticamente uno screenshot.
+Usa come fonte principale esclusivamente i dati strutturati riportati sotto.
+La dashboard non calcola ancora Alignment Map, POC, supporti o resistenze.
+Per questi elementi scrivi "dato non chiaramente leggibile" e non inventare valori o livelli.
+Quando un trigger numerico non è disponibile, descrivi soltanto la condizione necessaria.
 
 MERCATO
 - Strumento: {spec.label}
@@ -1431,20 +1467,26 @@ RESPONSO DETERMINISTICO SMART MONEY
 MODULO LEGACY
 {legacy_text}
 
-DOMANDA DELL'UTENTE
+RICHIESTA AGGIUNTIVA DELL'UTENTE
 {question}
 
-ISTRUZIONI VINCOLANTI
-- Rispondi in italiano, con linguaggio semplice ma preciso.
-- Non inventare dati, prezzi, livelli tecnici o eventi esterni.
-- Non modificare il responso deterministico: puoi spiegarlo, contestualizzarlo o evidenziarne i limiti.
-- Distingui chiaramente tra posizionamento COT, nuovi flussi 1W, struttura 3-6W e conferma del prezzo Weekly.
-- Ricorda che un COT Index estremo descrive affollamento relativo, non un segnale automatico di inversione.
+VINCOLI FINALI DELLA DASHBOARD
+- Il responso deterministico è il punto di partenza: non contraddirlo senza dichiarare chiaramente il limite dei dati.
+- Non inventare screenshot, Alignment Map, POC, supporti, resistenze o livelli tecnici.
+- Distingui nuovi Long, nuovi Short, short covering, liquidazione Long e flusso misto usando i delta disponibili.
+- Un COT Index estremo descrive affollamento relativo, non un segnale automatico di inversione.
 - Considera la Term Structure soltanto secondo lo stato d'uso indicato.
-- Non proporre un ingresso immediato; indica cosa osservare e quali conferme attendere.
-- Concludi con un semaforo finale: 🟢, 🟡 oppure 🔴, accompagnato da una breve motivazione.
+- Il COT non è un segnale immediato di ingresso.
 """.strip()
 
+
+operational_prompt, operational_prompt_source = load_operational_prompt()
+with st.expander(f"Prompt operativo preimpostato — {operational_prompt_source}", expanded=False):
+    st.caption(
+        "Il testo viene caricato automaticamente a ogni esecuzione. Per aggiornarlo modifica "
+        f"{AI_PROMPT_FILENAME} nel repository, senza intervenire sul codice Python."
+    )
+    st.code(operational_prompt, language=None)
 
 ai_col1, ai_col2 = st.columns([1, 1])
 with ai_col1:
@@ -1467,15 +1509,16 @@ with st.form("cot_ai_form"):
     ai_question = st.text_area(
         "Domanda facoltativa",
         placeholder=(
-            "Esempio: perché TradingView appare ancora ribassista mentre questa dashboard segnala recupero? "
-            "Quali conferme devo attendere?"
+            "Il prompt completo è già preimpostato. Qui puoi aggiungere una richiesta specifica, "
+            "per esempio: concentrati soprattutto sulla qualità dei flussi dell'ultimo report."
         ),
         height=105,
+        key="cot_ai_question",
     )
     ai_submit = st.form_submit_button("Genera analisi con AI", type="primary", width="stretch")
 
 if ai_submit:
-    prompt_ai = build_ai_prompt(ai_question)
+    prompt_ai = build_ai_prompt(ai_question, operational_prompt)
     with st.spinner(f"Interrogo {ai_provider}..."):
         try:
             if ai_provider == "Google Gemini":
@@ -1530,12 +1573,11 @@ if ai_submit:
             else:
                 st.error(f"Errore durante la comunicazione con l'AI: {exc}")
 
-if st.session_state.get("cot_ai_answer"):
+saved_ai_context = st.session_state.get("cot_ai_context", "")
+if st.session_state.get("cot_ai_answer") and saved_ai_context.startswith(current_ai_data_context + "|"):
     st.markdown("### Risposta dell'AI")
     st.write(st.session_state["cot_ai_answer"])
-    st.caption(
-        "Contesto usato: " + st.session_state.get("cot_ai_context", "non disponibile")
-    )
+    st.caption("Contesto usato: " + saved_ai_context)
 
 
 # =============================================================================
