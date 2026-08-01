@@ -57,7 +57,6 @@ st.caption(
 # COSTANTI CFTC
 # =============================================================================
 CFTC_DATASETS = {
-    "Legacy": "6dca-aqww",
     "Disaggregated": "72hh-3qpy",
     "Financial": "gpe5-46if",
 }
@@ -69,6 +68,8 @@ CFTC_API_BASES = (
 
 TERM_OPTIONS = ["Non disponibile", "Contango", "Backwardation", "Curva piatta"]
 AI_PROMPT_FILENAME = "PROMPT.TXT"
+ALIGNMENT_UPPER = 80.0
+ALIGNMENT_LOWER = 20.0
 
 
 @dataclass(frozen=True)
@@ -391,6 +392,18 @@ COMMON_FIELDS = {
     "oi": ("open_interest_all",),
     "code": ("cftc_contract_market_code",),
     "commodity": ("commodity_name", "contract_market_name"),
+    "small_long": (
+        "nonrept_positions_long",
+        "nonrept_positions_long_all",
+        "nonreportable_positions_long",
+        "nonreportable_positions_long_all",
+    ),
+    "small_short": (
+        "nonrept_positions_short",
+        "nonrept_positions_short_all",
+        "nonreportable_positions_short",
+        "nonreportable_positions_short_all",
+    ),
     "conc_long": (
         "conc_net_le_8_tdr_long",
         "conc_net_le_8_tdr_long_all",
@@ -419,12 +432,6 @@ REPORT_FIELDS = {
         "trend_short": ("m_money_positions_short", "m_money_positions_short_all"),
         "producer_long": ("prod_merc_positions_long", "prod_merc_positions_long_all"),
         "producer_short": ("prod_merc_positions_short", "prod_merc_positions_short_all"),
-    },
-    "Legacy": {
-        "trend_long": ("noncomm_positions_long_all", "noncomm_positions_long"),
-        "trend_short": ("noncomm_positions_short_all", "noncomm_positions_short"),
-        "commercial_long": ("comm_positions_long_all", "comm_positions_long"),
-        "commercial_short": ("comm_positions_short_all", "comm_positions_short"),
     },
 }
 
@@ -459,8 +466,7 @@ def build_history_df(
         fields["counter_long"] = fields.get("producer_long")
         fields["counter_short"] = fields.get("producer_short")
     else:
-        fields["counter_long"] = fields.get("commercial_long")
-        fields["counter_short"] = fields.get("commercial_short")
+        raise CFTCError(f"Tipo di report non supportato: {report_type}")
 
     required = ("date", "oi", "trend_long", "trend_short", "counter_long", "counter_short")
     missing = [name for name in required if not fields.get(name)]
@@ -484,6 +490,8 @@ def build_history_df(
                 "trend_short": to_float(record.get(fields["trend_short"] or "")),
                 "counter_long": to_float(record.get(fields["counter_long"] or "")),
                 "counter_short": to_float(record.get(fields["counter_short"] or "")),
+                "small_long": to_float(record.get(fields["small_long"] or "")) if fields.get("small_long") else math.nan,
+                "small_short": to_float(record.get(fields["small_short"] or "")) if fields.get("small_short") else math.nan,
                 "conc_long": to_float(record.get(fields["conc_long"] or "")) if fields.get("conc_long") else math.nan,
                 "conc_short": to_float(record.get(fields["conc_short"] or "")) if fields.get("conc_short") else math.nan,
                 "cftc_code": str(record.get(fields["code"] or "", "N/A")),
@@ -499,20 +507,35 @@ def build_history_df(
         .drop_duplicates(subset=["date"], keep="last")
         .reset_index(drop=True)
     )
-    for column in ("oi", "trend_long", "trend_short", "counter_long", "counter_short", "conc_long", "conc_short"):
+    for column in (
+        "oi", "trend_long", "trend_short", "counter_long", "counter_short",
+        "small_long", "small_short", "conc_long", "conc_short",
+    ):
         df[column] = pd.to_numeric(df[column], errors="coerce")
 
     df["trend_net"] = df["trend_long"] - df["trend_short"]
     df["counter_net"] = df["counter_long"] - df["counter_short"]
+    df["small_net"] = df["small_long"] - df["small_short"]
 
-    rolling_min = df["trend_net"].rolling(cot_lookback, min_periods=min(26, cot_lookback)).min()
-    rolling_max = df["trend_net"].rolling(cot_lookback, min_periods=min(26, cot_lookback)).max()
-    denominator = rolling_max - rolling_min
-    df["cot_index"] = np.where(
-        denominator.ne(0),
-        100.0 * (df["trend_net"] - rolling_min) / denominator,
-        50.0,
-    )
+    def rolling_cot_index(series: pd.Series) -> pd.Series:
+        rolling_min = series.rolling(cot_lookback, min_periods=min(26, cot_lookback)).min()
+        rolling_max = series.rolling(cot_lookback, min_periods=min(26, cot_lookback)).max()
+        denominator = rolling_max - rolling_min
+        result = pd.Series(
+            np.where(
+                denominator.ne(0),
+                100.0 * (series - rolling_min) / denominator,
+                50.0,
+            ),
+            index=series.index,
+            dtype="float64",
+        )
+        return result.clip(lower=0.0, upper=100.0)
+
+    df["trend_index"] = rolling_cot_index(df["trend_net"])
+    df["counter_index"] = rolling_cot_index(df["counter_net"])
+    df["small_index"] = rolling_cot_index(df["small_net"])
+    df["cot_index"] = df["trend_index"]
     return df, fields
 
 
@@ -1008,62 +1031,125 @@ def analyze_smart_money(
 
 
 # =============================================================================
-# MODULO LEGACY DI VALIDAZIONE
+# COT ALIGNMENT MAP — CONTESTO STRUTTURALE
 # =============================================================================
-def analyze_legacy(df: pd.DataFrame, term_structure: str) -> dict[str, Any]:
-    if df.empty or len(df) < 2:
-        return {"available": False, "bias": "NON DISPONIBILE", "detail": "Dati Legacy insufficienti."}
+def alignment_zone(value: float) -> str:
+    if pd.isna(value):
+        return "N/A"
+    if value >= ALIGNMENT_UPPER:
+        return "ESTREMO ALTO"
+    if value <= ALIGNMENT_LOWER:
+        return "ESTREMO BASSO"
+    if value > 50:
+        return "SOPRA LA MEDIA"
+    if value < 50:
+        return "SOTTO LA MEDIA"
+    return "NEUTRO"
+
+
+def analyze_alignment_map(df: pd.DataFrame, spec: MarketSpec) -> dict[str, Any]:
+    unavailable = {
+        "available": False,
+        "speculative_index": math.nan,
+        "counterparty_index": math.nan,
+        "small_index": math.nan,
+        "bull_score": 0,
+        "bear_score": 0,
+        "state": "DATI NON DISPONIBILI",
+        "description": "Le posizioni Nonreportable / Small Traders non sono disponibili nel report selezionato.",
+    }
+    required = {"trend_index", "counter_index", "small_index"}
+    if df.empty or not required.issubset(df.columns):
+        return unavailable
 
     cur = df.iloc[-1]
-    prev = df.iloc[-2]
-    oi_delta = float(cur["oi"] - prev["oi"])
-    pct_delta_oi = safe_pct_change(float(cur["oi"]), float(prev["oi"]))
-    trend_flow = float(cur["trend_net"] - prev["trend_net"])
-    counter_flow = float(cur["counter_net"] - prev["counter_net"])
-    backwardation = term_structure == "Backwardation"
+    speculative_index = float(cur["trend_index"]) if not pd.isna(cur["trend_index"]) else math.nan
+    counterparty_index = float(cur["counter_index"]) if not pd.isna(cur["counter_index"]) else math.nan
+    small_index = float(cur["small_index"]) if not pd.isna(cur["small_index"]) else math.nan
+    if any(pd.isna(value) for value in (speculative_index, counterparty_index, small_index)):
+        return unavailable
 
-    stage_1a = trend_flow > 0 and counter_flow < 0 and pct_delta_oi > 0.5
-    stage_1b = trend_flow < 0 and counter_flow > 0 and pct_delta_oi > 0.5
-    squeeze = pct_delta_oi <= -0.5 and trend_flow > 0 and backwardation
-    div_short = trend_flow > 0 and counter_flow > 0
-    conv_short = trend_flow < 0 and counter_flow < 0
+    opposite_logic = spec.family == "commodity" or spec.is_fx
 
-    bias = "NEUTRAL / MISTO"
-    verdict = "Flussi misti in assestamento."
-    action = "Attendi una configurazione più chiara prima di aumentare l'esposizione."
-    if stage_1a:
-        bias = "CONVERGENZA LONG"
-        verdict = "Convergenza rialzista tra Noncommercial e Commercial con OI in espansione."
-        action = "Cerca conferme del prezzo sui supporti prima di aumentare l'esposizione long."
-    elif stage_1b:
-        bias = "DISTRIBUZIONE / SHORT"
-        verdict = "Pressione ribassista con Open Interest in espansione."
-        action = "Evita nuovi long e attendi un miglioramento dei flussi."
-    elif squeeze:
-        bias = "SHORT COVERING SQUEEZE"
-        verdict = "Miglioramento speculativo con OI in contrazione e Backwardation."
-        action = "Non inseguire il movimento e proteggi le posizioni già aperte."
-    elif div_short:
-        bias = "DIVERG. LONG ➔ SHORT"
-        verdict = "Divergenza tra Noncommercial e Commercial."
-        action = "Proteggi gli eventuali long e attendi una nuova convergenza."
-    elif conv_short:
-        bias = "CONVERGENZA SHORT"
-        verdict = "Convergenza ribassista dei flussi netti."
-        action = "Evita acquisti in controtendenza e attendi un miglioramento dei flussi."
+    bull_speculative = speculative_index <= ALIGNMENT_LOWER if opposite_logic else speculative_index >= ALIGNMENT_UPPER
+    bull_counterparty = counterparty_index >= ALIGNMENT_UPPER
+    bull_small = small_index <= ALIGNMENT_LOWER
+
+    bear_speculative = speculative_index >= ALIGNMENT_UPPER if opposite_logic else speculative_index <= ALIGNMENT_LOWER
+    bear_counterparty = counterparty_index <= ALIGNMENT_LOWER
+    bear_small = small_index >= ALIGNMENT_UPPER
+
+    bull_score = int(bull_speculative) + int(bull_counterparty) + int(bull_small)
+    bear_score = int(bear_speculative) + int(bear_counterparty) + int(bear_small)
+
+    bull_full = bull_score == 3
+    bear_full = bear_score == 3
+    bull_partial = bull_score == 2 and bull_score > bear_score
+    bear_partial = bear_score == 2 and bear_score > bull_score
+    mixed = bull_score == bear_score and bull_score >= 2
+
+    if bull_full:
+        state = "ALLINEAMENTO RIALZISTA 3/3"
+    elif bear_full:
+        state = "ALLINEAMENTO RIBASSISTA 3/3"
+    elif bull_partial:
+        state = "ALLINEAMENTO RIALZISTA 2/3"
+    elif bear_partial:
+        state = "ALLINEAMENTO RIBASSISTA 2/3"
+    elif mixed:
+        state = "SEGNALI MISTI"
+    else:
+        state = "NESSUN ALLINEAMENTO"
+
+    if spec.family == "commodity":
+        if bull_full:
+            description = "Producer alti; Managed Money e Small Traders bassi."
+        elif bear_full:
+            description = "Producer bassi; Managed Money e Small Traders alti."
+        elif bull_partial:
+            description = "Due condizioni rialziste su tre sono agli estremi."
+        elif bear_partial:
+            description = "Due condizioni ribassiste su tre sono agli estremi."
+        else:
+            description = "Le categorie non sono contemporaneamente agli estremi."
+    elif spec.is_fx:
+        if bull_full:
+            description = "Dealer alti; Leveraged Funds e Small Traders bassi."
+        elif bear_full:
+            description = "Dealer bassi; Leveraged Funds e Small Traders alti."
+        elif bull_partial:
+            description = "Allineamento contrarian FX rialzista parziale."
+        elif bear_partial:
+            description = "Allineamento contrarian FX ribassista parziale."
+        else:
+            description = "Le categorie valutarie non sono pienamente allineate."
+    else:
+        if bull_full:
+            description = "Asset Manager e Leveraged Funds alti; Small Traders bassi."
+        elif bear_full:
+            description = "Asset Manager e Leveraged Funds bassi; Small Traders alti."
+        elif bull_partial:
+            description = "Consenso istituzionale rialzista parziale."
+        elif bear_partial:
+            description = "Consenso istituzionale ribassista parziale."
+        else:
+            description = "Non emerge un consenso istituzionale estremo."
+
+    if bull_full or bear_full:
+        description += " Massimo livello di allineamento COT, da confermare con flussi e prezzo."
 
     return {
         "available": True,
-        "bias": bias,
-        "verdict": verdict,
-        "action": action,
-        "report_date": pd.Timestamp(cur["date"]).date(),
-        "previous_date": pd.Timestamp(prev["date"]).date(),
-        "oi": float(cur["oi"]),
-        "oi_delta": oi_delta,
-        "pct_delta_oi": pct_delta_oi,
-        "trend_flow": trend_flow,
-        "counter_flow": counter_flow,
+        "speculative_index": speculative_index,
+        "counterparty_index": counterparty_index,
+        "small_index": small_index,
+        "speculative_zone": alignment_zone(speculative_index),
+        "counterparty_zone": alignment_zone(counterparty_index),
+        "small_zone": alignment_zone(small_index),
+        "bull_score": bull_score,
+        "bear_score": bear_score,
+        "state": state,
+        "description": description,
     }
 
 
@@ -1160,7 +1246,6 @@ with st.sidebar:
     yahoo_ticker = st.text_input("Ticker prezzo Yahoo", value=spec.yahoo_ticker)
 
     st.divider()
-    show_legacy = st.toggle("Mostra modulo Legacy", value=True)
     show_debug = st.toggle("Mostra diagnostica campi", value=False)
 
     st.divider()
@@ -1171,13 +1256,9 @@ with st.sidebar:
         st.info("NON APPLICABILE")
         st.caption("Non viene utilizzata per indici, valute, tassi, volatilità e crypto CME.")
     else:
-        term_usage_status = "RICHIESTA SOLO PER SQUEEZE LEGACY" if show_legacy else "OPZIONALE"
-        if show_legacy:
-            st.warning("RICHIESTA SOLO PER SQUEEZE LEGACY")
-            st.caption("Non è obbligatoria per il responso Smart Money. Serve soltanto per riconoscere lo Short Covering con Backwardation nel modulo Legacy.")
-        else:
-            st.info("OPZIONALE")
-            st.caption("Il motore Smart Money non usa la Term Structure. Puoi lasciarla su Non disponibile.")
+        term_usage_status = "OPZIONALE"
+        st.info("OPZIONALE")
+        st.caption("Non entra nel responso Smart Money né nell'Alignment Map. Puoi lasciarla su Non disponibile.")
 
         term_defaults = bundled_term_defaults()
         uploaded_term_file = st.file_uploader("Carica CSV opzionale", type=["csv"])
@@ -1204,18 +1285,6 @@ try:
             specific_rows, spec.specific_report, spec, cot_lookback
         )
 
-        legacy_df = pd.DataFrame()
-        legacy_market_name = ""
-        legacy_resolution = ""
-        legacy_fields: dict[str, str | None] = {}
-        if show_legacy:
-            legacy_rows, legacy_market_name, legacy_resolution = fetch_market_history(
-                "Legacy", spec, history_limit
-            )
-            legacy_df, legacy_fields = build_history_df(
-                legacy_rows, "Legacy", spec, cot_lookback
-            )
-
         weekly_price, price_error = fetch_weekly_price(yahoo_ticker)
 except CFTCError as exc:
     st.error(f"Errore CFTC: {exc}")
@@ -1226,7 +1295,7 @@ except Exception as exc:
 
 price_analysis = analyze_price(weekly_price)
 smart = analyze_smart_money(specific_df, spec, price_analysis, float(oi_threshold))
-legacy = analyze_legacy(legacy_df, term_structure) if show_legacy else {"available": False}
+alignment = analyze_alignment_map(specific_df, spec)
 
 if not smart.get("available"):
     st.error(smart.get("final_detail", "Analisi non disponibile."))
@@ -1314,31 +1383,74 @@ st.dataframe(flow_rows, width="stretch", hide_index=True)
 
 
 # =============================================================================
+# COT ALIGNMENT MAP
+# =============================================================================
+st.header("3. COT Alignment Map")
+st.caption(
+    "Contesto strutturale calcolato sullo stesso report e sullo stesso lookback del motore Smart Money. "
+    "Non misura il flusso settimanale e non sostituisce la conferma del prezzo."
+)
+
+if alignment["available"]:
+    a1, a2, a3 = st.columns(3)
+    a1.metric(
+        spec.trend_label,
+        fmt_decimal(alignment["speculative_index"], 1),
+        alignment["speculative_zone"],
+    )
+    a2.metric(
+        spec.counter_label,
+        fmt_decimal(alignment["counterparty_index"], 1),
+        alignment["counterparty_zone"],
+    )
+    a3.metric(
+        "Nonreportable / Small Traders",
+        fmt_decimal(alignment["small_index"], 1),
+        alignment["small_zone"],
+    )
+
+    score_left, score_right = st.columns(2)
+    score_left.metric("Allineamento rialzista", f"{alignment['bull_score']}/3")
+    score_right.metric("Allineamento ribassista", f"{alignment['bear_score']}/3")
+
+    card(
+        "CONTESTO COT — ALIGNMENT MAP",
+        alignment["state"],
+        alignment["description"] +
+        "<br><b>Regola:</b> Alignment Map prepara il contesto; Net Position conferma il flusso; il prezzo attiva l'operazione.",
+        accent_for_state(alignment["state"]),
+    )
+else:
+    st.warning(
+        "COT Alignment Map non disponibile: il dataset non ha restituito una serie valida "
+        "per Nonreportable / Small Traders. Il responso Smart Money resta comunque utilizzabile."
+    )
+
+
+# =============================================================================
 # TERM STRUCTURE
 # =============================================================================
 st.subheader("Term Structure")
 if term_usage_status == "NON APPLICABILE":
     st.info("NON APPLICABILE — questo mercato non richiede l'inserimento della curva M1–M2.")
-elif term_usage_status == "OPZIONALE":
-    st.info("OPZIONALE — la Term Structure non modifica il responso Smart Money.")
 else:
-    st.warning("RICHIESTA SOLO PER SQUEEZE LEGACY — non è necessaria per gli altri responsi.")
+    st.info("OPZIONALE — non modifica il responso Smart Money né il COT Alignment Map.")
 
 if spec.family == "commodity":
     if term_structure == "Backwardation":
-        st.success("Backwardation: il contratto vicino quota sopra il successivo. Può confermare lo Short Covering nel modulo Legacy, ma non sostituisce il segnale COT.")
+        st.success("Backwardation: il contratto vicino quota sopra il successivo. È un'informazione aggiuntiva sulla curva, non un segnale COT.")
     elif term_structure == "Contango":
-        st.warning("Contango: il contratto successivo quota sopra il vicino. Non conferma lo scenario Legacy di Short Covering.")
+        st.warning("Contango: il contratto successivo quota sopra il vicino. È un'informazione aggiuntiva sulla curva.")
     elif term_structure == "Curva piatta":
         st.info("Curva piatta: differenza M1–M2 non significativa.")
     else:
-        st.info("Valore non impostato. Il responso Smart Money resta completo; soltanto lo Short Covering Legacy non può essere confermato dalla curva.")
+        st.info("Valore non impostato. L'analisi Smart Money e l'Alignment Map restano complete.")
 
 
 # =============================================================================
 # GRAFICI
 # =============================================================================
-st.header("3. Grafici")
+st.header("4. Grafici")
 chart_col1, chart_col2 = st.columns(2)
 with chart_col1:
     st.plotly_chart(plot_cot_index(specific_df, spec.trend_label), width="stretch")
@@ -1350,36 +1462,12 @@ if not weekly_price.empty:
 
 
 # =============================================================================
-# MODULO LEGACY
-# =============================================================================
-if show_legacy:
-    st.header("4. Modulo Legacy di validazione")
-    if legacy.get("available"):
-        legacy_accent = accent_for_state(legacy["bias"])
-        card(
-            "ULTIMO REPORT LEGACY VS PENULTIMO",
-            legacy["bias"],
-            f"{legacy['verdict']}<br><b>Azione:</b> {legacy['action']}<br>"
-            f"<b>Term Structure:</b> {term_structure}<br>"
-            f"<b>Mercato CFTC:</b> {legacy_market_name} ({legacy_resolution})",
-            legacy_accent,
-        )
-        l1, l2, l3, l4 = st.columns(4)
-        l1.metric("Open Interest", fmt_number(legacy["oi"]), fmt_pct(legacy["pct_delta_oi"], signed=True, digits=2))
-        l2.metric("Δ Open Interest", fmt_number(legacy["oi_delta"], signed=True))
-        l3.metric("Flusso Noncommercial", fmt_number(legacy["trend_flow"], signed=True))
-        l4.metric("Flusso Commercial", fmt_number(legacy["counter_flow"], signed=True))
-    else:
-        st.warning("Modulo Legacy non disponibile per il mercato selezionato.")
-
-
-# =============================================================================
 # INTERROGAZIONE AI
 # =============================================================================
 st.header("5. Analisi e interrogazione AI")
 st.caption(
-    "L'AI interpreta e spiega il responso deterministico già calcolato. "
-    "Non modifica il Bias, non ricalcola i dati e non trasforma il COT in un segnale immediato di ingresso."
+    "L'AI interpreta il motore Smart Money, la qualità dei flussi e il COT Alignment Map già calcolati. "
+    "Non modifica i dati e non trasforma il COT in un segnale immediato di ingresso."
 )
 
 
@@ -1392,17 +1480,6 @@ def secret_value(name: str, default: str) -> str:
 
 
 def build_ai_prompt(user_question: str, operational_prompt: str) -> str:
-    legacy_text = "Modulo Legacy disattivato o non disponibile."
-    if show_legacy and legacy.get("available"):
-        legacy_text = (
-            f"Bias Legacy: {legacy['bias']}\n"
-            f"Verdetto Legacy: {legacy['verdict']}\n"
-            f"Azione Legacy: {legacy['action']}\n"
-            f"Flusso Noncommercial 1W: {legacy['trend_flow']:+.0f}\n"
-            f"Flusso Commercial 1W: {legacy['counter_flow']:+.0f}\n"
-            f"Variazione Open Interest Legacy: {legacy['pct_delta_oi']:+.2f}%"
-        )
-
     question = user_question.strip() or (
         "Applica integralmente il prompt operativo preimpostato e produci sia la lettura "
         "completa sia la versione breve per il post social."
@@ -1419,7 +1496,8 @@ FONTE DATI DISPONIBILE NELLA DASHBOARD PYTHON
 
 In questa interrogazione non è allegato automaticamente uno screenshot.
 Usa come fonte principale esclusivamente i dati strutturati riportati sotto.
-La dashboard non calcola ancora Alignment Map, POC, supporti o resistenze.
+La dashboard calcola automaticamente Smart Money Report, tabella tecnica e COT Alignment Map.
+Non calcola ancora POC, supporti o resistenze.
 Per questi elementi scrivi "dato non chiaramente leggibile" e non inventare valori o livelli.
 Quando un trigger numerico non è disponibile, descrivi soltanto la condizione necessaria.
 
@@ -1447,6 +1525,16 @@ POSIZIONAMENTO E FLUSSI
 - Top 8 Long: {fmt_pct(smart['conc_long'])}, percentile {fmt_pct(smart['conc_long_rank'])}
 - Top 8 Short: {fmt_pct(smart['conc_short'])}, percentile {fmt_pct(smart['conc_short_rank'])}
 
+COT ALIGNMENT MAP
+- Disponibile: {"SÌ" if alignment['available'] else "NO"}
+- {spec.trend_label}: {fmt_decimal(alignment['speculative_index'], 1)} — {alignment.get('speculative_zone', 'N/A')}
+- {spec.counter_label}: {fmt_decimal(alignment['counterparty_index'], 1)} — {alignment.get('counterparty_zone', 'N/A')}
+- Nonreportable / Small Traders: {fmt_decimal(alignment['small_index'], 1)} — {alignment.get('small_zone', 'N/A')}
+- Allineamento rialzista: {alignment['bull_score']}/3
+- Allineamento ribassista: {alignment['bear_score']}/3
+- Stato: {alignment['state']}
+- Lettura: {alignment['description']}
+
 PREZZO WEEKLY
 - Stato: {price_analysis['text']}
 - Dettaglio: {price_analysis['detail']}
@@ -1464,15 +1552,12 @@ RESPONSO DETERMINISTICO SMART MONEY
 - Cosa fare: {smart['action']}
 - Motivazione: {smart['reason']}
 
-MODULO LEGACY
-{legacy_text}
-
 RICHIESTA AGGIUNTIVA DELL'UTENTE
 {question}
 
 VINCOLI FINALI DELLA DASHBOARD
 - Il responso deterministico è il punto di partenza: non contraddirlo senza dichiarare chiaramente il limite dei dati.
-- Non inventare screenshot, Alignment Map, POC, supporti, resistenze o livelli tecnici.
+- Usa i valori calcolati dell'Alignment Map; non inventare screenshot, POC, supporti, resistenze o livelli tecnici.
 - Distingui nuovi Long, nuovi Short, short covering, liquidazione Long e flusso misto usando i delta disponibili.
 - Un COT Index estremo descrive affollamento relativo, non un segnale automatico di inversione.
 - Considera la Term Structure soltanto secondo lo stato d'uso indicato.
@@ -1605,6 +1690,12 @@ summary_export = pd.DataFrame(
             "Flow controparte 6W": smart["counter_flow_6w"],
             "Open Interest": smart["oi"],
             "Variazione OI %": smart["pct_delta_oi"],
+            "Alignment speculativo": alignment["speculative_index"],
+            "Alignment controparte": alignment["counterparty_index"],
+            "Alignment Small Traders": alignment["small_index"],
+            "Alignment rialzista": f"{alignment['bull_score']}/3",
+            "Alignment ribassista": f"{alignment['bear_score']}/3",
+            "Stato Alignment Map": alignment["state"],
         }
     ]
 )
@@ -1637,9 +1728,6 @@ if show_debug:
     st.header("Diagnostica")
     st.write("Campi specifici risolti")
     st.json(specific_fields)
-    if show_legacy:
-        st.write("Campi Legacy risolti")
-        st.json(legacy_fields)
     st.write("Ultima riga specifica normalizzata")
     st.dataframe(specific_df.tail(1), width="stretch", hide_index=True)
 

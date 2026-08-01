@@ -1,26 +1,26 @@
-# COT Smart Money — versione Python
+# COT Smart Money — versione Python V4
 
 ## File
 
 - `app_cot_smart_money.py`: applicazione Streamlit completa.
 - `PROMPT.TXT`: istruzioni operative preimpostate per l'interrogazione AI.
-- `requirements_cot.txt`: dipendenze per Streamlit Cloud.
+- `requirements.txt`: dipendenze per Streamlit Cloud.
+- `requirements_cot.txt`: copia equivalente delle dipendenze.
 - `term_structure.csv`: archivio manuale Contango / Backwardation per le commodity.
 - `.streamlit/secrets.toml.example`: esempio delle chiavi necessarie per l'interrogazione AI.
 
 ## Installazione locale
 
 ```bash
-pip install -r requirements_cot.txt
+pip install -r requirements.txt
 streamlit run app_cot_smart_money.py
 ```
 
 ## Streamlit Cloud
 
 1. Carica tutti i file nel repository GitHub, compreso `PROMPT.TXT`.
-2. Rinomina `requirements_cot.txt` in `requirements.txt` oppure copia il suo contenuto nel requirements già presente.
-3. Imposta come Main file path `app_cot_smart_money.py`.
-4. Apri **Settings → Secrets** e inserisci almeno una chiave AI.
+2. Imposta come Main file path `app_cot_smart_money.py`.
+3. Apri **Settings → Secrets** e inserisci almeno una chiave AI.
 
 Esempio:
 
@@ -34,19 +34,44 @@ GROQ_MODEL = "openai/gpt-oss-120b"
 
 Non caricare nel repository un file contenente chiavi reali.
 
+## Motore Smart Money
+
+Il responso principale usa automaticamente il report appropriato:
+
+- commodity: Disaggregated, Managed Money contro Producer / Merchant;
+- valute: Financial, Leveraged Funds contro Dealer / Intermediary;
+- indici, tassi, volatilità e crypto CME: Financial, Leveraged Funds contro Asset Manager.
+
+Il vecchio modulo Legacy è stato rimosso dall'interfaccia per evitare due letture diverse dello stesso mercato. Il risultato principale dell'app deriva quindi soltanto dal motore Smart Money specifico per famiglia di mercato.
+
+## COT Alignment Map
+
+L'app calcola anche i tre indici normalizzati richiesti dall'Alignment Map, usando lo stesso report CFTC e lo stesso lookback del motore principale:
+
+- categoria speculativa: Managed Money oppure Leveraged Funds;
+- controparte: Producer, Dealer oppure Asset Manager;
+- Nonreportable / Small Traders.
+
+Sono calcolati:
+
+- valore 0–100 delle tre categorie;
+- zona relativa: estremo alto, estremo basso, sopra o sotto la media;
+- allineamento rialzista da 0/3 a 3/3;
+- allineamento ribassista da 0/3 a 3/3;
+- descrizione strutturale coerente con il Pine Script fornito.
+
+L'Alignment Map non modifica il flusso settimanale del motore Smart Money: aggiunge il contesto strutturale necessario all'analisi finale e viene passato automaticamente all'AI.
+
 ## Term Structure
 
-La CFTC non pubblica direttamente il confronto M1–M2. Il valore resta manuale, ma l'app chiarisce automaticamente quando serve:
+La CFTC non pubblica direttamente il confronto M1–M2. Il valore resta manuale:
 
 - `NON APPLICABILE`: indici, valute, tassi, volatilità e crypto CME;
-- `OPZIONALE`: commodity con il solo motore Smart Money;
-- `RICHIESTA SOLO PER SQUEEZE LEGACY`: commodity con modulo Legacy attivo.
+- `OPZIONALE`: commodity.
 
-La Term Structure non modifica il responso principale Smart Money. Nel modulo Legacy è necessaria soltanto per confermare lo scenario `SHORT COVERING SQUEEZE` in presenza di Backwardation.
+La Term Structure non modifica il responso Smart Money né l'Alignment Map. Puoi:
 
-Puoi:
-
-- modificare `term_structure.csv` nel repository per salvare un valore predefinito;
+- modificare `term_structure.csv` nel repository;
 - selezionare il valore dalla sidebar;
 - caricare un CSV aggiornato dalla sidebar.
 
@@ -54,41 +79,34 @@ Valori ammessi: `Non disponibile`, `Contango`, `Backwardation`, `Curva piatta`.
 
 ## Interrogazione AI
 
-La sezione AI riceve l'intero quadro deterministico:
+La sezione AI riceve automaticamente:
 
 - report e data delle posizioni;
 - COT Index e posizionamento;
 - flussi 1W, 3W e 6W;
+- variazioni Long e Short;
 - Open Interest;
 - conferma prezzo Weekly ed EMA21;
 - concentrazione Top 8;
+- COT Alignment Map completo;
 - stato e valore della Term Structure;
-- responso Smart Money e, quando attivo, modulo Legacy.
+- responso deterministico Smart Money.
 
-Il prompt operativo viene caricato automaticamente da `PROMPT.TXT`. Per modificarne stile, struttura o regole basta aggiornare quel file nel repository: non serve intervenire nel codice Python.
+Il prompt operativo viene caricato da `PROMPT.TXT`. Per modificarne stile, struttura o regole basta aggiornare quel file nel repository.
 
-L'app non allega automaticamente uno screenshot all'AI e non calcola ancora Alignment Map, POC, supporti o resistenze. Quando il prompt li richiede, l'AI riceve il vincolo di dichiarare `dato non chiaramente leggibile` e di non inventare livelli.
+L'app non calcola ancora POC, supporti o resistenze. Quando il prompt li richiede, l'AI riceve il vincolo di dichiarare `dato non chiaramente leggibile` e di non inventare livelli.
 
-Quando cambi strumento oppure arriva una nuova data COT, l'app cancella automaticamente:
-
-- la precedente risposta AI;
-- la domanda personalizzata precedente;
-- il vecchio contesto AI.
-
-È possibile scegliere Google Gemini oppure Groq e aggiungere una domanda personalizzata. L'AI può spiegare e contestualizzare il risultato, ma non deve sostituire il responso deterministico calcolato dall'app.
+Quando cambi strumento oppure arriva una nuova data COT, l'app cancella automaticamente la precedente risposta AI, la domanda personalizzata e il vecchio contesto.
 
 ## Logica inclusa
 
-- report TFF Futures Only per indici, valute, tassi, volatilità e crypto CME;
+- report TFF Futures Only per finanziari e valute;
 - report Disaggregated Futures Only per commodity;
-- Managed Money / Producer per commodity;
-- Leveraged Funds / Dealer per valute;
-- Leveraged Funds / Asset Manager per altri finanziari;
 - flussi 1W, 3W e 6W;
 - COT Index 26/52/156/260 settimane;
+- COT Alignment Map 0–100 con punteggi 0/3–3/3;
 - Open Interest;
 - concentrazione Top 8 e percentile storico;
 - prezzo Weekly con EMA21, usando solo settimane completate;
-- modulo Legacy separato ultimo report vs penultimo;
 - interrogazione AI con prompt esterno modificabile;
 - export CSV del responso e dello storico.
