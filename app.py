@@ -1336,8 +1336,7 @@ main_accent = accent_for_state(smart["final_bias"])
 card(
     "BIAS FINALE — COT + PREZZO WEEKLY",
     smart["final_bias"],
-    f"{smart['final_detail']}<br><b>Prezzo:</b> {price_analysis['text']}<br>"
-    f"<b>Freschezza:</b> {smart['freshness']} ({smart['age_days']} giorni)",
+    f"{smart['final_detail']}<br><b>Prezzo:</b> {price_analysis['text']}",
     main_accent,
 )
 
@@ -1509,7 +1508,6 @@ MERCATO
 - Controparte: {spec.counter_label}
 - Data posizioni: {smart['report_date'].strftime('%d/%m/%Y')}
 - Data report precedente: {smart['previous_date'].strftime('%d/%m/%Y')}
-- Freschezza: {smart['freshness']} ({smart['age_days']} giorni)
 
 POSIZIONAMENTO E FLUSSI
 - COT Index: {smart['cot_index']:.1f} — {smart['positioning']}
