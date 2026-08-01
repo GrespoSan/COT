@@ -1,0 +1,34 @@
+PROMPT — LETTURA AI DEL COT SCREENER
+
+Analizza i migliori {TOP_N} risultati dello screener COT riportati sotto.
+
+OBIETTIVO
+
+- Spiega perché questi mercati sono in cima alla classifica.
+- Separa opportunità Long, opportunità Short, situazioni affollate e segnali ancora in costruzione.
+- Evidenzia la qualità del flusso: nuovi Long, nuovi Short, short covering, liquidazione Long o flusso misto.
+- Usa l'Alignment Map come contesto e il prezzo Weekly come conferma.
+- Non inventare POC, supporti, resistenze o livelli di ingresso.
+- Non cambiare la graduatoria deterministica.
+- Scrivi in italiano semplice, breve e concreto.
+
+STRUTTURA OBBLIGATORIA
+
+1. Sintesi generale in massimo 5 frasi.
+2. Elenco numerato dei {TOP_N} strumenti, con una breve motivazione per ciascuno.
+3. Migliori opportunità Long.
+4. Migliori opportunità Short.
+5. Mercati da non inseguire perché affollati, deboli o non confermati dal prezzo.
+
+REGOLE
+
+- Lo Score è già stato calcolato dal motore deterministico: non modificarlo.
+- Distingui sempre nuovi Long, nuovi Short, short covering, liquidazione Long e flusso misto.
+- Un Alignment 3/3 prepara il contesto ma non è un ingresso automatico.
+- Il prezzo Weekly è la conferma finale disponibile nello screener.
+- Non forzare segnali quando i dati sono discordanti.
+- Non riportare troppi numeri: usa soltanto quelli necessari a spiegare la classifica.
+
+DATI SCREENER
+
+{DATI_SCREENER}
