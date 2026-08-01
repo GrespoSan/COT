@@ -1141,24 +1141,34 @@ with st.sidebar:
     yahoo_ticker = st.text_input("Ticker prezzo Yahoo", value=spec.yahoo_ticker)
 
     st.divider()
-    st.subheader("Term Structure")
-    term_defaults = bundled_term_defaults()
-    uploaded_term_file = st.file_uploader("Carica CSV opzionale", type=["csv"])
-    if uploaded_term_file is not None:
-        term_defaults.update(read_term_csv(uploaded_term_file))
+    show_legacy = st.toggle("Mostra modulo Legacy", value=True)
+    show_debug = st.toggle("Mostra diagnostica campi", value=False)
 
-    if spec.family == "commodity":
+    st.divider()
+    st.subheader("Term Structure")
+    if spec.family != "commodity":
+        term_structure = "Non applicabile"
+        term_usage_status = "NON APPLICABILE"
+        st.info("NON APPLICABILE")
+        st.caption("Non viene utilizzata per indici, valute, tassi, volatilità e crypto CME.")
+    else:
+        term_usage_status = "RICHIESTA SOLO PER SQUEEZE LEGACY" if show_legacy else "OPZIONALE"
+        if show_legacy:
+            st.warning("RICHIESTA SOLO PER SQUEEZE LEGACY")
+            st.caption("Non è obbligatoria per il responso Smart Money. Serve soltanto per riconoscere lo Short Covering con Backwardation nel modulo Legacy.")
+        else:
+            st.info("OPZIONALE")
+            st.caption("Il motore Smart Money non usa la Term Structure. Puoi lasciarla su Non disponibile.")
+
+        term_defaults = bundled_term_defaults()
+        uploaded_term_file = st.file_uploader("Carica CSV opzionale", type=["csv"])
+        if uploaded_term_file is not None:
+            term_defaults.update(read_term_csv(uploaded_term_file))
+
         default_term = term_defaults.get(spec.root, "Non disponibile")
         default_index = TERM_OPTIONS.index(default_term) if default_term in TERM_OPTIONS else 0
         term_structure = st.selectbox("Curva M1–M2", TERM_OPTIONS, index=default_index)
-        st.caption("La selezione resta manuale. Per un valore permanente modifica term_structure.csv nel repository.")
-    else:
-        term_structure = "Non applicabile"
-        st.caption("Non utilizzata per finanziari, valute, tassi e crypto CME.")
-
-    st.divider()
-    show_legacy = st.toggle("Mostra modulo Legacy", value=True)
-    show_debug = st.toggle("Mostra diagnostica campi", value=False)
+        st.caption("Per salvare un valore permanente modifica term_structure.csv nel repository.")
 
 
 # =============================================================================
@@ -1211,6 +1221,10 @@ st.success(
     f"{spec.label} | Report {spec.specific_report} | posizioni al {smart['report_date'].strftime('%d/%m/%Y')} "
     f"| mercato CFTC: {specific_market_name} ({specific_resolution})."
 )
+st.caption(
+    "Confronto con TradingView: verifica sempre che la data delle posizioni COT sia identica. "
+    "Due report settimanali diversi possono produrre letture opposte senza che vi sia un errore di calcolo."
+)
 if price_error:
     st.warning(price_error)
 
@@ -1257,6 +1271,7 @@ tech_rows = [
     {"Voce": f"Δ {spec.counter_label} Long", "Valore": fmt_number(smart["counter_chg_l"], signed=True)},
     {"Voce": f"Δ {spec.counter_label} Short", "Valore": fmt_number(smart["counter_chg_s"], signed=True)},
     {"Voce": "COT Index", "Valore": f"{fmt_decimal(smart['cot_index'], 1)} — {smart['positioning']}"},
+    {"Voce": "Uso Term Structure", "Valore": term_usage_status},
     {"Voce": "Term Structure", "Valore": term_structure},
     {"Voce": "Top 8 Net Long", "Valore": f"{fmt_pct(smart['conc_long'])} | Pctl {fmt_pct(smart['conc_long_rank'])}"},
     {"Voce": "Top 8 Net Short", "Valore": f"{fmt_pct(smart['conc_short'])} | Pctl {fmt_pct(smart['conc_short_rank'])}"},
@@ -1277,16 +1292,23 @@ st.dataframe(flow_rows, width="stretch", hide_index=True)
 # =============================================================================
 # TERM STRUCTURE
 # =============================================================================
+st.subheader("Term Structure")
+if term_usage_status == "NON APPLICABILE":
+    st.info("NON APPLICABILE — questo mercato non richiede l'inserimento della curva M1–M2.")
+elif term_usage_status == "OPZIONALE":
+    st.info("OPZIONALE — la Term Structure non modifica il responso Smart Money.")
+else:
+    st.warning("RICHIESTA SOLO PER SQUEEZE LEGACY — non è necessaria per gli altri responsi.")
+
 if spec.family == "commodity":
-    st.subheader("Term Structure — inserimento manuale")
     if term_structure == "Backwardation":
-        st.success("Backwardation: il contratto vicino quota sopra il successivo. È una conferma positiva di tensione sul breve, ma non sostituisce il segnale COT.")
+        st.success("Backwardation: il contratto vicino quota sopra il successivo. Può confermare lo Short Covering nel modulo Legacy, ma non sostituisce il segnale COT.")
     elif term_structure == "Contango":
-        st.warning("Contango: il contratto successivo quota sopra il vicino. La curva non offre una conferma rialzista immediata.")
+        st.warning("Contango: il contratto successivo quota sopra il vicino. Non conferma lo scenario Legacy di Short Covering.")
     elif term_structure == "Curva piatta":
         st.info("Curva piatta: differenza M1–M2 non significativa.")
     else:
-        st.info("Term Structure non impostata. Il motore Smart Money resta utilizzabile; il modulo Legacy non potrà classificare lo Short Covering con Backwardation.")
+        st.info("Valore non impostato. Il responso Smart Money resta completo; soltanto lo Short Covering Legacy non può essere confermato dalla curva.")
 
 
 # =============================================================================
@@ -1328,9 +1350,198 @@ if show_legacy:
 
 
 # =============================================================================
+# INTERROGAZIONE AI
+# =============================================================================
+st.header("5. Analisi e interrogazione AI")
+st.caption(
+    "L'AI interpreta e spiega il responso deterministico già calcolato. "
+    "Non modifica il Bias, non ricalcola i dati e non trasforma il COT in un segnale immediato di ingresso."
+)
+
+
+def secret_value(name: str, default: str) -> str:
+    try:
+        value = st.secrets.get(name, default)
+        return str(value) if value not in (None, "") else default
+    except Exception:
+        return default
+
+
+def build_ai_prompt(user_question: str) -> str:
+    legacy_text = "Modulo Legacy disattivato o non disponibile."
+    if show_legacy and legacy.get("available"):
+        legacy_text = (
+            f"Bias Legacy: {legacy['bias']}\n"
+            f"Verdetto Legacy: {legacy['verdict']}\n"
+            f"Azione Legacy: {legacy['action']}\n"
+            f"Flusso Noncommercial 1W: {legacy['trend_flow']:+.0f}\n"
+            f"Flusso Commercial 1W: {legacy['counter_flow']:+.0f}\n"
+            f"Variazione Open Interest Legacy: {legacy['pct_delta_oi']:+.2f}%"
+        )
+
+    question = user_question.strip() or (
+        "Spiega in parole semplici il quadro COT, le eventuali divergenze tra ultimo report, "
+        "struttura 3-6 settimane e prezzo Weekly, e indica cosa osservare nelle prossime settimane."
+    )
+
+    return f"""
+Sei un analista specializzato nei report COT. Analizza esclusivamente i dati forniti dalla dashboard.
+
+MERCATO
+- Strumento: {spec.label}
+- Famiglia: {spec.market_family_label}
+- Report CFTC: {spec.specific_report}
+- Categoria principale: {spec.trend_label}
+- Controparte: {spec.counter_label}
+- Data posizioni: {smart['report_date'].strftime('%d/%m/%Y')}
+- Data report precedente: {smart['previous_date'].strftime('%d/%m/%Y')}
+- Freschezza: {smart['freshness']} ({smart['age_days']} giorni)
+
+POSIZIONAMENTO E FLUSSI
+- COT Index: {smart['cot_index']:.1f} — {smart['positioning']}
+- Open Interest: {smart['oi']:.0f}
+- Variazione Open Interest 1W: {smart['pct_delta_oi']:+.2f}%
+- Delta {spec.trend_label} Long: {smart['trend_chg_l']:+.0f}
+- Delta {spec.trend_label} Short: {smart['trend_chg_s']:+.0f}
+- Flusso {spec.trend_label}: 1W {smart['trend_flow_1w']:+.0f}, 3W {smart['trend_flow_3w']:+.0f}, 6W {smart['trend_flow_6w']:+.0f}
+- Delta {spec.counter_label} Long: {smart['counter_chg_l']:+.0f}
+- Delta {spec.counter_label} Short: {smart['counter_chg_s']:+.0f}
+- Flusso {spec.counter_label}: 1W {smart['counter_flow_1w']:+.0f}, 3W {smart['counter_flow_3w']:+.0f}, 6W {smart['counter_flow_6w']:+.0f}
+- Concentrazione Top 8: {smart['concentration_state']}
+- Top 8 Long: {fmt_pct(smart['conc_long'])}, percentile {fmt_pct(smart['conc_long_rank'])}
+- Top 8 Short: {fmt_pct(smart['conc_short'])}, percentile {fmt_pct(smart['conc_short_rank'])}
+
+PREZZO WEEKLY
+- Stato: {price_analysis['text']}
+- Dettaglio: {price_analysis['detail']}
+
+TERM STRUCTURE
+- Stato d'uso: {term_usage_status}
+- Valore manuale: {term_structure}
+
+RESPONSO DETERMINISTICO SMART MONEY
+- Bias finale: {smart['final_bias']}
+- Dettaglio: {smart['final_detail']}
+- Ultimo report: {smart['last_report']}
+- Struttura 3-6W: {smart['structure']}
+- Lettura controparte: {smart['counter_reading']}
+- Cosa fare: {smart['action']}
+- Motivazione: {smart['reason']}
+
+MODULO LEGACY
+{legacy_text}
+
+DOMANDA DELL'UTENTE
+{question}
+
+ISTRUZIONI VINCOLANTI
+- Rispondi in italiano, con linguaggio semplice ma preciso.
+- Non inventare dati, prezzi, livelli tecnici o eventi esterni.
+- Non modificare il responso deterministico: puoi spiegarlo, contestualizzarlo o evidenziarne i limiti.
+- Distingui chiaramente tra posizionamento COT, nuovi flussi 1W, struttura 3-6W e conferma del prezzo Weekly.
+- Ricorda che un COT Index estremo descrive affollamento relativo, non un segnale automatico di inversione.
+- Considera la Term Structure soltanto secondo lo stato d'uso indicato.
+- Non proporre un ingresso immediato; indica cosa osservare e quali conferme attendere.
+- Concludi con un semaforo finale: 🟢, 🟡 oppure 🔴, accompagnato da una breve motivazione.
+""".strip()
+
+
+ai_col1, ai_col2 = st.columns([1, 1])
+with ai_col1:
+    ai_provider = st.selectbox("Provider AI", ["Google Gemini", "Groq"], key="ai_provider")
+with ai_col2:
+    if ai_provider == "Google Gemini":
+        ai_model = st.text_input(
+            "Modello Gemini",
+            value=secret_value("GEMINI_MODEL", "gemini-3.5-flash"),
+            key="ai_model_gemini",
+        )
+    else:
+        ai_model = st.text_input(
+            "Modello Groq",
+            value=secret_value("GROQ_MODEL", "openai/gpt-oss-120b"),
+            key="ai_model_groq",
+        )
+
+with st.form("cot_ai_form"):
+    ai_question = st.text_area(
+        "Domanda facoltativa",
+        placeholder=(
+            "Esempio: perché TradingView appare ancora ribassista mentre questa dashboard segnala recupero? "
+            "Quali conferme devo attendere?"
+        ),
+        height=105,
+    )
+    ai_submit = st.form_submit_button("Genera analisi con AI", type="primary", width="stretch")
+
+if ai_submit:
+    prompt_ai = build_ai_prompt(ai_question)
+    with st.spinner(f"Interrogo {ai_provider}..."):
+        try:
+            if ai_provider == "Google Gemini":
+                from google import genai
+
+                api_key = secret_value("GEMINI_API_KEY", "")
+                if not api_key:
+                    raise KeyError("GEMINI_API_KEY")
+                client = genai.Client(api_key=api_key)
+                response = client.models.generate_content(model=ai_model, contents=prompt_ai)
+                answer = response.text or "Nessuna risposta ricevuta da Gemini."
+            else:
+                from groq import Groq
+
+                api_key = secret_value("GROQ_API_KEY", "")
+                if not api_key:
+                    raise KeyError("GROQ_API_KEY")
+                client = Groq(api_key=api_key)
+                response = client.chat.completions.create(
+                    model=ai_model,
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": (
+                                "Sei un analista COT prudente. Rispetta rigorosamente i dati forniti, "
+                                "non inventare informazioni e non sostituire il responso deterministico."
+                            ),
+                        },
+                        {"role": "user", "content": prompt_ai},
+                    ],
+                    temperature=0.2,
+                )
+                answer = response.choices[0].message.content or "Nessuna risposta ricevuta da Groq."
+
+            st.session_state["cot_ai_answer"] = answer
+            st.session_state["cot_ai_context"] = (
+                f"{spec.root}|{smart['report_date'].isoformat()}|{ai_provider}|{ai_model}"
+            )
+        except KeyError as exc:
+            st.error(
+                f"Chiave API mancante nei Secrets di Streamlit: {exc}. "
+                "Configura GEMINI_API_KEY oppure GROQ_API_KEY."
+            )
+        except ModuleNotFoundError as exc:
+            st.error(
+                f"Dipendenza AI non installata: {exc}. Aggiorna requirements.txt con google-genai e groq."
+            )
+        except Exception as exc:
+            error_text = str(exc)
+            if "503" in error_text or "UNAVAILABLE" in error_text.upper():
+                st.warning("Il provider AI è temporaneamente non disponibile. Riprova più tardi o seleziona l'altro provider.")
+            else:
+                st.error(f"Errore durante la comunicazione con l'AI: {exc}")
+
+if st.session_state.get("cot_ai_answer"):
+    st.markdown("### Risposta dell'AI")
+    st.write(st.session_state["cot_ai_answer"])
+    st.caption(
+        "Contesto usato: " + st.session_state.get("cot_ai_context", "non disponibile")
+    )
+
+
+# =============================================================================
 # ESPORTAZIONE
 # =============================================================================
-st.header("5. Esportazione")
+st.header("6. Esportazione")
 summary_export = pd.DataFrame(
     [
         {
@@ -1342,6 +1553,7 @@ summary_export = pd.DataFrame(
             "Bias finale": smart["final_bias"],
             "Azione": smart["action"],
             "Prezzo Weekly": price_analysis["text"],
+            "Uso Term Structure": term_usage_status,
             "Term Structure": term_structure,
             "Flow trend 1W": smart["trend_flow_1w"],
             "Flow trend 3W": smart["trend_flow_3w"],
