@@ -969,17 +969,17 @@ def analyze_smart_money(
     conc_long_high = not pd.isna(conc_long_rank) and conc_long_rank >= 80
     conc_short_high = not pd.isna(conc_short_rank) and conc_short_rank >= 80
     if conc_long_high and conc_short_high:
-        concentration_state = "CONCENTRAZIONE TOP 8 LONG E SHORT ELEVATA — FRAGILITÀ ALTA"
+        concentration_state = "Concentrazione Top 8 TOP 8 LONG E SHORT ELEVATA — FRAGILITÀ ALTA"
     elif conc_long_high:
-        concentration_state = "CONCENTRAZIONE TOP 8 LONG ELEVATA — RISCHIO LIQUIDAZIONE SE IL PREZZO SCENDE"
+        concentration_state = "Concentrazione Top 8 TOP 8 LONG ELEVATA — RISCHIO LIQUIDAZIONE SE IL PREZZO SCENDE"
     elif conc_short_high:
-        concentration_state = "CONCENTRAZIONE TOP 8 SHORT ELEVATA — RISCHIO SQUEEZE SE IL PREZZO SALE"
+        concentration_state = "Concentrazione Top 8 TOP 8 SHORT ELEVATA — RISCHIO SQUEEZE SE IL PREZZO SALE"
     elif max(conc_long_rank if not pd.isna(conc_long_rank) else 0, conc_short_rank if not pd.isna(conc_short_rank) else 0) >= 60:
-        concentration_state = "CONCENTRAZIONE SOPRA LA NORMA"
+        concentration_state = "Concentrazione Top 8 SOPRA LA NORMA"
     elif pd.isna(conc_long_rank) or pd.isna(conc_short_rank):
         concentration_state = "DATI NON DISPONIBILI"
     else:
-        concentration_state = "CONCENTRAZIONE NORMALE"
+        concentration_state = "Concentrazione Top 8 NORMALE"
 
     return {
         "available": True,
@@ -1408,7 +1408,7 @@ def calculate_screener_score(
     penalty = 0
     if "AFFOLLATO" in status:
         penalty -= 8
-    elif smart.get("concentration_state") == "CONCENTRAZIONE SOPRA LA NORMA":
+    elif smart.get("concentration_state") == "Concentrazione Top 8 SOPRA LA NORMA":
         penalty -= 3
 
     age_days = int(smart.get("age_days", 0) or 0)
@@ -1490,7 +1490,7 @@ def analyze_market_for_screener(
         "Speculativi Index": alignment.get("speculative_index", math.nan),
         "Controparte Index": alignment.get("counterparty_index", math.nan),
         "Small Traders Index": alignment.get("small_index", math.nan),
-        "Concentrazione": smart["concentration_state"],
+        "Concentrazione Top 8": smart["concentration_state"],
         "Bias motore": smart["final_bias"],
         "Indicazione": smart["action"],
         "Motivazione": smart["reason"],
@@ -1516,7 +1516,7 @@ def build_screener_excel(results: pd.DataFrame, errors: pd.DataFrame) -> bytes:
     display_columns = [
         "Strumento", "Stato", "Direzione", "Qualità", "Score", "Tipo flusso",
         "COT Index", "Alignment rialzista", "Alignment ribassista", "Variazione OI %",
-        "Prezzo Weekly", "Concentrazione", "Data COT",
+        "Prezzo Weekly", "Concentrazione Top 8", "Data COT",
     ]
 
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
@@ -1618,7 +1618,7 @@ def build_screener_ai_prompt(top_rows: pd.DataFrame, top_n: int) -> str:
     compact_columns = [
         "Strumento", "Stato", "Direzione", "Qualità", "Score", "Tipo flusso",
         "COT Index", "Flow 1W", "Flow 3W", "Flow 6W", "Variazione OI %",
-        "Alignment rialzista", "Alignment ribassista", "Prezzo Weekly", "Concentrazione",
+        "Alignment rialzista", "Alignment ribassista", "Prezzo Weekly", "Concentrazione Top 8",
         "Indicazione", "Motivazione",
     ]
     table_text = top_rows[compact_columns].to_csv(index=False)
@@ -1742,7 +1742,7 @@ def render_screener() -> None:
     visible_columns = [
         "Posizione", "Strumento", "Stato", "Qualità", "Score", "Tipo flusso",
         "COT Index", "Alignment rialzista", "Alignment ribassista", "Variazione OI %",
-        "Prezzo Weekly", "Concentrazione", "Data COT",
+        "Prezzo Weekly", "Concentrazione Top 8", "Data COT",
     ]
     display_df = filtered[visible_columns].copy()
     display_df["Alignment rialzista"] = display_df["Alignment rialzista"].astype(int).astype(str) + "/3"
@@ -1764,7 +1764,7 @@ def render_screener() -> None:
     with st.expander("Come viene costruito lo Score", expanded=False):
         st.write(
             "Il punteggio combina motore Smart Money, qualità del flusso, struttura 3–6W, Alignment Map, "
-            "conferma del prezzo Weekly e Open Interest. Applica penalizzazioni per concentrazione e dati non recenti."
+            "conferma del prezzo Weekly e Open Interest. Applica penalizzazioni per Concentrazione Top 8 e dati non recenti."
         )
         component_columns = [
             "Strumento", "Score", "Score motore", "Score flusso", "Score struttura",
@@ -1974,7 +1974,7 @@ def render_single_analysis() -> None:
         {"Voce": "Term Structure", "Valore": term_structure},
         {"Voce": "Top 8 Net Long", "Valore": f"{fmt_pct(smart['conc_long'])} | Pctl {fmt_pct(smart['conc_long_rank'])}"},
         {"Voce": "Top 8 Net Short", "Valore": f"{fmt_pct(smart['conc_short'])} | Pctl {fmt_pct(smart['conc_short_rank'])}"},
-        {"Voce": "Concentrazione", "Valore": smart["concentration_state"]},
+        {"Voce": "Concentrazione Top 8", "Valore": smart["concentration_state"]},
     ]
     st.dataframe(pd.DataFrame(tech_rows), width="stretch", hide_index=True)
 
@@ -2153,7 +2153,7 @@ def render_single_analysis() -> None:
     - Delta {spec.counter_label} Long: {smart['counter_chg_l']:+.0f}
     - Delta {spec.counter_label} Short: {smart['counter_chg_s']:+.0f}
     - Flusso {spec.counter_label}: 1W {smart['counter_flow_1w']:+.0f}, 3W {smart['counter_flow_3w']:+.0f}, 6W {smart['counter_flow_6w']:+.0f}
-    - Concentrazione Top 8: {smart['concentration_state']}
+    - Concentrazione Top 8 Top 8: {smart['concentration_state']}
     - Top 8 Long: {fmt_pct(smart['conc_long'])}, percentile {fmt_pct(smart['conc_long_rank'])}
     - Top 8 Short: {fmt_pct(smart['conc_short'])}, percentile {fmt_pct(smart['conc_short_rank'])}
 
