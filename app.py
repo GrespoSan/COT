@@ -1490,7 +1490,7 @@ def analyze_market_for_screener(
         "Speculativi Index": alignment.get("speculative_index", math.nan),
         "Controparte Index": alignment.get("counterparty_index", math.nan),
         "Small Traders Index": alignment.get("small_index", math.nan),
-        "Concentrazione Top 8": smart["concentration_state"],
+        "Concentrazione": smart["concentration_state"],
         "Bias motore": smart["final_bias"],
         "Indicazione": smart["action"],
         "Motivazione": smart["reason"],
