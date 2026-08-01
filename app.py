@@ -1261,15 +1261,28 @@ def screener_flow_type(smart: dict[str, Any]) -> str:
     return "FLUSSO NEUTRALE"
 
 
+SCREENER_STATUS_OPTIONS = [
+    "LONG IN COSTRUZIONE",
+    "LONG CONFERMATO",
+    "LONG CONFERMATO MA AFFOLLATO (NON INSEGUIRE)",
+    "NEUTRALE / POCO CHIARO",
+    "SHORT IN COSTRUZIONE",
+    "SHORT CONFERMATO",
+    "SHORT CONFERMATO MA AFFOLLATO (NON INSEGUIRE)",
+]
+
+
 def screener_status(
     smart: dict[str, Any],
     price: dict[str, Any],
     alignment: dict[str, Any],
 ) -> tuple[str, str]:
-    if smart.get("crowded_long"):
-        return "LONG CONFERMATO MA AFFOLLATO", "LONG"
-    if smart.get("crowded_short"):
-        return "SHORT CONFERMATO MA AFFOLLATO", "SHORT"
+    # "Confermato ma affollato" richiede sia la conferma COT sia quella del prezzo.
+    # Un estremo COT senza conferma del prezzo resta invece "in costruzione".
+    if smart.get("crowded_long") and price.get("long_confirmed"):
+        return "LONG CONFERMATO MA AFFOLLATO (NON INSEGUIRE)", "LONG"
+    if smart.get("crowded_short") and price.get("short_confirmed"):
+        return "SHORT CONFERMATO MA AFFOLLATO (NON INSEGUIRE)", "SHORT"
     if smart.get("confirmed_long") and price.get("long_confirmed"):
         return "LONG CONFERMATO", "LONG"
     if smart.get("confirmed_short") and price.get("short_confirmed"):
@@ -1709,7 +1722,9 @@ def render_screener() -> None:
     with f4:
         price_only = st.toggle("Solo prezzo confermato", value=False)
 
-    status_options = sorted(results_df["Stato"].dropna().unique().tolist())
+    # Mostra sempre tutti gli stati possibili, anche quando uno stato non è presente
+    # nei risultati della scansione corrente.
+    status_options = SCREENER_STATUS_OPTIONS
     selected_statuses = st.multiselect("Stati", status_options, default=status_options)
     exclude_weak = st.toggle("Escludi short covering, liquidazione Long e flussi neutrali", value=False)
 
