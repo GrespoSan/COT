@@ -5,29 +5,94 @@ Analizza i migliori {TOP_N} risultati dello screener COT riportati sotto.
 OBIETTIVO
 
 - Spiega perché questi mercati sono in cima alla classifica.
-- Separa opportunità Long, opportunità Short, situazioni affollate e segnali ancora in costruzione.
-- Evidenzia la qualità del flusso: nuovi Long, nuovi Short, short covering, liquidazione Long o flusso misto.
+- Usa esclusivamente i dati forniti.
+- Non modificare Score, Stato o Classificazione AI.
+- Distingui nuovi Long, nuovi Short, short covering, liquidazione Long e flusso misto.
 - Usa l'Alignment Map come contesto e il prezzo Weekly come conferma.
 - Non inventare POC, supporti, resistenze o livelli di ingresso.
-- Non cambiare la graduatoria deterministica.
 - Scrivi in italiano semplice, breve e concreto.
+
+REGOLA PRINCIPALE — CLASSIFICAZIONI ESCLUSIVE
+
+La colonna "Classificazione AI" è già assegnata dal motore ed è obbligatoria.
+Non riclassificare gli strumenti.
+
+Ogni strumento deve comparire in UNA SOLA delle sezioni operative 3, 4, 5, 6 o 7.
+Non inserire lo stesso strumento in due sezioni operative diverse.
+
+Usa esattamente queste corrispondenze:
+
+- OPPORTUNITÀ LONG CONFERMATA
+  Solo strumenti con Stato esatto: LONG CONFERMATO.
+
+- OPPORTUNITÀ SHORT CONFERMATA
+  Solo strumenti con Stato esatto: SHORT CONFERMATO.
+
+- DA MONITORARE — LONG IN COSTRUZIONE
+  Solo strumenti con Stato esatto: LONG IN COSTRUZIONE.
+  Non chiamarli opportunità Long già operative.
+
+- DA MONITORARE — SHORT IN COSTRUZIONE
+  Solo strumenti con Stato esatto: SHORT IN COSTRUZIONE.
+  Non chiamarli opportunità Short già operative.
+
+- NON INSEGUIRE — LONG AFFOLLATO
+  Solo strumenti con Stato esatto: LONG CONFERMATO MA AFFOLLATO (NON INSEGUIRE).
+
+- NON INSEGUIRE — SHORT AFFOLLATO
+  Solo strumenti con Stato esatto: SHORT CONFERMATO MA AFFOLLATO (NON INSEGUIRE).
+
+- POCO CHIARO — NESSUN VANTAGGIO OPERATIVO
+  Solo strumenti con Stato esatto: NEUTRALE / POCO CHIARO.
+
+Un mercato LONG IN COSTRUZIONE non deve mai comparire tra le opportunità Long confermate e non deve comparire tra i mercati affollati da non inseguire.
+Un mercato SHORT IN COSTRUZIONE non deve mai comparire tra le opportunità Short confermate e non deve comparire tra i mercati affollati da non inseguire.
+La concentrazione Top 8 elevata è un fattore di rischio o fragilità, ma non cambia da sola la Classificazione AI.
 
 STRUTTURA OBBLIGATORIA
 
-1. Sintesi generale in massimo 5 frasi.
-2. Elenco numerato dei {TOP_N} strumenti, con una breve motivazione per ciascuno.
-3. Migliori opportunità Long.
-4. Migliori opportunità Short.
-5. Mercati da non inseguire perché affollati, deboli o non confermati dal prezzo.
+## 1. Sintesi generale
+Massimo 5 frasi.
 
-REGOLE
+## 2. Elenco informativo dei {TOP_N} strumenti in classifica
+Elenco numerato con Stato, Score e una breve motivazione.
+Questa sezione descrive la graduatoria e non rappresenta una raccomandazione operativa.
 
-- Lo Score è già stato calcolato dal motore deterministico: non modificarlo.
-- Distingui sempre nuovi Long, nuovi Short, short covering, liquidazione Long e flusso misto.
+## 3. Opportunità Long confermate
+Inserisci esclusivamente gli strumenti classificati OPPORTUNITÀ LONG CONFERMATA.
+Se non ce ne sono, scrivi: "Nessuna opportunità Long già confermata tra i risultati analizzati."
+
+## 4. Opportunità Short confermate
+Inserisci esclusivamente gli strumenti classificati OPPORTUNITÀ SHORT CONFERMATA.
+Se non ce ne sono, scrivi: "Nessuna opportunità Short già confermata tra i risultati analizzati."
+
+## 5. Mercati da monitorare
+Inserisci esclusivamente:
+- DA MONITORARE — LONG IN COSTRUZIONE;
+- DA MONITORARE — SHORT IN COSTRUZIONE.
+Per ciascuno indica in modo semplice quale conferma manca o quale elemento resta debole.
+
+## 6. Mercati da non inseguire
+Inserisci esclusivamente:
+- NON INSEGUIRE — LONG AFFOLLATO;
+- NON INSEGUIRE — SHORT AFFOLLATO.
+Non inserire mercati soltanto perché sono in costruzione, deboli o hanno concentrazione Top 8 elevata.
+Se non ce ne sono, scrivi: "Nessun mercato affollato da non inseguire tra i risultati analizzati."
+
+## 7. Mercati poco chiari
+Inserisci esclusivamente gli strumenti classificati POCO CHIARO — NESSUN VANTAGGIO OPERATIVO.
+Se non ce ne sono, scrivi: "Nessun mercato neutrale o poco chiaro tra i risultati analizzati."
+
+REGOLE FINALI
+
+- Lo Score è deterministico: non modificarlo e non usarlo per cambiare lo Stato.
+- Non promuovere LONG IN COSTRUZIONE a LONG CONFERMATO.
+- Non promuovere SHORT IN COSTRUZIONE a SHORT CONFERMATO.
 - Un Alignment 3/3 prepara il contesto ma non è un ingresso automatico.
 - Il prezzo Weekly è la conferma finale disponibile nello screener.
 - Non forzare segnali quando i dati sono discordanti.
-- Non riportare troppi numeri: usa soltanto quelli necessari a spiegare la classifica.
+- Non riportare troppi numeri.
+- Prima di terminare, controlla che nessuno strumento sia presente in più di una sezione operativa tra 3 e 7.
 
 DATI SCREENER
 

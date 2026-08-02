@@ -16,6 +16,7 @@ import plotly.graph_objects as go
 import requests
 import streamlit as st
 import yfinance as yf
+from PIL import Image, ImageDraw, ImageFont
 
 
 # =============================================================================
@@ -1565,6 +1566,180 @@ def build_screener_excel(results: pd.DataFrame, errors: pd.DataFrame) -> bytes:
     return output.getvalue()
 
 
+
+def _table_font(size: int, bold: bool = False) -> ImageFont.ImageFont:
+    """Carica un font leggibile, con fallback al font predefinito di Pillow."""
+    regular_candidates = (
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+    )
+    bold_candidates = (
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+    )
+    for candidate in bold_candidates if bold else regular_candidates:
+        try:
+            return ImageFont.truetype(candidate, size=size)
+        except OSError:
+            continue
+    return ImageFont.load_default()
+
+
+def _wrap_image_text(
+    draw: ImageDraw.ImageDraw,
+    text: Any,
+    font: ImageFont.ImageFont,
+    max_width: int,
+) -> list[str]:
+    """Divide il testo in righe che rientrano nella larghezza della cella."""
+    value = "" if pd.isna(text) else str(text)
+    if not value:
+        return [""]
+
+    lines: list[str] = []
+    for paragraph in value.splitlines() or [value]:
+        words = paragraph.split()
+        if not words:
+            lines.append("")
+            continue
+        current = words[0]
+        for word in words[1:]:
+            candidate = f"{current} {word}"
+            width = draw.textbbox((0, 0), candidate, font=font)[2]
+            if width <= max_width:
+                current = candidate
+            else:
+                lines.append(current)
+                current = word
+        lines.append(current)
+    return lines or [""]
+
+
+def build_screener_jpg(frame: pd.DataFrame) -> bytes:
+    """Crea un'immagine JPG della tabella filtrata e visibile nello screener."""
+    image_frame = frame.copy()
+    if image_frame.empty:
+        image_frame = pd.DataFrame({"Risultato": ["Nessun mercato visibile con i filtri correnti."]})
+
+    preferred_widths = {
+        "Posizione": 120,
+        "Strumento": 270,
+        "Stato": 360,
+        "Qualità": 135,
+        "Score": 105,
+        "Tipo flusso": 205,
+        "COT Index": 125,
+        "Alignment rialzista": 145,
+        "Alignment ribassista": 145,
+        "Variazione OI %": 145,
+        "Prezzo Weekly": 285,
+        "Concentrazione Top 8": 590,
+        "Data COT": 145,
+    }
+    columns = list(image_frame.columns)
+    column_widths = [preferred_widths.get(column, 190) for column in columns]
+
+    title_font = _table_font(38, bold=True)
+    subtitle_font = _table_font(23)
+    header_font = _table_font(22, bold=True)
+    body_font = _table_font(21)
+
+    margin = 28
+    title_height = 100
+    header_padding = 13
+    cell_padding_x = 12
+    cell_padding_y = 10
+    line_height = 28
+    table_width = sum(column_widths)
+    canvas_width = table_width + margin * 2
+
+    probe = Image.new("RGB", (canvas_width, 100), "white")
+    probe_draw = ImageDraw.Draw(probe)
+
+    wrapped_headers: list[list[str]] = []
+    for column, width in zip(columns, column_widths):
+        wrapped_headers.append(
+            _wrap_image_text(probe_draw, column, header_font, width - 2 * cell_padding_x)
+        )
+    header_lines = max(len(lines) for lines in wrapped_headers)
+    header_height = max(58, header_lines * line_height + 2 * header_padding)
+
+    wrapped_rows: list[list[list[str]]] = []
+    row_heights: list[int] = []
+    for _, row in image_frame.iterrows():
+        wrapped_cells: list[list[str]] = []
+        max_lines = 1
+        for column, width in zip(columns, column_widths):
+            value = row[column]
+            if column == "Score" and not pd.isna(value):
+                value = f"{float(value):.0f}"
+            elif column == "COT Index" and not pd.isna(value):
+                value = f"{float(value):.1f}"
+            elif column == "Variazione OI %" and not pd.isna(value):
+                value = f"{float(value):+.2f}"
+            lines = _wrap_image_text(probe_draw, value, body_font, width - 2 * cell_padding_x)
+            wrapped_cells.append(lines)
+            max_lines = max(max_lines, len(lines))
+        wrapped_rows.append(wrapped_cells)
+        row_heights.append(max(52, max_lines * line_height + 2 * cell_padding_y))
+
+    footer_height = 45
+    canvas_height = title_height + header_height + sum(row_heights) + footer_height + margin * 2
+    image = Image.new("RGB", (canvas_width, canvas_height), "#F5F7FA")
+    draw = ImageDraw.Draw(image)
+
+    draw.text((margin, margin), "COT Screener — tabella risultati", font=title_font, fill="#111827")
+    subtitle = f"Risultati visibili: {len(frame)}   |   Generato il {date.today().isoformat()}"
+    draw.text((margin, margin + 51), subtitle, font=subtitle_font, fill="#4B5563")
+
+    x = margin
+    y = margin + title_height
+    for width, lines in zip(column_widths, wrapped_headers):
+        draw.rectangle((x, y, x + width, y + header_height), fill="#1F2937", outline="#4B5563", width=1)
+        text_y = y + (header_height - len(lines) * line_height) / 2
+        for line in lines:
+            draw.text((x + cell_padding_x, text_y), line, font=header_font, fill="white")
+            text_y += line_height
+        x += width
+
+    y += header_height
+    for row_index, (wrapped_cells, row_height) in enumerate(zip(wrapped_rows, row_heights)):
+        x = margin
+        row_fill = "#FFFFFF" if row_index % 2 == 0 else "#EEF2F7"
+        for column, width, lines in zip(columns, column_widths, wrapped_cells):
+            fill = row_fill
+            if column == "Stato":
+                joined = " ".join(lines)
+                if "LONG CONFERMATO" in joined and "AFFOLLATO" not in joined:
+                    fill = "#DCFCE7"
+                elif "SHORT CONFERMATO" in joined and "AFFOLLATO" not in joined:
+                    fill = "#FEE2E2"
+                elif "AFFOLLATO" in joined:
+                    fill = "#FEF3C7"
+                elif "IN COSTRUZIONE" in joined:
+                    fill = "#E0F2FE"
+            draw.rectangle((x, y, x + width, y + row_height), fill=fill, outline="#CBD5E1", width=1)
+            text_y = y + cell_padding_y
+            for line in lines:
+                draw.text((x + cell_padding_x, text_y), line, font=body_font, fill="#111827")
+                text_y += line_height
+            x += width
+        y += row_height
+
+    draw.text(
+        (margin, canvas_height - margin - 25),
+        "Lo Score ordina la qualità complessiva e non rappresenta un segnale automatico di ingresso.",
+        font=subtitle_font,
+        fill="#4B5563",
+    )
+
+    output = io.BytesIO()
+    image.save(output, format="JPEG", quality=92, optimize=True, subsampling=0)
+    return output.getvalue()
+
+
 def call_ai_provider(provider: str, model: str, prompt: str) -> str:
     if provider == "Google Gemini":
         from google import genai
@@ -1589,7 +1764,9 @@ def call_ai_provider(provider: str, model: str, prompt: str) -> str:
                 "role": "system",
                 "content": (
                     "Sei un analista COT prudente. Usa esclusivamente i dati della classifica, "
-                    "non inventare livelli tecnici e non trasformare il COT in un segnale immediato di ingresso."
+                    "non inventare livelli tecnici e non trasformare il COT in un segnale immediato di ingresso. "
+                    "Rispetta obbligatoriamente la colonna Classificazione AI: ogni strumento deve comparire "
+                    "in una sola sezione operativa e non può essere riclassificato."
                 ),
             },
             {"role": "user", "content": prompt},
@@ -1614,14 +1791,31 @@ def load_screener_prompt_template() -> str:
     )
 
 
+
+def screener_ai_classification(status: str) -> str:
+    """Assegna una sezione AI esclusiva in base allo Stato deterministico."""
+    mapping = {
+        "LONG CONFERMATO": "OPPORTUNITÀ LONG CONFERMATA",
+        "SHORT CONFERMATO": "OPPORTUNITÀ SHORT CONFERMATA",
+        "LONG IN COSTRUZIONE": "DA MONITORARE — LONG IN COSTRUZIONE",
+        "SHORT IN COSTRUZIONE": "DA MONITORARE — SHORT IN COSTRUZIONE",
+        "LONG CONFERMATO MA AFFOLLATO (NON INSEGUIRE)": "NON INSEGUIRE — LONG AFFOLLATO",
+        "SHORT CONFERMATO MA AFFOLLATO (NON INSEGUIRE)": "NON INSEGUIRE — SHORT AFFOLLATO",
+        "NEUTRALE / POCO CHIARO": "POCO CHIARO — NESSUN VANTAGGIO OPERATIVO",
+    }
+    return mapping.get(str(status), "POCO CHIARO — NESSUN VANTAGGIO OPERATIVO")
+
+
 def build_screener_ai_prompt(top_rows: pd.DataFrame, top_n: int) -> str:
+    ai_rows = top_rows.copy()
+    ai_rows["Classificazione AI"] = ai_rows["Stato"].map(screener_ai_classification)
     compact_columns = [
-        "Strumento", "Stato", "Direzione", "Qualità", "Score", "Tipo flusso",
+        "Strumento", "Stato", "Classificazione AI", "Direzione", "Qualità", "Score", "Tipo flusso",
         "COT Index", "Flow 1W", "Flow 3W", "Flow 6W", "Variazione OI %",
         "Alignment rialzista", "Alignment ribassista", "Prezzo Weekly", "Concentrazione Top 8",
         "Indicazione", "Motivazione",
     ]
-    table_text = top_rows[compact_columns].to_csv(index=False)
+    table_text = ai_rows[compact_columns].to_csv(index=False)
     template = load_screener_prompt_template()
     return (
         template.replace("{TOP_N}", str(top_n))
@@ -1774,13 +1968,24 @@ def render_screener() -> None:
         st.dataframe(filtered[component_columns], width="stretch", hide_index=True)
 
     excel_bytes = build_screener_excel(results_df, errors_df)
-    st.download_button(
-        "Scarica Screener Excel",
-        data=excel_bytes,
-        file_name=f"cot_screener_{date.today().isoformat()}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        width="stretch",
-    )
+    jpg_bytes = build_screener_jpg(display_df)
+    export_col1, export_col2 = st.columns(2)
+    with export_col1:
+        st.download_button(
+            "Scarica Screener Excel",
+            data=excel_bytes,
+            file_name=f"cot_screener_{date.today().isoformat()}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            width="stretch",
+        )
+    with export_col2:
+        st.download_button(
+            "Scarica tabella JPG",
+            data=jpg_bytes,
+            file_name=f"cot_screener_tabella_{date.today().isoformat()}.jpg",
+            mime="image/jpeg",
+            width="stretch",
+        )
 
     if not errors_df.empty:
         with st.expander(f"Errori o dati mancanti ({len(errors_df)})", expanded=False):
