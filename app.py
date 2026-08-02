@@ -1617,8 +1617,8 @@ def _wrap_image_text(
     return lines or [""]
 
 
-def build_screener_jpg(frame: pd.DataFrame) -> bytes:
-    """Crea un'immagine JPG della tabella filtrata e visibile nello screener."""
+def build_screener_jpg(frame: pd.DataFrame, export_label: str = "Tabella completa") -> bytes:
+    """Crea un'immagine JPG della porzione selezionata della tabella visibile."""
     image_frame = frame.copy()
     if image_frame.empty:
         image_frame = pd.DataFrame({"Risultato": ["Nessun mercato visibile con i filtri correnti."]})
@@ -1690,8 +1690,8 @@ def build_screener_jpg(frame: pd.DataFrame) -> bytes:
     image = Image.new("RGB", (canvas_width, canvas_height), "#F5F7FA")
     draw = ImageDraw.Draw(image)
 
-    draw.text((margin, margin), "COT Screener — tabella risultati", font=title_font, fill="#111827")
-    subtitle = f"Risultati visibili: {len(frame)}   |   Generato il {date.today().isoformat()}"
+    draw.text((margin, margin), f"COT Screener — {export_label}", font=title_font, fill="#111827")
+    subtitle = f"Righe esportate: {len(frame)}   |   Generato il {date.today().isoformat()}"
     draw.text((margin, margin + 51), subtitle, font=subtitle_font, fill="#4B5563")
 
     x = margin
@@ -1968,8 +1968,14 @@ def render_screener() -> None:
         st.dataframe(filtered[component_columns], width="stretch", hide_index=True)
 
     excel_bytes = build_screener_excel(results_df, errors_df)
-    jpg_bytes = build_screener_jpg(display_df)
-    export_col1, export_col2 = st.columns(2)
+
+    # Le tre immagini rispettano i filtri correnti. Top 5 e Top 10 sono
+    # semplicemente le prime righe della classifica attualmente visibile.
+    jpg_top5_bytes = build_screener_jpg(display_df.head(5), "Top 5 risultati visibili")
+    jpg_top10_bytes = build_screener_jpg(display_df.head(10), "Top 10 risultati visibili")
+    jpg_total_bytes = build_screener_jpg(display_df, "Tabella completa visibile")
+
+    export_col1, export_col2, export_col3, export_col4 = st.columns(4)
     with export_col1:
         st.download_button(
             "Scarica Screener Excel",
@@ -1980,9 +1986,25 @@ def render_screener() -> None:
         )
     with export_col2:
         st.download_button(
-            "Scarica tabella JPG",
-            data=jpg_bytes,
-            file_name=f"cot_screener_tabella_{date.today().isoformat()}.jpg",
+            "Scarica JPG Top 5",
+            data=jpg_top5_bytes,
+            file_name=f"cot_screener_top5_{date.today().isoformat()}.jpg",
+            mime="image/jpeg",
+            width="stretch",
+        )
+    with export_col3:
+        st.download_button(
+            "Scarica JPG Top 10",
+            data=jpg_top10_bytes,
+            file_name=f"cot_screener_top10_{date.today().isoformat()}.jpg",
+            mime="image/jpeg",
+            width="stretch",
+        )
+    with export_col4:
+        st.download_button(
+            "Scarica JPG Totale",
+            data=jpg_total_bytes,
+            file_name=f"cot_screener_totale_{date.today().isoformat()}.jpg",
             mime="image/jpeg",
             width="stretch",
         )
