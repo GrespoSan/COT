@@ -338,3 +338,15 @@ REGOLE FINALI
   “Non è ancora Long confermato.”
   “Diventa Long confermato sopra…”
   “Sotto questo livello il segnale viene annullato.”
+
+==================================================
+INDICATORI AGGIUNTIVI V6.5
+==================================================
+
+- Rapid Shift 6W: misura la variazione del COT Index della controparte rispetto a sei report fa.
+  Valori almeno pari a +40 o -40 indicano un cambiamento insolitamente rapido, ma non costituiscono da soli un ingresso.
+- OI Index 52W: misura dove si trova l'Open Interest corrente nel range degli ultimi 52 report.
+  Indica il livello di partecipazione, non la direzione Long o Short.
+- Distingui sempre la variazione OI 1W dall'OI Index 52W.
+- Rapid Shift 6W e OI Index 52W sono informazioni diagnostiche: non modificare il responso deterministico sulla loro sola base.
+

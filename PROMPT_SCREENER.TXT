@@ -9,6 +9,7 @@ OBIETTIVO
 - Non modificare Score, Stato o Classificazione AI.
 - Distingui nuovi Long, nuovi Short, short covering, liquidazione Long e flusso misto.
 - Usa l'Alignment Map come contesto e il prezzo Weekly come conferma.
+- Interpreta Rapid Shift 6W e OI Index 52W come informazioni diagnostiche, senza cambiare Score, Stato o Classificazione AI.
 - Non inventare POC, supporti, resistenze o livelli di ingresso.
 - Scrivi in italiano semplice, breve e concreto.
 
@@ -89,6 +90,8 @@ REGOLE FINALI
 - Non promuovere LONG IN COSTRUZIONE a LONG CONFERMATO.
 - Non promuovere SHORT IN COSTRUZIONE a SHORT CONFERMATO.
 - Un Alignment 3/3 prepara il contesto ma non è un ingresso automatico.
+- Un Rapid Shift 6W almeno pari a +40 o -40 segnala un cambiamento rapido della controparte, non un ingresso automatico.
+- L'OI Index 52W misura il livello di partecipazione nel range annuale e non indica da solo la direzione.
 - Il prezzo Weekly è la conferma finale disponibile nello screener.
 - Non forzare segnali quando i dati sono discordanti.
 - Non riportare troppi numeri.
