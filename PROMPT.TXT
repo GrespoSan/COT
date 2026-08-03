@@ -3,7 +3,7 @@ PROMPT — LETTURA COT SEMPLICE, CHIARA E OPERATIVA
 Analizza lo screenshot allegato e prepara due output:
 
 A. LETTURA OPERATIVA COMPLETA
-B. VERSIONE BREVE PER POST SOCIAL
+B. VERSIONE BREVE
 
 Scrivi in italiano con frasi molto semplici, brevi e concrete.
 
