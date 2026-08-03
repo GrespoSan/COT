@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 # CONFIGURAZIONE PAGINA
 # =============================================================================
 st.set_page_config(
-    page_title="COT Smart Money V6.7 — Python",
+    page_title="COT Smart Money V6.8 — Python",
     page_icon="🛡️",
     layout="wide",
 )
@@ -48,7 +48,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🛡️ COT Smart Money — Python V6.7")
+st.title("🛡️ COT Smart Money — Python V6.8")
 st.caption(
     "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale di tutti i mercati. "
     "Il motore seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
@@ -672,17 +672,18 @@ def analyze_price(weekly: pd.DataFrame) -> dict[str, Any]:
 # MOTORE SMART MONEY
 # =============================================================================
 def cot_zone(index_value: float) -> str:
+    """Stesse frasi della funzione cot_index_zone_text di TradingView V1.5.13."""
     if pd.isna(index_value):
         return "NON DISPONIBILE"
     if index_value >= 80:
-        return "ESTREMO LONG — MOLTI FONDI GIÀ LONG"
+        return "I FONDI RESTANO A UN ESTREMO LONG"
     if index_value >= 60:
-        return "POSIZIONAMENTO LONG ELEVATO"
+        return "I FONDI RESTANO MOLTO LONG"
     if index_value > 40:
-        return "ZONA INTERMEDIA"
+        return "I FONDI HANNO UN'ESPOSIZIONE NEUTRA"
     if index_value > 20:
-        return "POSIZIONAMENTO SHORT ELEVATO"
-    return "ESTREMO SHORT — MOLTI FONDI GIÀ SHORT"
+        return "I FONDI RESTANO MOLTO SHORT"
+    return "I FONDI RESTANO A UN ESTREMO SHORT"
 
 
 def rapid_shift_state(value: float) -> str:
@@ -708,7 +709,7 @@ def oi_index_state(value: float) -> str:
         return "PARTECIPAZIONE MOLTO ALTA"
     if value >= 60.0:
         return "PARTECIPAZIONE ALTA"
-    if value >= 40.0:
+    if value > 40.0:
         return "PARTECIPAZIONE NELLA MEDIA"
     if value > 20.0:
         return "PARTECIPAZIONE BASSA"
@@ -720,18 +721,24 @@ def analyze_smart_money(
     spec: MarketSpec,
     price: dict[str, Any],
     oi_threshold: float,
+    cot_lookback: int,
 ) -> dict[str, Any]:
     if df.empty or len(df) < 7:
         return {
             "available": False,
-            "final_bias": "BIAS NON DISPONIBILE",
-            "final_detail": "Servono almeno sette report consecutivi per l'analisi 1W, 3W e 6W.",
-            "simple_title": "DATI INSUFFICIENTI",
-            "simple_detail": "Non ci sono abbastanza report consecutivi per capire con affidabilità cosa stanno facendo i Fondi.",
-            "plain_action": "NON USARE QUESTA LETTURA. ATTENDI CHE SIANO DISPONIBILI PIÙ DATI.",
-            "explanation": "Il motore richiede almeno sette report per confrontare l'ultima settimana con le ultime 3 e 6 settimane.",
-            "action": "NON USARE QUESTA LETTURA. ATTENDI CHE SIANO DISPONIBILI PIÙ DATI.",
-            "reason": "Il motore richiede almeno sette report per confrontare l'ultima settimana con le ultime 3 e 6 settimane.",
+            "final_bias": "DATI NON DISPONIBILI",
+            "final_detail": "I dati COT necessari non sono disponibili per questo mercato. L'indicatore non può costruire una lettura affidabile.",
+            "simple_title": "DATI NON DISPONIBILI",
+            "simple_detail": "I dati COT necessari non sono disponibili per questo mercato. L'indicatore non può costruire una lettura affidabile.",
+            "plain_action": "NON USARE QUESTA LETTURA. VERIFICA CHE IL FUTURE DISPONGA DEI DATI COT.",
+            "explanation": "Mancano una o più serie COT necessarie per confrontare i Fondi con gli altri operatori del mercato.",
+            "action": "NON USARE QUESTA LETTURA. VERIFICA CHE IL FUTURE DISPONGA DEI DATI COT.",
+            "reason": "Mancano una o più serie COT necessarie per confrontare i Fondi con gli altri operatori del mercato.",
+            "last_report": "DATI NON DISPONIBILI",
+            "structure": "DATI DELLE ULTIME 3-6 SETTIMANE NON DISPONIBILI",
+            "positioning": "NON DISPONIBILE",
+            "oi_quality": "OI NON DISPONIBILE",
+            "concentration_state": "DATI NON DISPONIBILI",
         }
 
     cur = df.iloc[-1]
@@ -788,40 +795,42 @@ def analyze_smart_money(
     short_covering = trend_flow_1w > 0 and trend_chg_s < 0 and oi_down
     long_liquidation = trend_flow_1w < 0 and trend_chg_l < 0 and oi_down
 
+    # TESTO SEMPLICE ULTIMO REPORT — identico a TradingView V1.5.13
     if new_long:
-        last_report = "NUOVI LONG PROBABILI"
+        last_report = "I FONDI HANNO APERTO NUOVI LONG"
     elif new_short:
-        last_report = "NUOVI SHORT PROBABILI"
+        last_report = "I FONDI HANNO APERTO NUOVI SHORT"
     elif short_covering:
-        last_report = "SHORT COVERING PROBABILE"
+        last_report = "I FONDI HANNO RIDOTTO GLI SHORT"
     elif long_liquidation:
-        last_report = "LIQUIDAZIONE LONG PROBABILE"
+        last_report = "I FONDI HANNO RIDOTTO I LONG"
     elif trend_flow_1w > 0:
-        last_report = "POSIZIONAMENTO IN MIGLIORAMENTO"
+        last_report = "I FONDI HANNO COMPRATO"
     elif trend_flow_1w < 0:
-        last_report = "POSIZIONAMENTO IN PEGGIORAMENTO"
+        last_report = "I FONDI HANNO VENDUTO"
     else:
-        last_report = "FLUSSO STABILE / MISTO"
+        last_report = "I FONDI NON HANNO CAMBIATO DIREZIONE IN MODO CHIARO"
 
     macro_long = trend_flow_3w > 0 and trend_flow_6w > 0
     macro_short = trend_flow_3w < 0 and trend_flow_6w < 0
     macro_recovery = trend_flow_3w > 0 and trend_flow_6w < 0
     macro_deterioration = trend_flow_3w < 0 and trend_flow_6w > 0
 
-    if macro_long and trend_flow_1w > 0:
-        structure = "LONG IN RAFFORZAMENTO"
-    elif macro_long and trend_flow_1w < 0:
-        structure = "LONG IN DETERIORAMENTO"
-    elif macro_short and trend_flow_1w < 0:
-        structure = "SHORT IN RAFFORZAMENTO"
-    elif macro_short and trend_flow_1w > 0:
-        structure = "RECUPERO DA STRUTTURA SHORT"
-    elif macro_recovery:
-        structure = "RECUPERO LONG IN CORSO"
-    elif macro_deterioration:
-        structure = "DETERIORAMENTO DEL LONG"
-    else:
-        structure = "STRUTTURA MISTA / TRANSIZIONE"
+    def _macro_direction_text(value: float) -> str:
+        if pd.isna(value):
+            return "NON DISPONIBILE"
+        if value > 0:
+            return "VERSO IL RIALZO"
+        if value < 0:
+            return "VERSO IL RIBASSO"
+        return "SOSTANZIALMENTE STABILE"
+
+    structure_3w = _macro_direction_text(trend_flow_3w)
+    structure_6w = _macro_direction_text(trend_flow_6w)
+    structure = (
+        f"ULTIME 3 SETTIMANE: {structure_3w}\n"
+        f"ULTIME 6 SETTIMANE: {structure_6w}"
+    )
 
     counter_macro_long = counter_flow_3w > 0 and counter_flow_6w > 0
     counter_macro_short = counter_flow_3w < 0 and counter_flow_6w < 0
@@ -1052,56 +1061,78 @@ def analyze_smart_money(
 
     conc_long_rank = historical_percentile(df["conc_long"], 156)
     conc_short_rank = historical_percentile(df["conc_short"], 156)
-    conc_long_high = not pd.isna(conc_long_rank) and conc_long_rank >= 80
-    conc_short_high = not pd.isna(conc_short_rank) and conc_short_rank >= 80
-    if conc_long_high and conc_short_high:
-        concentration_state = "CONCENTRAZIONE TOP 8 LONG E SHORT ELEVATA — FRAGILITÀ ALTA"
-    elif conc_long_high:
-        concentration_state = "CONCENTRAZIONE TOP 8 LONG ELEVATA — RISCHIO LIQUIDAZIONE SE IL PREZZO SCENDE"
-    elif conc_short_high:
-        concentration_state = "CONCENTRAZIONE TOP 8 SHORT ELEVATA — RISCHIO SQUEEZE SE IL PREZZO SALE"
-    elif max(conc_long_rank if not pd.isna(conc_long_rank) else 0, conc_short_rank if not pd.isna(conc_short_rank) else 0) >= 60:
-        concentration_state = "CONCENTRAZIONE SOPRA LA NORMA"
-    elif pd.isna(conc_long_rank) or pd.isna(conc_short_rank):
+    concentration_available = not pd.isna(conc_long_rank) and not pd.isna(conc_short_rank)
+    conc_long_high = concentration_available and conc_long_rank >= 80
+    conc_short_high = concentration_available and conc_short_rank >= 80
+    concentration_moderate = (
+        concentration_available
+        and not conc_long_high
+        and not conc_short_high
+        and max(conc_long_rank, conc_short_rank) >= 60
+    )
+
+    if not concentration_available:
         concentration_state = "DATI NON DISPONIBILI"
+        concentration_detail = "I dati dei Top 8 trader non sono disponibili."
+    elif conc_long_high and conc_short_high:
+        concentration_state = "TOP 8 TRADER FORTEMENTE ESPOSTI LONG E SHORT"
+        concentration_detail = (
+            "I Top 8 Trader sono fortemente esposti sia Long sia Short. Se uno dei due lati riduce rapidamente "
+            "le posizioni, il prezzo può muoversi con maggiore violenza."
+        )
+    elif conc_long_high:
+        concentration_state = "TOP 8 TRADER FORTEMENTE ESPOSTI LONG"
+        concentration_detail = (
+            "I Top 8 Trader sono fortemente esposti Long. Se prezzo e flussi peggiorano, la chiusura di queste "
+            "posizioni può accelerare la discesa."
+        )
+    elif conc_short_high:
+        concentration_state = "TOP 8 TRADER FORTEMENTE ESPOSTI SHORT"
+        concentration_detail = (
+            "I Top 8 Trader sono fortemente esposti Short. Se prezzo e flussi migliorano, la chiusura di queste "
+            "posizioni può rendere il rimbalzo più rapido."
+        )
+    elif concentration_moderate:
+        concentration_state = "TOP 8 TRADER PIÙ ESPOSTI DEL NORMALE"
+        concentration_detail = "L'esposizione dei Top 8 Trader è superiore alla norma, ma non è ancora estrema."
     else:
-        concentration_state = "CONCENTRAZIONE NORMALE"
+        concentration_state = "ESPOSIZIONE DEI TOP 8 TRADER NELLA NORMA"
+        concentration_detail = "L'esposizione dei Top 8 Trader è nella norma."
 
     # =========================================================================
-    # LETTURA SEMPLICE — TESTI ALLINEATI ALLA VERSIONE TRADINGVIEW V1.5.13
-    # I calcoli non cambiano: cambia soltanto il modo in cui il risultato viene
-    # spiegato, con frasi brevi e comprensibili anche a chi conosce poco il COT.
+    # LETTURA SEMPLICE — FRASI IDENTICHE A TRADINGVIEW V1.5.13
     # =========================================================================
     short_extreme_recovery = extreme_short and trend_flow_1w > 0
     long_extreme_deterioration = extreme_long and trend_flow_1w < 0
     short_extreme_pressure = extreme_short and trend_flow_1w <= 0
     long_extreme_pressure = extreme_long and trend_flow_1w >= 0
 
-    simple_title = last_report
+    simple_title = "NEUTRALE / POCO CHIARO"
     simple_detail = (
-        "Il quadro non è ancora abbastanza chiaro. I Fondi e gli altri operatori "
-        "non mostrano tutti la stessa direzione. In questa situazione è meglio attendere una nuova conferma."
+        "Il quadro non è ancora abbastanza chiaro. I Fondi e gli altri operatori non mostrano tutti la stessa "
+        "direzione. In questa situazione è meglio attendere una nuova conferma."
     )
     plain_action = "ATTENDI. NON CI SONO ANCORA CONDIZIONI ABBASTANZA CHIARE."
-    explanation = "I dati disponibili non mostrano ancora una direzione abbastanza chiara."
+    explanation = "I dati disponibili non mostrano ancora una situazione abbastanza chiara per spiegare una direzione precisa."
 
     if age_days > 17:
         simple_title = "DATI COT TROPPO VECCHI"
         simple_detail = (
-            "I dati COT sono troppo vecchi. Nel frattempo i Fondi potrebbero aver cambiato posizione "
-            "e la situazione mostrata potrebbe non essere più valida."
+            "I dati COT sono troppo vecchi. Nel frattempo i Fondi potrebbero aver cambiato posizione e la situazione "
+            "mostrata potrebbe non essere più valida."
         )
         plain_action = "NON USARE IL COT PER NUOVI INGRESSI. ATTENDI UN REPORT AGGIORNATO."
         explanation = (
-            f"Le posizioni mostrate risalgono a {age_days} giorni fa. Un dato così vecchio non deve essere "
-            "trattato come una fotografia attuale del mercato."
+            f"Le posizioni mostrate risalgono a {age_days} giorni fa. Un dato così vecchio non deve essere trattato "
+            "come una fotografia attuale del mercato."
         )
     elif short_extreme_recovery:
-        simple_title = "MOLTI FONDI ANCORA SHORT, MA IL RECUPERO È INIZIATO"
+        simple_title = "RECUPERO DA ESTREMO SHORT"
         simple_detail = (
             "Molti Fondi sono ancora posizionati Short, ma nell'ultimo report hanno iniziato a ridurre questa posizione. "
-            "Per chiudere gli Short devono ricomprare i contratti e questo può far salire rapidamente il prezzo. "
-            "Il recupero è iniziato, ma non è ancora un vero segnale Long finché il prezzo non lo conferma."
+            "Questo può favorire un rimbalzo, perché per chiudere gli Short devono ricomprare i contratti. Se molti "
+            "ricomprano insieme, il prezzo può salire rapidamente. Il recupero è iniziato, ma non è ancora un segnale "
+            "Long completo finché il prezzo non lo conferma."
         )
         plain_action = (
             "NON INSEGUIRE I MINIMI. CERCA EVENTUALI LONG SOLO DOPO UN PULLBACK E UNA NUOVA CONFERMA RIALZISTA."
@@ -1109,16 +1140,19 @@ def analyze_smart_money(
             else "NON APRIRE NUOVI SHORT SUI MINIMI. ATTENDI CHE IL PREZZO CONFERMI IL RECUPERO PRIMA DI VALUTARE UN LONG."
         )
         explanation = (
-            f"Il COT Index di {spec.trend_label} è {fmt_decimal(cot_index, 1)} su 100. Un valore sotto 20 indica che "
-            f"i Fondi sono tra i livelli più Short degli ultimi report. Nell'ultima settimana la Net Position è migliorata "
-            f"di {fmt_number(trend_flow_1w, signed=True)}, ma la struttura a 3 e 6 settimane non è ancora completamente rialzista."
+            f"Il COT Index di {spec.trend_label} è {fmt_decimal(cot_index, 1)} su 100. Un valore sotto 20 significa che, "
+            f"rispetto agli ultimi {cot_lookback} report, i Fondi sono tra i livelli più Short. Nell'ultimo report la loro "
+            f"Net Position è migliorata di {fmt_number(trend_flow_1w, signed=True)}: stanno quindi riducendo la pressione "
+            "ribassista. Sulle ultime 3 e 6 settimane il recupero non è ancora completo. Il prezzo settimanale deve ancora "
+            "confermare che il rimbalzo può trasformarsi in una fase rialzista più stabile."
         )
     elif long_extreme_deterioration:
-        simple_title = "MOLTI FONDI ANCORA LONG, MA IL PEGGIORAMENTO È INIZIATO"
+        simple_title = "PEGGIORAMENTO DA ESTREMO LONG"
         simple_detail = (
             "Molti Fondi sono ancora posizionati Long, ma nell'ultimo report hanno iniziato a ridurre questa posizione. "
-            "Per chiudere i Long devono vendere i contratti e questo può far scendere rapidamente il prezzo. "
-            "Il peggioramento è iniziato, ma non è ancora un vero segnale Short finché il prezzo non lo conferma."
+            "Questo può aumentare la pressione ribassista, perché per chiudere i Long devono vendere i contratti. Se molti "
+            "vendono insieme, il prezzo può scendere rapidamente. Il cambiamento è iniziato, ma non è ancora un segnale "
+            "Short completo finché il prezzo non lo conferma."
         )
         plain_action = (
             "NON INSEGUIRE I MASSIMI. VALUTA EVENTUALI SHORT SOLO DOPO UN RIMBALZO E UNA NUOVA CONFERMA RIBASSISTA."
@@ -1126,54 +1160,63 @@ def analyze_smart_money(
             else "NON APRIRE NUOVI LONG SUI MASSIMI. ATTENDI CHE IL PREZZO CONFERMI IL PEGGIORAMENTO PRIMA DI VALUTARE UNO SHORT."
         )
         explanation = (
-            f"Il COT Index di {spec.trend_label} è {fmt_decimal(cot_index, 1)} su 100. Un valore sopra 80 indica che "
-            f"i Fondi sono tra i livelli più Long degli ultimi report. Nell'ultima settimana la Net Position è cambiata "
-            f"di {fmt_number(trend_flow_1w, signed=True)} e il prezzo deve ancora confermare una fase ribassista stabile."
+            f"Il COT Index di {spec.trend_label} è {fmt_decimal(cot_index, 1)} su 100. Un valore sopra 80 significa che, "
+            f"rispetto agli ultimi {cot_lookback} report, i Fondi sono tra i livelli più Long. Nell'ultimo report la loro "
+            f"Net Position è peggiorata di {fmt_number(trend_flow_1w, signed=True)}: stanno quindi riducendo l'esposizione "
+            "rialzista. Sulle ultime 3 e 6 settimane il cambiamento non è ancora completo. Il prezzo settimanale deve ancora "
+            "confermare una fase ribassista più stabile."
         )
     elif short_extreme_pressure or crowded_short:
-        simple_title = "QUADRO SHORT, MA IL MERCATO È GIÀ MOLTO AFFOLLATO"
+        simple_title = "SHORT CONFERMATO MA AFFOLLATO (NON INSEGUIRE)"
         simple_detail = (
-            "Il quadro rimane ribassista, ma molti Fondi sono già posizionati Short. Potrebbero quindi rimanere pochi nuovi "
-            "venditori per spingere subito il prezzo ancora più in basso. Se il prezzo rimbalza, la chiusura degli Short può "
-            "provocare una salita rapida. Entrare Short adesso è più rischioso perché si potrebbe vendere vicino ai minimi."
+            "Il quadro rimane ribassista, ma troppi operatori, soprattutto Fondi speculativi, si sono già posizionati nella "
+            "stessa direzione Short. Molti hanno quindi già venduto e potrebbero rimanere pochi nuovi venditori per spingere "
+            "subito il prezzo ancora più in basso. Se il prezzo rimbalza, una parte dei Fondi potrebbe chiudere gli Short. "
+            "Per farlo deve ricomprare i contratti e questi acquisti possono provocare una salita rapida e improvvisa. Entrare "
+            "Short adesso è più rischioso, perché si potrebbe vendere proprio vicino ai minimi del movimento."
         )
         plain_action = (
-            "NON INSEGUIRE I MINIMI. ATTENDI UN RIMBALZO VERSO UNA RESISTENZA O UN LIVELLO IMPORTANTE. "
+            "NON INSEGUIRE I MINIMI. ATTENDI UN RIMBALZO VERSO UNA RESISTENZA, IL POC O UN ALTRO LIVELLO IMPORTANTE. "
             "VALUTA UNO SHORT SOLO DOPO UNA NUOVA CONFERMA RIBASSISTA."
         )
         explanation = (
-            f"Il COT Index di {spec.trend_label} è {fmt_decimal(cot_index, 1)} su 100. Un valore sotto 20 indica una forte "
-            "esposizione Short: la direzione può restare ribassista, ma aumenta il rischio di uno short covering veloce."
+            f"Il COT Index di {spec.trend_label} è {fmt_decimal(cot_index, 1)} su 100. Un valore sotto 20 indica che i Fondi "
+            f"sono già molto esposti Short rispetto agli ultimi {cot_lookback} report. La direzione può restare ribassista, "
+            "ma il mercato dispone di meno nuovi venditori e aumenta il rischio che le chiusure degli Short provochino un "
+            "rimbalzo veloce."
         )
     elif long_extreme_pressure or crowded_long:
-        simple_title = "QUADRO LONG, MA IL MERCATO È GIÀ MOLTO AFFOLLATO"
+        simple_title = "LONG CONFERMATO MA AFFOLLATO (NON INSEGUIRE)"
         simple_detail = (
-            "Il quadro rimane rialzista, ma molti Fondi sono già posizionati Long. Potrebbero quindi rimanere pochi nuovi "
-            "compratori per spingere subito il prezzo ancora più in alto. Se il prezzo scende, la chiusura dei Long può "
-            "provocare una discesa rapida. Entrare Long adesso è più rischioso perché si potrebbe comprare vicino ai massimi."
+            "Il quadro rimane rialzista, ma troppi operatori, soprattutto Fondi speculativi, si sono già posizionati nella "
+            "stessa direzione Long. Molti hanno quindi già comprato e potrebbero rimanere pochi nuovi compratori per spingere "
+            "subito il prezzo ancora più in alto. Se il prezzo scende, una parte dei Fondi potrebbe chiudere i Long. Per farlo "
+            "deve vendere i contratti e queste vendite possono provocare una discesa rapida e improvvisa. Entrare Long adesso "
+            "è più rischioso, perché si potrebbe comprare proprio vicino ai massimi del movimento."
         )
         plain_action = (
-            "NON INSEGUIRE I MASSIMI. ATTENDI UN PULLBACK VERSO UN SUPPORTO O UN LIVELLO IMPORTANTE. "
+            "NON INSEGUIRE I MASSIMI. ATTENDI UN PULLBACK VERSO UN SUPPORTO, IL POC O UN ALTRO LIVELLO IMPORTANTE. "
             "VALUTA UN LONG SOLO DOPO UNA NUOVA CONFERMA RIALZISTA."
         )
         explanation = (
-            f"Il COT Index di {spec.trend_label} è {fmt_decimal(cot_index, 1)} su 100. Un valore sopra 80 indica una forte "
-            "esposizione Long: la direzione può restare rialzista, ma aumenta il rischio di prese di profitto rapide."
+            f"Il COT Index di {spec.trend_label} è {fmt_decimal(cot_index, 1)} su 100. Un valore sopra 80 indica che i Fondi "
+            f"sono già molto esposti Long rispetto agli ultimi {cot_lookback} report. La direzione può restare rialzista, ma "
+            "il mercato dispone di meno nuovi compratori e aumenta il rischio che le chiusure dei Long provochino una discesa veloce."
         )
     elif short_covering:
-        simple_title = "RIALZO DOVUTO SOPRATTUTTO ALLA CHIUSURA DEGLI SHORT"
+        simple_title = "SHORT COVERING"
         simple_detail = (
             "Molti operatori stanno chiudendo vecchie posizioni Short. Per uscire devono ricomprare i contratti e questi "
-            "acquisti possono far salire rapidamente il prezzo. Questo rimbalzo non significa ancora che sia iniziato un "
-            "vero trend rialzista: potrebbe essere soltanto la chiusura delle vendite precedenti."
+            "acquisti possono far salire rapidamente il prezzo. Questo rimbalzo non significa ancora che sia iniziato un vero "
+            "trend rialzista: potrebbe essere soltanto la chiusura delle vendite precedenti."
         )
         plain_action = "NON INSEGUIRE IL RIALZO. ATTENDI CHE IL PREZZO COSTRUISCA UNA VERA CONFERMA LONG."
         explanation = (
-            "La Net Position dei Fondi migliora mentre l'Open Interest diminuisce. Il rialzo può quindi dipendere dalla "
-            "chiusura degli Short, non dall'ingresso di nuovi compratori."
+            "La Net Position dei Fondi migliora mentre l'Open Interest diminuisce. Questa combinazione suggerisce che una "
+            "parte del rialzo può dipendere dalla chiusura degli Short, non necessariamente dall'ingresso di nuovi compratori."
         )
     elif long_liquidation:
-        simple_title = "RIBASSO DOVUTO SOPRATTUTTO ALLA CHIUSURA DEI LONG"
+        simple_title = "LIQUIDAZIONE LONG"
         simple_detail = (
             "Molti operatori stanno chiudendo vecchie posizioni Long. Per uscire devono vendere i contratti e queste vendite "
             "possono far scendere rapidamente il prezzo. Questa discesa non significa ancora che sia iniziato un vero trend "
@@ -1181,47 +1224,55 @@ def analyze_smart_money(
         )
         plain_action = "NON INSEGUIRE LA DISCESA. ATTENDI CHE IL PREZZO COSTRUISCA UNA VERA CONFERMA SHORT."
         explanation = (
-            "La Net Position dei Fondi peggiora mentre l'Open Interest diminuisce. Il ribasso può quindi dipendere dalla "
-            "chiusura dei Long, non dall'ingresso di nuovi venditori."
+            "La Net Position dei Fondi peggiora mentre l'Open Interest diminuisce. Questa combinazione suggerisce che una "
+            "parte della discesa può dipendere dalla chiusura dei Long, non necessariamente dall'ingresso di nuovi venditori."
         )
     elif full_long:
-        simple_title = "FONDI E PREZZO CONFERMANO IL LONG"
+        simple_title = "LONG CONFERMATO"
         simple_detail = (
-            "Il quadro è rialzista. I Fondi mantengono o aumentano le posizioni Long e il prezzo settimanale conferma la stessa "
-            "direzione. Posizionamento e prezzo stanno quindi lavorando insieme. Il rischio principale è comprare dopo una salita già troppo estesa."
+            "Il quadro è rialzista. I Fondi stanno aumentando o mantenendo le posizioni Long e il prezzo settimanale conferma "
+            "la stessa direzione. Questo significa che posizionamento e prezzo stanno lavorando insieme. Il rischio principale "
+            "è entrare dopo una salita già troppo estesa."
         )
         plain_action = "CERCA EVENTUALI LONG SUI PULLBACK. NON COMPRARE DOPO UNA SALITA GIÀ MOLTO ESTESA."
         explanation = (
-            "I flussi dei Fondi sono positivi nell'ultimo report e nella struttura delle ultime 3 e 6 settimane. Anche il prezzo "
-            "settimanale è sopra la propria EMA e sta salendo."
+            "I flussi dei Fondi sono positivi sia nell'ultimo report sia nella struttura delle ultime 3 e 6 settimane. Anche "
+            "il prezzo settimanale è sopra la propria EMA e sta salendo. La direzione dei Fondi e quella del prezzo sono quindi concordi."
         )
     elif full_short:
-        simple_title = "FONDI E PREZZO CONFERMANO LO SHORT"
+        simple_title = "SHORT CONFERMATO"
         simple_detail = (
-            "Il quadro è ribassista. I Fondi mantengono o aumentano le posizioni Short e il prezzo settimanale conferma la stessa "
-            "direzione. Posizionamento e prezzo stanno quindi lavorando insieme. Il rischio principale è vendere dopo una discesa già troppo estesa."
+            "Il quadro è ribassista. I Fondi stanno aumentando o mantenendo le posizioni Short e il prezzo settimanale conferma "
+            "la stessa direzione. Questo significa che posizionamento e prezzo stanno lavorando insieme. Il rischio principale "
+            "è entrare dopo una discesa già troppo estesa."
         )
         plain_action = "CERCA EVENTUALI SHORT DOPO UN RIMBALZO. NON VENDERE DOPO UNA DISCESA GIÀ MOLTO ESTESA."
         explanation = (
-            "I flussi dei Fondi sono negativi nell'ultimo report e nella struttura delle ultime 3 e 6 settimane. Anche il prezzo "
-            "settimanale è sotto la propria EMA e sta scendendo."
+            "I flussi dei Fondi sono negativi sia nell'ultimo report sia nella struttura delle ultime 3 e 6 settimane. Anche "
+            "il prezzo settimanale è sotto la propria EMA e sta scendendo. La direzione dei Fondi e quella del prezzo sono quindi concordi."
         )
     elif long_price_divergence:
         simple_title = "COT LONG, MA IL PREZZO NON CONFERMA"
         simple_detail = (
-            "I Fondi restano orientati Long, ma il prezzo settimanale sta scendendo. Le due letture non sono d'accordo. "
-            "Il posizionamento può anticipare un recupero, ma il prezzo potrebbe continuare a scendere prima di confermarlo."
+            "I Fondi restano orientati Long, ma il prezzo settimanale sta scendendo. Le due letture non sono d'accordo. Il "
+            "posizionamento può anticipare un recupero, ma il prezzo potrebbe continuare a scendere prima di confermarlo."
         )
         plain_action = "NON ANTICIPARE IL LONG. ATTENDI CHE IL PREZZO TORNI A SALIRE E CONFERMI IL POSIZIONAMENTO DEI FONDI."
-        explanation = "Il COT è rialzista, mentre l'ultima settimana chiusa è ribassista. Quando prezzo e Fondi divergono, il timing resta incerto."
+        explanation = (
+            "I dati COT mostrano un orientamento rialzista, mentre l'ultima settimana chiusa non conferma questa direzione. "
+            "Quando prezzo e Fondi divergono, il timing resta incerto."
+        )
     elif short_price_divergence:
         simple_title = "COT SHORT, MA IL PREZZO NON CONFERMA"
         simple_detail = (
-            "I Fondi restano orientati Short, ma il prezzo settimanale sta salendo. Le due letture non sono d'accordo. "
-            "Il posizionamento può anticipare una nuova discesa, ma il prezzo potrebbe continuare a salire prima di confermarla."
+            "I Fondi restano orientati Short, ma il prezzo settimanale sta salendo. Le due letture non sono d'accordo. Il "
+            "posizionamento può anticipare una nuova discesa, ma il prezzo potrebbe continuare a salire prima di confermarla."
         )
         plain_action = "NON ANTICIPARE LO SHORT. ATTENDI CHE IL PREZZO TORNI A SCENDERE E CONFERMI IL POSIZIONAMENTO DEI FONDI."
-        explanation = "Il COT è ribassista, mentre l'ultima settimana chiusa è rialzista. Quando prezzo e Fondi divergono, il timing resta incerto."
+        explanation = (
+            "I dati COT mostrano un orientamento ribassista, mentre l'ultima settimana chiusa non conferma questa direzione. "
+            "Quando prezzo e Fondi divergono, il timing resta incerto."
+        )
     elif partial_long:
         simple_title = "LONG IN COSTRUZIONE"
         simple_detail = (
@@ -1231,37 +1282,47 @@ def analyze_smart_money(
         )
         plain_action = "ATTENDI LA CONFERMA DEL PREZZO. VALUTA UN LONG SOLO DOPO UN PULLBACK E UN NUOVO SEGNALE RIALZISTA."
         explanation = (
-            f"La Net Position dei Fondi è cambiata di {fmt_number(trend_flow_1w, signed=True)} nell'ultimo report. Le variazioni "
-            f"a 3 e 6 settimane sono {fmt_number(trend_flow_3w, signed=True)} e {fmt_number(trend_flow_6w, signed=True)}."
+            f"La Net Position dei Fondi è migliorata di {fmt_number(trend_flow_1w, signed=True)} nell'ultimo report. Le variazioni "
+            f"a 3 e 6 settimane sono rispettivamente {fmt_number(trend_flow_3w, signed=True)} e "
+            f"{fmt_number(trend_flow_6w, signed=True)}. Il miglioramento recente non ha quindi ancora trasformato completamente "
+            "la struttura precedente."
         )
     elif partial_short:
         simple_title = "SHORT IN COSTRUZIONE"
         simple_detail = (
             "I Fondi stanno peggiorando, ma la fase ribassista non è ancora completa. Una parte dei dati è diventata negativa, "
-            "mentre la struttura delle settimane precedenti o il prezzo non confermano ancora pienamente. Potrebbe essere l'inizio "
-            "di una fase debole, ma è ancora presto per considerarla confermata."
+            "mentre la struttura delle settimane precedenti o il prezzo non confermano ancora pienamente. Potrebbe essere "
+            "l'inizio di una fase debole, ma è ancora presto per considerarla confermata."
         )
         plain_action = "ATTENDI LA CONFERMA DEL PREZZO. VALUTA UNO SHORT SOLO DOPO UN RIMBALZO E UN NUOVO SEGNALE RIBASSISTA."
         explanation = (
             f"La Net Position dei Fondi è cambiata di {fmt_number(trend_flow_1w, signed=True)} nell'ultimo report. Le variazioni "
-            f"a 3 e 6 settimane sono {fmt_number(trend_flow_3w, signed=True)} e {fmt_number(trend_flow_6w, signed=True)}."
+            f"a 3 e 6 settimane sono rispettivamente {fmt_number(trend_flow_3w, signed=True)} e "
+            f"{fmt_number(trend_flow_6w, signed=True)}. Il peggioramento recente non ha quindi ancora trasformato completamente "
+            "la struttura precedente."
         )
     elif price["long_confirmed"]:
         simple_title = "IL PREZZO SALE, MA IL COT NON CONFERMA ANCORA"
         simple_detail = (
             "Il prezzo settimanale sta salendo, ma i Fondi non mostrano ancora una conferma altrettanto chiara. Il rialzo può "
-            "continuare, ma per ora manca una piena conferma del posizionamento."
+            "continuare, ma per ora manca una piena conferma dei Fondi."
         )
         plain_action = "NON INSEGUIRE IL RIALZO. ATTENDI CHE ANCHE I DATI COT MIGLIORINO."
-        explanation = "Il prezzo è sopra la EMA settimanale e sta salendo, mentre i flussi dei Fondi restano misti."
+        explanation = (
+            "Il prezzo è sopra la EMA settimanale e sta salendo, mentre i flussi dei Fondi restano misti. Il movimento è "
+            "sostenuto dal prezzo, ma non ancora da una lettura COT completa."
+        )
     elif price["short_confirmed"]:
         simple_title = "IL PREZZO SCENDE, MA IL COT NON CONFERMA ANCORA"
         simple_detail = (
-            "Il prezzo settimanale sta scendendo, ma i Fondi non mostrano ancora una conferma altrettanto chiara. La discesa può "
-            "continuare, ma per ora manca una piena conferma del posizionamento."
+            "Il prezzo settimanale sta scendendo, ma i Fondi non mostrano ancora una conferma altrettanto chiara. La discesa "
+            "può continuare, ma per ora manca una piena conferma dei Fondi."
         )
         plain_action = "NON INSEGUIRE LA DISCESA. ATTENDI CHE ANCHE I DATI COT PEGGIORINO."
-        explanation = "Il prezzo è sotto la EMA settimanale e sta scendendo, mentre i flussi dei Fondi restano misti."
+        explanation = (
+            "Il prezzo è sotto la EMA settimanale e sta scendendo, mentre i flussi dei Fondi restano misti. Il movimento è "
+            "sostenuto dal prezzo, ma non ancora da una lettura COT completa."
+        )
 
     if 10 < age_days <= 17:
         simple_detail += " Attenzione: il report COT potrebbe essere in ritardo e la situazione attuale potrebbe essere già cambiata."
@@ -1288,6 +1349,7 @@ def analyze_smart_money(
         "oi_macro_down": oi_macro_down,
         "oi_macro_stable": oi_macro_stable,
         "oi_quality": oi_quality,
+        "oi_report": f"{oi_quality}\nOI Index 52W: {fmt_decimal(oi_index_52w, 1)} | {oi_index_52w_state}",
         "oi_index_52w": oi_index_52w,
         "oi_index_52w_state": oi_index_52w_state,
         "trend_long": float(cur["trend_long"]),
@@ -1308,6 +1370,8 @@ def analyze_smart_money(
         "positioning": cot_zone(cot_index),
         "last_report": last_report,
         "structure": structure,
+        "structure_3w": structure_3w,
+        "structure_6w": structure_6w,
         "counter_reading": counter_reading,
         "engine_bias": engine_bias,
         "engine_detail": engine_detail,
@@ -1332,7 +1396,10 @@ def analyze_smart_money(
         "conc_short": float(cur["conc_short"]) if not pd.isna(cur["conc_short"]) else math.nan,
         "conc_long_rank": conc_long_rank,
         "conc_short_rank": conc_short_rank,
+        "concentration_available": concentration_available,
+        "concentration_moderate": concentration_moderate,
         "concentration_state": concentration_state,
+        "concentration_detail": concentration_detail,
     }
 
 
@@ -1718,7 +1785,7 @@ def calculate_screener_score(
     penalty = 0
     if "AFFOLLATO" in status:
         penalty -= 8
-    elif smart.get("concentration_state") == "CONCENTRAZIONE SOPRA LA NORMA":
+    elif smart.get("concentration_moderate"):
         penalty -= 3
 
     age_days = int(smart.get("age_days", 0) or 0)
@@ -1763,7 +1830,7 @@ def analyze_market_for_screener(
     history_df, _ = build_history_df(rows, spec.specific_report, spec, cot_lookback)
     weekly_price, price_error = fetch_weekly_price(spec.yahoo_ticker)
     price = analyze_price(weekly_price)
-    smart = analyze_smart_money(history_df, spec, price, oi_threshold)
+    smart = analyze_smart_money(history_df, spec, price, oi_threshold, cot_lookback)
     alignment = analyze_alignment_map(history_df, spec)
     if not smart.get("available"):
         raise CFTCError(smart.get("final_detail", "Analisi non disponibile."))
@@ -2480,7 +2547,7 @@ def render_single_analysis() -> None:
         st.stop()
 
     price_analysis = analyze_price(weekly_price)
-    smart = analyze_smart_money(specific_df, spec, price_analysis, float(oi_threshold))
+    smart = analyze_smart_money(specific_df, spec, price_analysis, float(oi_threshold), cot_lookback)
     alignment = analyze_alignment_map(specific_df, spec)
 
     if not smart.get("available"):
@@ -2524,15 +2591,17 @@ def render_single_analysis() -> None:
     # =============================================================================
     st.header("1. Responso Smart Money")
     main_accent = accent_for_state(smart["simple_title"])
+    structure_html = smart["structure"].replace("\n", "<br>")
     card(
         "STATO ATTUALE — SMART MONEY REPORT",
         smart["simple_title"],
         (
-            f"<b>Cosa hanno fatto i Fondi nell'ultimo report?</b> {smart['last_report']}<br>"
-            f"<b>Come è cambiato il posizionamento dei Fondi?</b> {smart['structure']}<br>"
-            f"<b>Quanto sono esposti i Fondi?</b> {smart['positioning']} — COT Index {fmt_decimal(smart['cot_index'], 1)}<br>"
-            f"<b>Prezzo settimanale:</b> {price_analysis['text']}<br>"
-            f"<b>Top 8 Trader:</b> {smart['concentration_state']}"
+            f"<b>Cosa hanno fatto i Fondi nell'ultimo report?</b><br>{smart['last_report']}<br><br>"
+            f"<b>Come è cambiato il posizionamento dei Fondi?</b><br>{structure_html}<br><br>"
+            f"<b>Quanto sono esposti i Fondi?</b><br>{smart['positioning']}<br>"
+            f"Indice COT: {fmt_decimal(smart['cot_index'], 1)} / 100<br><br>"
+            f"<b>Prezzo settimanale</b><br>{price_analysis['text']}<br><br>"
+            f"<b>I Top 8 Trader sono molto esposti?</b><br>{smart['concentration_state']}"
         ),
         main_accent,
     )
@@ -2551,9 +2620,9 @@ def render_single_analysis() -> None:
             "IL MOVIMENTO È SOSTENUTO DAGLI OPERATORI (OI 3–6 W)?",
             smart["oi_quality"],
             (
+                f"OI Index 52W: {fmt_decimal(smart['oi_index_52w'], 1)} | {smart['oi_index_52w_state']}<br><br>"
                 f"<b>Variazione OI 3W:</b> {fmt_pct(smart['pct_oi_3w'], signed=True, digits=2)}<br>"
-                f"<b>Variazione OI 6W:</b> {fmt_pct(smart['pct_oi_6w'], signed=True, digits=2)}<br>"
-                f"<b>OI Index 52W:</b> {fmt_decimal(smart['oi_index_52w'], 1)} | {smart['oi_index_52w_state']}"
+                f"<b>Variazione OI 6W:</b> {fmt_pct(smart['pct_oi_6w'], signed=True, digits=2)}"
             ),
             participation_accent,
         )
@@ -2576,7 +2645,7 @@ def render_single_analysis() -> None:
         {"Voce": f"Δ {spec.trend_label} Short", "Valore": fmt_number(smart["trend_chg_s"], signed=True)},
         {"Voce": f"Δ {spec.counter_label} Long", "Valore": fmt_number(smart["counter_chg_l"], signed=True)},
         {"Voce": f"Δ {spec.counter_label} Short", "Valore": fmt_number(smart["counter_chg_s"], signed=True)},
-        {"Voce": "COT Index", "Valore": f"{fmt_decimal(smart['cot_index'], 1)} — {smart['positioning']}"},
+        {"Voce": "Quanto sono esposti i Fondi?", "Valore": f"{smart['positioning']} | Indice COT: {fmt_decimal(smart['cot_index'], 1)} / 100"},
         {
             "Voce": "Il movimento è sostenuto dagli operatori? (OI 3–6 W)",
             "Valore": smart["oi_quality"],
@@ -2589,7 +2658,8 @@ def render_single_analysis() -> None:
         {"Voce": "Term Structure", "Valore": term_structure},
         {"Voce": "Top 8 Net Long", "Valore": f"{fmt_pct(smart['conc_long'])} | Pctl {fmt_pct(smart['conc_long_rank'])}"},
         {"Voce": "Top 8 Net Short", "Valore": f"{fmt_pct(smart['conc_short'])} | Pctl {fmt_pct(smart['conc_short_rank'])}"},
-        {"Voce": "Concentrazione Top 8", "Valore": smart["concentration_state"]},
+        {"Voce": "I Top 8 Trader sono molto esposti?", "Valore": smart["concentration_state"]},
+        {"Voce": "Lettura Top 8 Trader", "Valore": smart["concentration_detail"]},
     ]
     st.dataframe(pd.DataFrame(tech_rows), width="stretch", hide_index=True)
 
@@ -2780,6 +2850,7 @@ def render_single_analysis() -> None:
     - Delta {spec.counter_label} Short: {smart['counter_chg_s']:+.0f}
     - Flusso {spec.counter_label}: 1W {smart['counter_flow_1w']:+.0f}, 3W {smart['counter_flow_3w']:+.0f}, 6W {smart['counter_flow_6w']:+.0f}
     - Concentrazione Top 8: {smart['concentration_state']}
+    - Spiegazione Top 8: {smart['concentration_detail']}
     - Top 8 Long: {fmt_pct(smart['conc_long'])}, percentile {fmt_pct(smart['conc_long_rank'])}
     - Top 8 Short: {fmt_pct(smart['conc_short'])}, percentile {fmt_pct(smart['conc_short_rank'])}
 
