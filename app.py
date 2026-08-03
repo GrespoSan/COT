@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 # CONFIGURAZIONE PAGINA
 # =============================================================================
 st.set_page_config(
-    page_title="COT Smart Money V6.6 — Python",
+    page_title="COT Smart Money V6.7 — Python",
     page_icon="🛡️",
     layout="wide",
 )
@@ -48,7 +48,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🛡️ COT Smart Money — Python V6.6")
+st.title("🛡️ COT Smart Money — Python V6.7")
 st.caption(
     "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale di tutti i mercati. "
     "Il motore seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
@@ -751,9 +751,34 @@ def analyze_smart_money(
     counter_chg_l = float(cur["counter_long"] - prev["counter_long"])
     counter_chg_s = float(cur["counter_short"] - prev["counter_short"])
     pct_delta_oi = safe_pct_change(float(cur["oi"]), float(prev["oi"]))
+    pct_oi_3w = safe_pct_change(float(cur["oi"]), float(w3["oi"]))
+    pct_oi_6w = safe_pct_change(float(cur["oi"]), float(w6["oi"]))
     cot_index = float(cur["cot_index"]) if not pd.isna(cur["cot_index"]) else math.nan
     oi_index_52w = float(cur["oi_index_52w"]) if "oi_index_52w" in cur and not pd.isna(cur["oi_index_52w"]) else math.nan
     oi_index_52w_state = oi_index_state(oi_index_52w)
+
+    # Stessa lettura didattica della versione TradingView:
+    # le variazioni OI a 3 e 6 settimane descrivono il sostegno recente del movimento;
+    # l'OI Index 52W descrive invece il livello della partecipazione nell'ultimo anno.
+    oi_macro_available = not pd.isna(pct_oi_3w) and not pd.isna(pct_oi_6w)
+    oi_macro_up = oi_macro_available and pct_oi_3w > oi_threshold and pct_oi_6w > oi_threshold
+    oi_macro_down = oi_macro_available and pct_oi_3w < -oi_threshold and pct_oi_6w < -oi_threshold
+    oi_macro_stable = (
+        oi_macro_available
+        and abs(pct_oi_3w) <= oi_threshold
+        and abs(pct_oi_6w) <= oi_threshold
+    )
+
+    if oi_macro_up:
+        oi_quality = "IL MOVIMENTO È SOSTENUTO"
+    elif oi_macro_down:
+        oi_quality = "IL MOVIMENTO PERDE FORZA"
+    elif oi_macro_stable:
+        oi_quality = "IL MOVIMENTO HA UN SOSTEGNO STABILE"
+    elif oi_macro_available:
+        oi_quality = "IL MOVIMENTO NON È ANCORA CONFERMATO"
+    else:
+        oi_quality = "OI NON DISPONIBILE"
 
     oi_up = not pd.isna(pct_delta_oi) and pct_delta_oi > oi_threshold
     oi_down = not pd.isna(pct_delta_oi) and pct_delta_oi < -oi_threshold
@@ -1256,6 +1281,13 @@ def analyze_smart_money(
         "cftc_code": str(cur.get("cftc_code", "N/A")),
         "oi": float(cur["oi"]),
         "pct_delta_oi": pct_delta_oi,
+        "pct_oi_3w": pct_oi_3w,
+        "pct_oi_6w": pct_oi_6w,
+        "oi_macro_available": oi_macro_available,
+        "oi_macro_up": oi_macro_up,
+        "oi_macro_down": oi_macro_down,
+        "oi_macro_stable": oi_macro_stable,
+        "oi_quality": oi_quality,
         "oi_index_52w": oi_index_52w,
         "oi_index_52w_state": oi_index_52w_state,
         "trend_long": float(cur["trend_long"]),
@@ -2478,7 +2510,11 @@ def render_single_analysis() -> None:
     col1, col2, col3, col4, col5 = st.columns(5)
     col1.metric("COT Index", fmt_decimal(smart["cot_index"], 1), smart["positioning"])
     col2.metric("Open Interest", fmt_number(smart["oi"]), fmt_pct(smart["pct_delta_oi"], signed=True, digits=2))
-    col3.metric("OI Index 52W", fmt_decimal(smart["oi_index_52w"], 1), smart["oi_index_52w_state"])
+    col3.metric(
+        "Partecipazione — OI Index 52W",
+        fmt_decimal(smart["oi_index_52w"], 1),
+        smart["oi_index_52w_state"],
+    )
     col4.metric(f"Flow {spec.trend_label} 1W", fmt_number(smart["trend_flow_1w"], signed=True), f"3W {fmt_number(smart['trend_flow_3w'], signed=True)}")
     col5.metric(f"Flow {spec.counter_label} 1W", fmt_number(smart["counter_flow_1w"], signed=True), f"3W {fmt_number(smart['counter_flow_3w'], signed=True)}")
 
@@ -2487,21 +2523,40 @@ def render_single_analysis() -> None:
     # RESPONSO PRINCIPALE
     # =============================================================================
     st.header("1. Responso Smart Money")
-    main_accent = accent_for_state(smart["final_bias"])
+    main_accent = accent_for_state(smart["simple_title"])
     card(
-        "BIAS FINALE — COT + PREZZO WEEKLY",
-        smart["final_bias"],
+        "STATO ATTUALE — SMART MONEY REPORT",
+        smart["simple_title"],
         (
-            f"<b>Ultimo report:</b> {smart['last_report']}<br>"
-            f"<b>Struttura 3–6 settimane:</b> {smart['structure']}<br>"
-            f"<b>Prezzo:</b> {price_analysis['text']}"
+            f"<b>Cosa hanno fatto i Fondi nell'ultimo report?</b> {smart['last_report']}<br>"
+            f"<b>Come è cambiato il posizionamento dei Fondi?</b> {smart['structure']}<br>"
+            f"<b>Quanto sono esposti i Fondi?</b> {smart['positioning']} — COT Index {fmt_decimal(smart['cot_index'], 1)}<br>"
+            f"<b>Prezzo settimanale:</b> {price_analysis['text']}<br>"
+            f"<b>Top 8 Trader:</b> {smart['concentration_state']}"
         ),
         main_accent,
     )
 
-    left, right = st.columns([1.15, 1])
+    left, middle, right = st.columns([1.15, 0.95, 1.15])
     with left:
         card("LETTURA SEMPLICE", smart["simple_title"], smart["simple_detail"], main_accent)
+    with middle:
+        participation_accent = (
+            "#15803D" if smart["oi_macro_up"]
+            else "#C2410C" if smart["oi_macro_down"]
+            else "#6B7280" if smart["oi_macro_stable"]
+            else "#9A6700"
+        )
+        card(
+            "IL MOVIMENTO È SOSTENUTO DAGLI OPERATORI (OI 3–6 W)?",
+            smart["oi_quality"],
+            (
+                f"<b>Variazione OI 3W:</b> {fmt_pct(smart['pct_oi_3w'], signed=True, digits=2)}<br>"
+                f"<b>Variazione OI 6W:</b> {fmt_pct(smart['pct_oi_6w'], signed=True, digits=2)}<br>"
+                f"<b>OI Index 52W:</b> {fmt_decimal(smart['oi_index_52w'], 1)} | {smart['oi_index_52w_state']}"
+            ),
+            participation_accent,
+        )
     with right:
         card("COSA FARE", smart["plain_action"], smart["explanation"], main_accent)
 
@@ -2522,7 +2577,13 @@ def render_single_analysis() -> None:
         {"Voce": f"Δ {spec.counter_label} Long", "Valore": fmt_number(smart["counter_chg_l"], signed=True)},
         {"Voce": f"Δ {spec.counter_label} Short", "Valore": fmt_number(smart["counter_chg_s"], signed=True)},
         {"Voce": "COT Index", "Valore": f"{fmt_decimal(smart['cot_index'], 1)} — {smart['positioning']}"},
-        {"Voce": "OI Index 52W", "Valore": f"{fmt_decimal(smart['oi_index_52w'], 1)} — {smart['oi_index_52w_state']}"},
+        {
+            "Voce": "Il movimento è sostenuto dagli operatori? (OI 3–6 W)",
+            "Valore": smart["oi_quality"],
+        },
+        {"Voce": "Variazione Open Interest 3W", "Valore": fmt_pct(smart["pct_oi_3w"], signed=True, digits=2)},
+        {"Voce": "Variazione Open Interest 6W", "Valore": fmt_pct(smart["pct_oi_6w"], signed=True, digits=2)},
+        {"Voce": "OI Index 52W — livello partecipazione", "Valore": f"{fmt_decimal(smart['oi_index_52w'], 1)} — {smart['oi_index_52w_state']}"},
         {"Voce": "Rapid Shift controparte 6W", "Valore": f"{fmt_signed_decimal(alignment.get('rapid_shift_6w', math.nan), 1)} — {alignment.get('rapid_shift_state', 'NON DISPONIBILE')}"},
         {"Voce": "Uso Term Structure", "Valore": term_usage_status},
         {"Voce": "Term Structure", "Valore": term_structure},
@@ -2708,6 +2769,9 @@ def render_single_analysis() -> None:
     - COT Index: {smart['cot_index']:.1f} — {smart['positioning']}
     - Open Interest: {smart['oi']:.0f}
     - Variazione Open Interest 1W: {smart['pct_delta_oi']:+.2f}%
+    - Sostegno del movimento OI 3-6W: {smart['oi_quality']}
+    - Variazione Open Interest 3W: {fmt_pct(smart['pct_oi_3w'], signed=True, digits=2)}
+    - Variazione Open Interest 6W: {fmt_pct(smart['pct_oi_6w'], signed=True, digits=2)}
     - OI Index 52W: {fmt_decimal(smart['oi_index_52w'], 1)} — {smart['oi_index_52w_state']}
     - Delta {spec.trend_label} Long: {smart['trend_chg_l']:+.0f}
     - Delta {spec.trend_label} Short: {smart['trend_chg_s']:+.0f}
