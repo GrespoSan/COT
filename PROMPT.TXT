@@ -1,228 +1,148 @@
 PROMPT — LETTURA COT SEMPLICE, CHIARA E OPERATIVA
+ALLINEATO A SMART MONEY ENGINE V1.5.22
 
-Analizza lo screenshot allegato e prepara due output:
+Usa esclusivamente i dati strutturati forniti dalla dashboard Python.
+Non è necessario uno screenshot.
+Non inventare POC, supporti, resistenze, prezzi di ingresso o livelli tecnici non presenti nei dati.
+
+Prepara due output:
 
 A. LETTURA OPERATIVA COMPLETA
-B. VERSIONE BREVE
+B. VERSIONE BREVE PER POST SOCIAL
 
-Scrivi in italiano con frasi molto semplici, brevi e concrete.
-
-OBIETTIVO PRINCIPALE
-
-La prima cosa che devo capire è:
-
-- Il mercato è Long?
-- Il mercato è Short?
-- È ancora in costruzione?
-- È poco chiaro?
-- È confermato ma troppo affollato?
-
-Usa parole comprensibili anche a chi non conosce bene il COT.
-
-Evita frasi complicate come:
-“Il quadro istituzionale mostra una dinamica costruttiva ma ancora non pienamente validata.”
-
-Preferisci frasi come:
-“È Long in costruzione. Diventerebbe Long confermato soltanto sopra 350, con nuovi acquisti e Open Interest crescente.”
+Scrivi in italiano con frasi semplici, brevi e concrete, comprensibili anche a chi non conosce il COT.
 
 ==================================================
-ORDINE OBBLIGATORIO DELL’ANALISI
+REGOLA PRINCIPALE
 ==================================================
 
-1. Smart Money Report = verdetto iniziale.
-2. Tabella tecnica = verifica se il flusso è forte oppure debole.
-3. Alignment Map = indica se il posizionamento è normale oppure estremo.
-4. Prezzo e POC = decidono se il segnale è davvero operativo.
-
-Non cambiare questo ordine.
-
-==================================================
-1. QUADRO DIREZIONALE OBBLIGATORIO
-==================================================
-
-Prima di tutto scegli una sola classificazione:
+La prima cosa da dichiarare è una sola classificazione:
 
 - LONG CONFERMATO
 - SHORT CONFERMATO
 - LONG IN COSTRUZIONE
 - SHORT IN COSTRUZIONE
 - NEUTRALE / POCO CHIARO
-- LONG CONFERMATO MA AFFOLLATO
-- SHORT CONFERMATO MA AFFOLLATO
+- LONG CONFERMATO MA AFFOLLATO (NON INSEGUIRE)
+- SHORT CONFERMATO MA AFFOLLATO (NON INSEGUIRE)
 
-Usa questi criteri:
-
-LONG CONFERMATO
-- Smart Money Report rialzista.
-- Nuovi Long reali.
-- Open Interest coerente.
-- Struttura 3–6W positiva.
-- Prezzo sopra POC e resistenze importanti.
-
-SHORT CONFERMATO
-- Smart Money Report ribassista.
-- Nuovi Short reali.
-- Open Interest coerente.
-- Struttura 3–6W negativa.
-- Prezzo sotto POC e supporti importanti.
-
-LONG IN COSTRUZIONE
-- COT e Net Position migliorano.
-- Il prezzo non ha ancora confermato.
-- Oppure il miglioramento deriva soprattutto da short covering.
-
-SHORT IN COSTRUZIONE
-- COT e Net Position peggiorano.
-- Il prezzo non ha ancora confermato.
-- Oppure il peggioramento deriva soprattutto da liquidazione dei Long.
-
-NEUTRALE / POCO CHIARO
-- Report, flussi e prezzo sono discordanti.
-- Oppure il prezzo gira intorno al POC senza una direzione chiara.
-
-LONG O SHORT CONFERMATO MA AFFOLLATO
-- La direzione è chiara.
-- Però COT Index, Alignment Map o concentrazione mostrano eccesso.
-- Non suggerire di inseguire il prezzo.
-
-Dopo la classificazione scrivi sempre una frase semplice di questo tipo:
-
-“È Long in costruzione. Diventerebbe Long confermato soltanto sopra [livello], con nuovi acquisti e Open Interest crescente.”
-
-oppure:
-
-“È Short in costruzione. Diventerebbe Short confermato soltanto sotto [livello], con nuovi Short e Open Interest crescente.”
-
-oppure:
-
-“Il mercato è ancora poco chiaro. Finché resta intorno al POC non c’è un vantaggio operativo.”
+Usa come classificazione principale il responso deterministico già calcolato dalla dashboard.
+Non promuovere un mercato “in costruzione” a “confermato”.
+Non trasformare un mercato in “affollato” soltanto perché i Top 8 Trader sono molto esposti.
+Non contraddire il responso deterministico, salvo segnalare chiaramente un dato mancante o incoerente.
 
 ==================================================
-2. SMART MONEY REPORT — COSA DICE
+DISTINZIONI OBBLIGATORIE
 ==================================================
 
-Leggi e riassumi:
+Non confondere mai questi elementi:
 
-- Bias Smart Money.
-- Struttura speculativa.
-- Posizionamento COT.
-- Open Interest.
-- Concentrazione / Fragilità.
-- Indicazione operativa.
-- Conferma del prezzo Weekly.
+1. POSIZIONE ATTUALE DEI FONDI
+Indica come sono già posizionati oggi:
+- prevalentemente Long;
+- prevalentemente Short;
+- posizione bilanciata.
+Riporta, quando utili, le percentuali Long e Short. Le eventuali posizioni Spreading sono escluse.
 
-Scrivi una frase semplice:
+2. COSA HANNO FATTO NELL’ULTIMO REPORT
+Usa, quando corrisponde ai dati, le stesse frasi della dashboard:
+- I FONDI HANNO APERTO NUOVI LONG
+- I FONDI HANNO APERTO NUOVI SHORT
+- I FONDI HANNO RIDOTTO GLI SHORT
+- I FONDI HANNO RIDOTTO I LONG
+- I FONDI HANNO COMPRATO
+- I FONDI HANNO VENDUTO
+- I FONDI NON HANNO CAMBIATO DIREZIONE IN MODO CHIARO
 
-“Lo Smart Money Report è rialzista, ma il prezzo non ha ancora confermato.”
+La posizione attuale descrive ciò che i Fondi hanno già in portafoglio.
+L’ultimo report descrive soltanto ciò che hanno cambiato nell’ultima settimana.
 
-oppure:
+3. STRUTTURA DELLE ULTIME SETTIMANE
+Riporta separatamente:
+- ULTIME 3 SETTIMANE: VERSO IL RIALZO / VERSO IL RIBASSO / SOSTANZIALMENTE STABILE
+- ULTIME 6 SETTIMANE: VERSO IL RIALZO / VERSO IL RIBASSO / SOSTANZIALMENTE STABILE
 
-“Lo Smart Money Report è ribassista e il prezzo conferma.”
+4. ESTREMO DEL POSIZIONAMENTO
+Distingui:
+- COT Index 26W = posizione relativa nel semestre recente;
+- COT Index 156W = posizione relativa strutturale degli ultimi tre anni.
 
-==================================================
-3. TABELLA TECNICA — PERCHÉ
-==================================================
+Il COT Index descrive quanto il posizionamento è estremo. Non è un segnale automatico di inversione.
+Segnala chiaramente eventuali:
+- NUOVO MASSIMO NET 26W
+- NUOVO MINIMO NET 26W
+- NUOVO MASSIMO NET 156W
+- NUOVO MINIMO NET 156W
 
-Controlla:
+5. PARTECIPAZIONE DEGLI OPERATORI
+Usa la lettura OI 3–6 settimane già calcolata:
+- IL MOVIMENTO È SOSTENUTO
+- IL MOVIMENTO PERDE FORZA
+- IL MOVIMENTO HA UN SOSTEGNO STABILE
+- IL MOVIMENTO NON È ANCORA CONFERMATO
+- OI NON DISPONIBILE
 
-- Managed Money / Leveraged Funds Long.
-- Managed Money / Leveraged Funds Short.
-- Net Flow 1W.
-- Open Interest.
-- Struttura 3W e 6W.
-- Controparte.
-- COT Index.
-- Concentrazione Top 8.
+Spiega inoltre l’OI Index 52W come livello della partecipazione nell’ultimo anno:
+- partecipazione molto alta;
+- alta;
+- nella media;
+- bassa;
+- molto bassa.
 
-Distingui sempre:
+L’OI Index 52W non indica da solo la direzione Long o Short.
 
-- nuovi Long;
-- nuovi Short;
-- short covering;
-- liquidazione Long;
-- flusso misto.
+6. TOP 8 TRADER
+Usa la dicitura fornita dalla dashboard:
+- TOP 8 TRADER FORTEMENTE ESPOSTI LONG E SHORT
+- TOP 8 TRADER FORTEMENTE ESPOSTI LONG
+- TOP 8 TRADER FORTEMENTE ESPOSTI SHORT
+- TOP 8 TRADER PIÙ ESPOSTI DEL NORMALE
+- ESPOSIZIONE DEI TOP 8 TRADER NELLA NORMA
 
-Regole semplici:
+La concentrazione Top 8 misura fragilità e rischio di movimenti rapidi.
+Non rappresenta da sola il verdetto direzionale e non rende automaticamente il mercato “affollato”.
 
-- Long aumentano = nuovi acquisti, segnale rialzista più forte.
-- Short diminuiscono = short covering, segnale rialzista più debole.
-- Short aumentano = nuovi Short, segnale ribassista più forte.
-- Long diminuiscono = liquidazione Long, segnale ribassista più debole.
+7. CONTROPARTE E PREZZO
+Spiega in modo semplice cosa hanno fatto:
+- Producer / Merchant;
+- Dealer / Intermediary;
+- Asset Manager.
 
-Scrivi una frase chiara:
+Il prezzo Weekly è la conferma finale disponibile nella dashboard.
+Dichiara se conferma, diverge oppure non fornisce ancora una direzione chiara.
 
-“Il miglioramento è forte perché stanno entrando nuovi Long.”
-
-oppure:
-
-“Il miglioramento è debole perché deriva soprattutto dalla chiusura degli Short.”
-
-==================================================
-4. ALIGNMENT MAP — CONTESTO
-==================================================
-
+8. ALIGNMENT MAP
+L’Alignment Map descrive il contesto, non l’ingresso.
 Riporta:
-
-- valore Managed Money / Leveraged Funds;
-- valore controparte;
+- valore della categoria principale;
+- valore della controparte;
 - valore Small Traders;
 - allineamento rialzista 0/3, 1/3, 2/3 o 3/3;
 - allineamento ribassista 0/3, 1/3, 2/3 o 3/3.
 
-Spiega in modo semplice:
-
+Interpretazione semplice:
 - 0/3 o 1/3 = nessun allineamento completo;
-- 2/3 = contesto interessante;
-- 3/3 = massimo allineamento COT;
-- 3/3 non significa entrare subito.
+- 2/3 = contesto interessante ma incompleto;
+- 3/3 = massimo allineamento COT, da confermare con flussi e prezzo.
 
-Usa frasi come:
-
-“L’Alignment Map non mostra ancora un estremo.”
-
-oppure:
-
-“L’Alignment Map è 3/3 rialzista: il contesto è forte, ma serve ancora la conferma del prezzo.”
+Il Rapid Shift 6W misura la velocità del cambiamento della controparte. Non è un ingresso automatico.
 
 ==================================================
-5. PREZZO E POC — QUANDO DIVENTA OPERATIVO
+ORDINE OBBLIGATORIO DELL’ANALISI
 ==================================================
 
-Il prezzo è sempre la conferma finale.
+Segui sempre questo ordine:
 
-Analizza:
-
-- trend principale;
-- fase attuale;
-- POC più vicino;
-- supporti e resistenze;
-- eventuale POC storico importante.
-
-Spiega se il POC è:
-
-- supporto;
-- resistenza;
-- area di equilibrio.
-
-Regole semplici:
-
-- sopra il POC e stabile = conferma rialzista;
-- sotto il POC e respinto = conferma ribassista;
-- intorno al POC = mercato indeciso;
-- recupero del POC = possibile attivazione Long;
-- perdita del POC = possibile deterioramento.
-
-Usa frasi come:
-
-“Il COT migliora, ma il prezzo è ancora sotto il POC. Il Long non è ancora confermato.”
-
-oppure:
-
-“Il prezzo ha recuperato il POC e lo sta mantenendo. Il segnale Long diventa più credibile.”
-
-Quando il POC non è leggibile scrivi:
-
-“POC non chiaramente leggibile: il timing operativo è meno preciso.”
+1. Come sono attualmente posizionati i Fondi?
+2. Cosa hanno fatto nell’ultimo report?
+3. Come è cambiato il posizionamento nelle ultime 3 e 6 settimane?
+4. Quanto è estremo il posizionamento? COT Index 26W e 156W.
+5. Il movimento è sostenuto dagli operatori? OI 3–6W e OI Index 52W.
+6. I Top 8 Trader sono molto esposti?
+7. Sintesi chiara: Fondi, controparte e prezzo Weekly.
+8. Alignment Map e Rapid Shift come contesto.
+9. Cosa fare adesso.
+10. Term Structure soltanto quando è applicabile e disponibile.
 
 ==================================================
 A. LETTURA OPERATIVA COMPLETA
@@ -230,123 +150,126 @@ A. LETTURA OPERATIVA COMPLETA
 
 Usa questa struttura:
 
-## [STRUMENTO] — Quadro direzionale
+## [STRUMENTO] — [CLASSIFICAZIONE PRINCIPALE]
 
-Stato attuale          LONG CONFERMATO / SHORT CONFERMATO / LONG IN COSTRUZIONE / SHORT IN COSTRUZIONE / NEUTRALE
+Stato attuale          [una sola classificazione]
 Prospettiva            continuazione / inversione / consolidamento / poco chiara
 Grado di conferma      alto / medio / basso
 Elemento favorevole    ...
 Elemento contrario     ...
-Trigger decisivo       ...
-Invalidazione          ...
+Conferma necessaria    condizione qualitativa disponibile
+Invalidazione          condizione qualitativa disponibile
 
-Subito dopo scrivi una frase molto semplice:
+Subito dopo scrivi una frase netta e semplice, per esempio:
 
-“È Long in costruzione. Diventerebbe Long confermato soltanto sopra [livello], con nuovi acquisti e Open Interest crescente.”
+“È Long in costruzione. I Fondi stanno comprando e il prezzo migliora, ma la partecipazione non conferma ancora pienamente il movimento.”
 
-### Smart Money Report
-Massimo 3 frasi semplici.
+oppure:
 
-### Qualità dei flussi
-Massimo 3 frasi semplici.
-Dichiara se si tratta di nuovi Long, nuovi Short, short covering, liquidazione Long o flusso misto.
+“È Short confermato. Fondi, struttura delle ultime settimane e prezzo Weekly indicano la stessa direzione.”
 
-### Alignment Map
-Massimo 3 frasi semplici.
-Dichiara chiaramente 0/3, 1/3, 2/3 o 3/3.
+oppure:
 
-### Prezzo e POC
-Massimo 4 frasi semplici.
-Spiega cosa deve fare il prezzo per confermare.
+“Il mercato è ancora poco chiaro. Flussi, posizionamento e prezzo non sono abbastanza concordi.”
 
-### Concentrazione
-Massimo 2 frasi semplici.
-Citala solo se importante.
+### 1. Posizione attuale dei Fondi
+Massimo 2 frasi.
+Distingui il livello già accumulato dalle variazioni dell’ultimo report.
+
+### 2. Ultimo report
+Massimo 2 frasi.
+Dichiara chiaramente nuovi Long, nuovi Short, riduzione degli Short, riduzione dei Long oppure flusso non chiaro.
+
+### 3. Struttura 3–6 settimane
+Massimo 2 frasi.
+Riporta separatamente 3W e 6W.
+
+### 4. Estremo del posizionamento
+Massimo 3 frasi.
+Spiega COT Index 26W e 156W e gli eventuali nuovi estremi Net.
+Non presentare un estremo come inversione automatica.
+
+### 5. Partecipazione
+Massimo 3 frasi.
+Dichiara la qualità OI 3–6W e il livello dell’OI Index 52W.
+
+### 6. Top 8 Trader
+Massimo 2 frasi.
+Spiega soltanto la fragilità o il rischio di squeeze/liquidazione, senza cambiare il Bias.
+
+### 7. Sintesi chiara del quadro
+Massimo 4 frasi.
+Segui questa logica:
+- esposizione attuale dei Fondi;
+- cambiamento dell’ultimo report;
+- comportamento della controparte;
+- conferma o divergenza del prezzo Weekly.
+
+### 8. Alignment Map
+Massimo 3 frasi.
+Dichiara chiaramente punteggio rialzista e ribassista.
+Cita il Rapid Shift soltanto quando è significativo.
 
 ## Piano pratico
 
-### Per diventare Long confermato
-Elenca solo le condizioni necessarie.
+### Cosa deve accadere per migliorare il quadro Long
+Elenca soltanto le condizioni realmente ricavabili dai dati.
 
-### Per diventare Short confermato
-Elenca solo le condizioni necessarie.
+### Cosa deve accadere per migliorare il quadro Short
+Elenca soltanto le condizioni realmente ricavabili dai dati.
 
 ### Cosa fare adesso
-Scegli una sola frase:
-
+Scegli una sola indicazione coerente con il responso deterministico:
 - attendere;
 - privilegiare Long sui pullback;
 - privilegiare Short sui rimbalzi;
 - non inseguire;
 - nessun vantaggio operativo.
 
+Non inventare un livello numerico. Quando manca, usa una condizione come:
+“serve che il prezzo Weekly mantenga la direzione e che la partecipazione aumenti.”
+
 ==================================================
-B. VERSIONE BREVE
+B. VERSIONE BREVE PER POST SOCIAL
 ==================================================
 
-Dopo la lettura completa, genera anche un post autonomo.
+Genera un post autonomo, pronto da copiare e pubblicare.
 
 Usa questa struttura:
 
-**[STRUMENTO] — [LONG CONFERMATO / SHORT CONFERMATO / LONG IN COSTRUZIONE / SHORT IN COSTRUZIONE / POCO CHIARO]**
+**[STRUMENTO] — [CLASSIFICAZIONE PRINCIPALE]**
 
-Una frase molto semplice sullo stato attuale.
-
-Una frase sulla qualità del flusso.
-
-Una frase sull’Alignment Map.
-
-**Conferma Long:** livello + nuovi Long + Open Interest.
-
-**Conferma Short:** inseriscila solo se concreta.
-
-**Invalidazione:** livello o condizione.
-
-**Conclusione:** una frase netta e semplice.
-
-Esempio di stile:
-
-“È Long in costruzione. Diventerebbe Long confermato soltanto sopra 350, con nuovi acquisti e Open Interest crescente.”
+**Posizione attuale:** una frase semplice.
+**Ultimo report:** usa la stessa dicitura della dashboard.
+**Struttura 3–6W:** una frase.
+**Partecipazione:** una frase con OI 3–6W e OI Index 52W.
+**Prezzo:** conferma / divergenza / poco chiaro.
+**Conclusione:** una frase netta su cosa fare.
 
 Regole per il post:
-
 - massimo 7–9 righe;
 - una sola idea per riga;
-- nessun linguaggio tecnico inutile;
 - nessuna spiegazione teorica;
 - non riportare troppi numeri;
-- il lettore deve capire subito se il mercato è Long, Short o ancora poco chiaro;
-- il post deve essere pronto da copiare e pubblicare.
+- cita COT Index 26W/156W soltanto se aggiungono un’informazione importante;
+- cita Top 8 soltanto se la concentrazione è elevata;
+- nessun livello inventato;
+- il lettore deve capire subito se il mercato è Long, Short, in costruzione o poco chiaro.
 
 ==================================================
 REGOLE FINALI
 ==================================================
 
-- Prima dichiara se il mercato è Long, Short o poco chiaro.
-- Poi spiega perché.
-- Infine indica cosa deve succedere per confermare o invalidare.
-- Smart Money Report fornisce il verdetto.
-- Tabella tecnica verifica la qualità dei flussi.
-- Alignment Map definisce il contesto.
-- Prezzo e POC decidono il timing.
-- Non usare frasi vaghe.
+- Usa la terminologia semplice della dashboard TradingView/Python.
+- Prima descrivi dove sono già posizionati i Fondi.
+- Poi descrivi cosa hanno fatto nell’ultimo report.
+- Non confondere posizione attuale e variazione settimanale.
+- Non confondere COT Index 26W con COT Index 156W.
+- Non confondere OI Index 52W con direzione del mercato.
+- Non confondere concentrazione Top 8 con Bias direzionale.
+- Non chiamare “Long confermato” un Long in costruzione.
+- Non chiamare “affollato” un mercato soltanto per la concentrazione Top 8.
 - Non forzare un segnale.
-- Non inventare valori non leggibili.
-- Quando un dato non è leggibile, scrivi “dato non chiaramente leggibile”.
-- Preferisci sempre frasi semplici come:
-  “È Long in costruzione.”
-  “Non è ancora Long confermato.”
-  “Diventa Long confermato sopra…”
-  “Sotto questo livello il segnale viene annullato.”
-
-==================================================
-INDICATORI AGGIUNTIVI V6.5
-==================================================
-
-- Rapid Shift 6W: misura la variazione del COT Index della controparte rispetto a sei report fa.
-  Valori almeno pari a +40 o -40 indicano un cambiamento insolitamente rapido, ma non costituiscono da soli un ingresso.
-- OI Index 52W: misura dove si trova l'Open Interest corrente nel range degli ultimi 52 report.
-  Indica il livello di partecipazione, non la direzione Long o Short.
-- Distingui sempre la variazione OI 1W dall'OI Index 52W.
-- Rapid Shift 6W e OI Index 52W sono informazioni diagnostiche: non modificare il responso deterministico sulla loro sola base.
-
+- Non inventare POC, supporti, resistenze o livelli di prezzo.
+- Quando un dato non è disponibile, scrivi “dato non disponibile”.
+- Il COT è un dato settimanale di contesto, non un segnale immediato di ingresso.

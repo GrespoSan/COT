@@ -1,102 +1,216 @@
 PROMPT — LETTURA AI DEL COT SCREENER
+ALLINEATO A SMART MONEY ENGINE V1.5.22
 
 Analizza i migliori {TOP_N} risultati dello screener COT riportati sotto.
+Usa esclusivamente i dati presenti nella tabella.
+Scrivi in italiano semplice, breve e concreto, comprensibile anche a un lettore inesperto.
 
+==================================================
 OBIETTIVO
+==================================================
 
-- Spiega perché questi mercati sono in cima alla classifica.
-- Usa esclusivamente i dati forniti.
-- Non modificare Score, Stato o Classificazione AI.
-- Distingui nuovi Long, nuovi Short, short covering, liquidazione Long e flusso misto.
-- Usa l'Alignment Map come contesto e il prezzo Weekly come conferma.
-- Interpreta Rapid Shift 6W e OI Index 52W come informazioni diagnostiche, senza cambiare Score, Stato o Classificazione AI.
-- Non inventare POC, supporti, resistenze o livelli di ingresso.
-- Scrivi in italiano semplice, breve e concreto.
+- Spiega perché gli strumenti sono in cima alla classifica.
+- Mantieni invariati Score, Stato, graduatoria e Classificazione AI.
+- Distingui la posizione già accumulata dai Fondi da ciò che hanno fatto nell’ultimo report.
+- Usa COT Index 26W e 156W per spiegare quanto il posizionamento è estremo.
+- Usa flussi 1W, 3W e 6W per spiegare direzione e continuità.
+- Usa OI 3–6W e OI Index 52W per valutare la partecipazione.
+- Usa Alignment Map come contesto e prezzo Weekly come conferma.
+- Usa la concentrazione Top 8 soltanto come misura di fragilità.
+- Non inventare POC, supporti, resistenze, livelli di ingresso o invalidazioni numeriche.
 
-REGOLA PRINCIPALE — CLASSIFICAZIONI ESCLUSIVE
+==================================================
+REGOLA DI ESCLUSIVITÀ — OBBLIGATORIA
+==================================================
 
-La colonna "Classificazione AI" è già assegnata dal motore ed è obbligatoria.
-Non riclassificare gli strumenti.
+Ogni strumento deve comparire in UNA SOLA sezione operativa tra le sezioni 3, 4, 5, 6 e 7.
+La colonna “Classificazione AI” decide obbligatoriamente la sezione.
+Non riclassificare uno strumento in base allo Score, alla concentrazione Top 8 o a una tua interpretazione.
 
-Ogni strumento deve comparire in UNA SOLA delle sezioni operative 3, 4, 5, 6 o 7.
-Non inserire lo stesso strumento in due sezioni operative diverse.
-
-Usa esattamente queste corrispondenze:
+Mappatura obbligatoria:
 
 - OPPORTUNITÀ LONG CONFERMATA
-  Solo strumenti con Stato esatto: LONG CONFERMATO.
+  → sezione 3. Opportunità Long confermate
 
 - OPPORTUNITÀ SHORT CONFERMATA
-  Solo strumenti con Stato esatto: SHORT CONFERMATO.
+  → sezione 4. Opportunità Short confermate
 
 - DA MONITORARE — LONG IN COSTRUZIONE
-  Solo strumenti con Stato esatto: LONG IN COSTRUZIONE.
-  Non chiamarli opportunità Long già operative.
+  → sezione 5. Mercati da monitorare
 
 - DA MONITORARE — SHORT IN COSTRUZIONE
-  Solo strumenti con Stato esatto: SHORT IN COSTRUZIONE.
-  Non chiamarli opportunità Short già operative.
+  → sezione 5. Mercati da monitorare
 
 - NON INSEGUIRE — LONG AFFOLLATO
-  Solo strumenti con Stato esatto: LONG CONFERMATO MA AFFOLLATO (NON INSEGUIRE).
+  → sezione 6. Mercati da non inseguire
 
 - NON INSEGUIRE — SHORT AFFOLLATO
-  Solo strumenti con Stato esatto: SHORT CONFERMATO MA AFFOLLATO (NON INSEGUIRE).
+  → sezione 6. Mercati da non inseguire
 
 - POCO CHIARO — NESSUN VANTAGGIO OPERATIVO
-  Solo strumenti con Stato esatto: NEUTRALE / POCO CHIARO.
+  → sezione 7. Mercati poco chiari
 
-Un mercato LONG IN COSTRUZIONE non deve mai comparire tra le opportunità Long confermate e non deve comparire tra i mercati affollati da non inseguire.
-Un mercato SHORT IN COSTRUZIONE non deve mai comparire tra le opportunità Short confermate e non deve comparire tra i mercati affollati da non inseguire.
-La concentrazione Top 8 elevata è un fattore di rischio o fragilità, ma non cambia da sola la Classificazione AI.
+Un mercato “in costruzione” non è un’opportunità confermata.
+Un mercato con Top 8 fortemente esposti non è automaticamente “da non inseguire”.
+La concentrazione Top 8 non modifica la sezione assegnata dalla Classificazione AI.
 
-STRUTTURA OBBLIGATORIA
+==================================================
+COME LEGGERE I DATI
+==================================================
+
+1. POSIZIONE ATTUALE
+La colonna “Posizione attuale” e le percentuali Long/Short descrivono come i Fondi sono già posizionati.
+Non confonderle con il flusso dell’ultima settimana.
+
+2. TIPO DI FLUSSO E FLOW 1W
+Distingui:
+- nuovi Long;
+- nuovi Short;
+- riduzione degli Short / short covering;
+- riduzione dei Long / liquidazione Long;
+- flusso misto.
+
+3. FLOW 3W E 6W
+Indicano se il cambiamento recente è confermato oppure se il mercato è ancora in transizione.
+
+4. COT INDEX 26W E 156W
+- 26W = estremo recente;
+- 156W = estremo strutturale.
+Un estremo non è un segnale automatico di inversione.
+
+5. OPEN INTEREST
+- Variazione OI e OI Index 52W descrivono la partecipazione;
+- non indicano da soli la direzione Long o Short.
+
+6. ALIGNMENT MAP
+- 0/3 o 1/3 = nessun allineamento completo;
+- 2/3 = contesto interessante ma incompleto;
+- 3/3 = massimo allineamento COT, da confermare con flussi e prezzo.
+
+7. RAPID SHIFT
+Misura la velocità del cambiamento della controparte. Non è un segnale di ingresso.
+
+8. TOP 8 TRADER
+Segnala fragilità, rischio di squeeze o liquidazione.
+Non rappresenta il Bias principale e non deve cambiare la classificazione.
+
+==================================================
+STRUTTURA OBBLIGATORIA DELLA RISPOSTA
+==================================================
 
 ## 1. Sintesi generale
-Massimo 5 frasi.
+Massimo 5 frasi semplici.
+Dichiara:
+- quanti strumenti sono confermati;
+- quanti sono in costruzione;
+- quanti sono affollati;
+- quanti sono poco chiari;
+- quale caratteristica generale emerge da flussi, partecipazione e prezzo.
 
 ## 2. Elenco informativo dei {TOP_N} strumenti in classifica
-Elenco numerato con Stato, Score e una breve motivazione.
-Questa sezione descrive la graduatoria e non rappresenta una raccomandazione operativa.
+Elenca tutti gli strumenti una sola volta, nell’ordine dello Score.
+Per ciascuno scrivi massimo 2 frasi:
+- Stato e Classificazione AI;
+- motivo principale della posizione in classifica.
+
+In questa sezione informativa è consentito citare tutti gli strumenti.
+La regola di esclusività riguarda invece le sezioni operative 3–7.
 
 ## 3. Opportunità Long confermate
-Inserisci esclusivamente gli strumenti classificati OPPORTUNITÀ LONG CONFERMATA.
-Se non ce ne sono, scrivi: "Nessuna opportunità Long già confermata tra i risultati analizzati."
+Inserisci soltanto gli strumenti con Classificazione AI:
+OPPORTUNITÀ LONG CONFERMATA.
+
+Per ciascuno indica in modo semplice:
+- posizione attuale dei Fondi;
+- qualità del flusso 1W e struttura 3–6W;
+- partecipazione OI;
+- conferma del prezzo Weekly;
+- eventuale rischio importante.
+
+Se non esistono strumenti validi, scrivi:
+“Nessuna opportunità Long già confermata tra i risultati analizzati.”
 
 ## 4. Opportunità Short confermate
-Inserisci esclusivamente gli strumenti classificati OPPORTUNITÀ SHORT CONFERMATA.
-Se non ce ne sono, scrivi: "Nessuna opportunità Short già confermata tra i risultati analizzati."
+Inserisci soltanto gli strumenti con Classificazione AI:
+OPPORTUNITÀ SHORT CONFERMATA.
+
+Per ciascuno indica in modo semplice:
+- posizione attuale dei Fondi;
+- qualità del flusso 1W e struttura 3–6W;
+- partecipazione OI;
+- conferma del prezzo Weekly;
+- eventuale rischio importante.
+
+Se non esistono strumenti validi, scrivi:
+“Nessuna opportunità Short già confermata tra i risultati analizzati.”
 
 ## 5. Mercati da monitorare
-Inserisci esclusivamente:
+Inserisci soltanto:
 - DA MONITORARE — LONG IN COSTRUZIONE;
 - DA MONITORARE — SHORT IN COSTRUZIONE.
-Per ciascuno indica in modo semplice quale conferma manca o quale elemento resta debole.
+
+Per ciascuno indica:
+- cosa sta migliorando o peggiorando;
+- quale elemento manca per la conferma;
+- se la partecipazione è sufficiente oppure debole;
+- se il prezzo conferma soltanto in parte.
+
+Non presentarli come operazioni già confermate.
+
+Se non esistono strumenti validi, scrivi:
+“Nessun mercato in costruzione tra i risultati analizzati.”
 
 ## 6. Mercati da non inseguire
-Inserisci esclusivamente:
+Inserisci soltanto:
 - NON INSEGUIRE — LONG AFFOLLATO;
 - NON INSEGUIRE — SHORT AFFOLLATO.
-Non inserire mercati soltanto perché sono in costruzione, deboli o hanno concentrazione Top 8 elevata.
-Se non ce ne sono, scrivi: "Nessun mercato affollato da non inseguire tra i risultati analizzati."
+
+Spiega che la direzione è confermata, ma il posizionamento è già troppo esteso.
+Non inserire qui mercati semplicemente fragili, non confermati o con Top 8 elevati.
+
+Se non esistono strumenti validi, scrivi:
+“Nessun mercato affollato da non inseguire tra i risultati analizzati.”
 
 ## 7. Mercati poco chiari
-Inserisci esclusivamente gli strumenti classificati POCO CHIARO — NESSUN VANTAGGIO OPERATIVO.
-Se non ce ne sono, scrivi: "Nessun mercato neutrale o poco chiaro tra i risultati analizzati."
+Inserisci soltanto:
+POCO CHIARO — NESSUN VANTAGGIO OPERATIVO.
 
-REGOLE FINALI
+Spiega brevemente quali dati sono discordanti.
 
-- Lo Score è deterministico: non modificarlo e non usarlo per cambiare lo Stato.
-- Non promuovere LONG IN COSTRUZIONE a LONG CONFERMATO.
-- Non promuovere SHORT IN COSTRUZIONE a SHORT CONFERMATO.
-- Un Alignment 3/3 prepara il contesto ma non è un ingresso automatico.
-- Un Rapid Shift 6W almeno pari a +40 o -40 segnala un cambiamento rapido della controparte, non un ingresso automatico.
-- L'OI Index 52W misura il livello di partecipazione nel range annuale e non indica da solo la direzione.
-- Il prezzo Weekly è la conferma finale disponibile nello screener.
-- Non forzare segnali quando i dati sono discordanti.
-- Non riportare troppi numeri.
-- Prima di terminare, controlla che nessuno strumento sia presente in più di una sezione operativa tra 3 e 7.
+Se non esistono strumenti validi, scrivi:
+“Nessun mercato neutrale o poco chiaro tra i risultati analizzati.”
 
+==================================================
+CONTROLLO FINALE OBBLIGATORIO
+==================================================
+
+Prima di terminare, verifica internamente che:
+
+- ogni strumento compaia in una sola sezione operativa tra 3, 4, 5, 6 e 7;
+- nessun “LONG IN COSTRUZIONE” compaia nelle opportunità Long confermate;
+- nessun “SHORT IN COSTRUZIONE” compaia nelle opportunità Short confermate;
+- nessun mercato sia definito “da non inseguire” soltanto per la concentrazione Top 8;
+- nessun mercato sia riclassificato rispetto alla colonna Classificazione AI;
+- Score e graduatoria non siano modificati;
+- COT Index 26W, COT Index 156W e OI Index 52W siano interpretati correttamente;
+- non siano inventati livelli tecnici.
+
+==================================================
+STILE
+==================================================
+
+- Frasi brevi.
+- Un concetto per frase.
+- Nessun linguaggio tecnico inutile.
+- Non riportare tutti i numeri: usa soltanto quelli che spiegano davvero la classifica.
+- Preferisci formule semplici come:
+  “I Fondi sono già prevalentemente Long, ma nell’ultimo report hanno ridotto i Long.”
+  “I Fondi hanno aperto nuovi Short, ma la struttura a 6 settimane non è ancora ribassista.”
+  “Il prezzo conferma, ma la partecipazione rimane molto bassa.”
+  “La concentrazione Top 8 aumenta la fragilità, ma non cambia il Bias.”
+
+==================================================
 DATI SCREENER
+==================================================
 
 {DATI_SCREENER}
