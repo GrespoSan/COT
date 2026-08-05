@@ -42,10 +42,12 @@ Mappatura obbligatoria:
   → sezione 5. Mercati da monitorare
 
 - NON INSEGUIRE — LONG AFFOLLATO
-  → sezione 6. Mercati da non inseguire
+  → sezione 6. Mercati confermati da non inseguire
+  → nella risposta scrivi: LONG CONFERMATO — NON INSEGUIRE
 
 - NON INSEGUIRE — SHORT AFFOLLATO
-  → sezione 6. Mercati da non inseguire
+  → sezione 6. Mercati confermati da non inseguire
+  → nella risposta scrivi: SHORT CONFERMATO — NON INSEGUIRE
 
 - POCO CHIARO — NESSUN VANTAGGIO OPERATIVO
   → sezione 7. Mercati poco chiari
@@ -103,7 +105,7 @@ Massimo 5 frasi semplici.
 Dichiara:
 - quanti strumenti sono confermati;
 - quanti sono in costruzione;
-- quanti sono affollati;
+- quanti sono confermati ma da non inseguire;
 - quanti sono poco chiari;
 - quale caratteristica generale emerge da flussi, partecipazione e prezzo.
 
@@ -160,16 +162,22 @@ Non presentarli come operazioni già confermate.
 Se non esistono strumenti validi, scrivi:
 “Nessun mercato in costruzione tra i risultati analizzati.”
 
-## 6. Mercati da non inseguire
-Inserisci soltanto:
+## 6. Mercati confermati da non inseguire
+Inserisci soltanto gli strumenti che nei dati interni hanno:
 - NON INSEGUIRE — LONG AFFOLLATO;
 - NON INSEGUIRE — SHORT AFFOLLATO.
 
-Spiega che la direzione è confermata, ma il posizionamento è già troppo esteso.
+Nella risposta finale non usare mai la parola “affollato”.
+Traduci obbligatoriamente le etichette così:
+- NON INSEGUIRE — LONG AFFOLLATO → LONG CONFERMATO — NON INSEGUIRE;
+- NON INSEGUIRE — SHORT AFFOLLATO → SHORT CONFERMATO — NON INSEGUIRE.
+
+Spiega con parole semplici che la direzione è confermata, ma molti Fondi sono già posizionati nella stessa direzione.
+Il rischio è arrivare tardi, comprare vicino ai massimi o vendere vicino ai minimi.
 Non inserire qui mercati semplicemente fragili, non confermati o con Top 8 elevati.
 
 Se non esistono strumenti validi, scrivi:
-“Nessun mercato affollato da non inseguire tra i risultati analizzati.”
+“Nessun mercato confermato da non inseguire tra i risultati analizzati.”
 
 ## 7. Mercati poco chiari
 Inserisci soltanto:
@@ -202,6 +210,7 @@ STILE
 - Frasi brevi.
 - Un concetto per frase.
 - Nessun linguaggio tecnico inutile.
+- Non usare la parola “affollato” nella risposta finale.
 - Non riportare tutti i numeri: usa soltanto quelli che spiegano davvero la classifica.
 - Preferisci formule semplici come:
   “I Fondi sono già prevalentemente Long, ma nell’ultimo report hanno ridotto i Long.”

@@ -23,12 +23,18 @@ La prima cosa da dichiarare è una sola classificazione:
 - LONG IN COSTRUZIONE
 - SHORT IN COSTRUZIONE
 - NEUTRALE / POCO CHIARO
-- LONG CONFERMATO MA AFFOLLATO (NON INSEGUIRE)
-- SHORT CONFERMATO MA AFFOLLATO (NON INSEGUIRE)
+- LONG CONFERMATO — NON INSEGUIRE
+- SHORT CONFERMATO — NON INSEGUIRE
+
+REGOLA DI LINGUAGGIO:
+La parola “affollato” è un’etichetta tecnica interna e non deve comparire nella risposta finale.
+Quando nei dati interni compare LONG CONFERMATO MA AFFOLLATO, scrivi: LONG CONFERMATO — NON INSEGUIRE.
+Quando nei dati interni compare SHORT CONFERMATO MA AFFOLLATO, scrivi: SHORT CONFERMATO — NON INSEGUIRE.
+Spiega con parole semplici: molti Fondi sono già posizionati nella stessa direzione e quindi aumenta il rischio di arrivare tardi.
 
 Usa come classificazione principale il responso deterministico già calcolato dalla dashboard.
 Non promuovere un mercato “in costruzione” a “confermato”.
-Non trasformare un mercato in “affollato” soltanto perché i Top 8 Trader sono molto esposti.
+Non classificare un mercato come “NON INSEGUIRE” soltanto perché i Top 8 Trader sono molto esposti.
 Non contraddire il responso deterministico, salvo segnalare chiaramente un dato mancante o incoerente.
 
 ==================================================
@@ -100,7 +106,7 @@ Usa la dicitura fornita dalla dashboard:
 - ESPOSIZIONE DEI TOP 8 TRADER NELLA NORMA
 
 La concentrazione Top 8 misura fragilità e rischio di movimenti rapidi.
-Non rappresenta da sola il verdetto direzionale e non rende automaticamente il mercato “affollato”.
+Non rappresenta da sola il verdetto direzionale e non rende automaticamente il mercato “da non inseguire”.
 
 7. CONTROPARTE E PREZZO
 Spiega in modo semplice cosa hanno fatto:
@@ -268,7 +274,7 @@ REGOLE FINALI
 - Non confondere OI Index 52W con direzione del mercato.
 - Non confondere concentrazione Top 8 con Bias direzionale.
 - Non chiamare “Long confermato” un Long in costruzione.
-- Non chiamare “affollato” un mercato soltanto per la concentrazione Top 8.
+- Non classificare un mercato come “da non inseguire” soltanto per la concentrazione Top 8.
 - Non forzare un segnale.
 - Non inventare POC, supporti, resistenze o livelli di prezzo.
 - Quando un dato non è disponibile, scrivi “dato non disponibile”.
