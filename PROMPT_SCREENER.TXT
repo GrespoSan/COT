@@ -1,5 +1,5 @@
 PROMPT — LETTURA AI DEL COT SCREENER
-ALLINEATO A SMART MONEY ENGINE V1.5.22
+ALLINEATO A SMART MONEY ENGINE V1.5.25
 
 Analizza i migliori {TOP_N} risultati dello screener COT riportati sotto.
 Usa esclusivamente i dati presenti nella tabella.
@@ -11,10 +11,11 @@ OBIETTIVO
 
 - Spiega perché gli strumenti sono in cima alla classifica.
 - Mantieni invariati Score, Stato, graduatoria e Classificazione AI.
-- Distingui la posizione già accumulata dai Fondi da ciò che hanno fatto nell’ultimo report.
-- Usa COT Index 26W e 156W per spiegare quanto il posizionamento è estremo.
+- Distingui la posizione direzionale attuale dei Fondi da ciò che hanno fatto nell’ultimo report.
+- Usa COT Index 26W e 156W per descrivere la collocazione della Net Position nel proprio range storico.
+- Non usare il COT Index per dedurre automaticamente che la categoria sia Net Long o Net Short.
 - Usa flussi 1W, 3W e 6W per spiegare direzione e continuità.
-- Usa OI 3–6W e OI Index 52W per valutare la partecipazione.
+- Usa la colonna “Partecipazione OI 3-6W” e l’OI Index 52W per valutare la partecipazione.
 - Usa Alignment Map come contesto e prezzo Weekly come conferma.
 - Usa la concentrazione Top 8 soltanto come misura di fragilità.
 - Non inventare POC, supporti, resistenze, livelli di ingresso o invalidazioni numeriche.
@@ -25,7 +26,7 @@ REGOLA DI ESCLUSIVITÀ — OBBLIGATORIA
 
 Ogni strumento deve comparire in UNA SOLA sezione operativa tra le sezioni 3, 4, 5, 6 e 7.
 La colonna “Classificazione AI” decide obbligatoriamente la sezione.
-Non riclassificare uno strumento in base allo Score, alla concentrazione Top 8 o a una tua interpretazione.
+Non riclassificare uno strumento in base allo Score, alla concentrazione Top 8, al COT Index o a una tua interpretazione.
 
 Mappatura obbligatoria:
 
@@ -41,17 +42,18 @@ Mappatura obbligatoria:
 - DA MONITORARE — SHORT IN COSTRUZIONE
   → sezione 5. Mercati da monitorare
 
-- NON INSEGUIRE — LONG AFFOLLATO
+- NON INSEGUIRE — LONG ESTESO
   → sezione 6. Mercati confermati da non inseguire
   → nella risposta scrivi: LONG CONFERMATO — NON INSEGUIRE
 
-- NON INSEGUIRE — SHORT AFFOLLATO
+- NON INSEGUIRE — SHORT ESTESO
   → sezione 6. Mercati confermati da non inseguire
   → nella risposta scrivi: SHORT CONFERMATO — NON INSEGUIRE
 
 - POCO CHIARO — NESSUN VANTAGGIO OPERATIVO
   → sezione 7. Mercati poco chiari
 
+Non usare mai la parola “affollato” nella risposta finale.
 Un mercato “in costruzione” non è un’opportunità confermata.
 Un mercato con Top 8 fortemente esposti non è automaticamente “da non inseguire”.
 La concentrazione Top 8 non modifica la sezione assegnata dalla Classificazione AI.
@@ -61,46 +63,101 @@ COME LEGGERE I DATI
 ==================================================
 
 1. POSIZIONE ATTUALE
-La colonna “Posizione attuale” e le percentuali Long/Short descrivono come i Fondi sono già posizionati.
-Non confonderle con il flusso dell’ultima settimana.
+
+La colonna “Posizione attuale” e le percentuali “Esposizione Long % / Esposizione Short %” descrivono il lato direzionale attuale dei Fondi.
+Le posizioni Spreading sono escluse.
+Non confondere questa informazione con il COT Index o con il flusso dell’ultima settimana.
 
 2. TIPO DI FLUSSO E FLOW 1W
+
 Distingui:
 - nuovi Long;
 - nuovi Short;
 - riduzione degli Short / short covering;
 - riduzione dei Long / liquidazione Long;
-- flusso misto.
+- miglioramento o peggioramento misto;
+- flusso neutrale.
+
+Quando disponibile, usa anche la frase “Indicazione” fornita dalla dashboard senza modificarne il significato.
 
 3. FLOW 3W E 6W
-Indicano se il cambiamento recente è confermato oppure se il mercato è ancora in transizione.
+
+Indicano la direzione del cambiamento recente.
+La direzione è uniforme soltanto quando entrambi sono positivi oppure entrambi sono negativi.
+Se hanno segni opposti, scrivi che il quadro 3–6W non ha una direzione uniforme.
 
 4. COT INDEX 26W E 156W
-- 26W = estremo recente;
-- 156W = estremo strutturale.
-Un estremo non è un segnale automatico di inversione.
 
-5. OPEN INTEREST
-- Variazione OI e OI Index 52W descrivono la partecipazione;
-- non indicano da soli la direzione Long o Short.
+- 26W = collocazione della Net Position nel range recente;
+- 156W = collocazione della Net Position nel range degli ultimi tre anni.
+
+Interpretazione obbligatoria:
+- valore alto = Net Position vicina al massimo del proprio range;
+- valore basso = Net Position vicina al minimo del proprio range.
+
+Non scrivere automaticamente “Fondi Net Long” quando il COT Index è alto.
+Non scrivere automaticamente “Fondi Net Short” quando il COT Index è basso.
+Il COT Index indica estensione storica, non un segnale automatico di inversione.
+
+Usa, quando utile, queste formule:
+- VICINO AL MASSIMO DEL RANGE STORICO
+- FASCIA ALTA DEL RANGE STORICO
+- FASCIA CENTRALE DEL RANGE STORICO
+- FASCIA BASSA DEL RANGE STORICO
+- VICINO AL MINIMO DEL RANGE STORICO
+
+5. OPEN INTEREST E PARTECIPAZIONE
+
+La colonna “Partecipazione OI 3-6W” contiene già la lettura deterministica. Riportala senza cambiarne la direzione:
+- IL MOVIMENTO RIALZISTA È SOSTENUTO
+- IL MOVIMENTO RIBASSISTA È SOSTENUTO
+- IL MOVIMENTO RIALZISTA PERDE PARTECIPAZIONE
+- IL MOVIMENTO RIBASSISTA PERDE PARTECIPAZIONE
+- IL MOVIMENTO RIALZISTA HA UNA PARTECIPAZIONE STABILE
+- IL MOVIMENTO RIBASSISTA HA UNA PARTECIPAZIONE STABILE
+- IL MOVIMENTO RIALZISTA NON È ANCORA CONFERMATO
+- IL MOVIMENTO RIBASSISTA NON È ANCORA CONFERMATO
+- IL QUADRO 3-6W NON HA UNA DIREZIONE UNIFORME
+- DIREZIONE 3-6W NON DISPONIBILE
+- OI NON DISPONIBILE
+
+L’OI Index 52W descrive quanto la partecipazione è alta o bassa rispetto all’ultimo anno.
+Non indica da solo la direzione Long o Short.
 
 6. ALIGNMENT MAP
+
 - 0/3 o 1/3 = nessun allineamento completo;
 - 2/3 = contesto interessante ma incompleto;
 - 3/3 = massimo allineamento COT, da confermare con flussi e prezzo.
 
 7. RAPID SHIFT
+
 Misura la velocità del cambiamento della controparte. Non è un segnale di ingresso.
 
 8. TOP 8 TRADER
+
 Segnala fragilità, rischio di squeeze o liquidazione.
 Non rappresenta il Bias principale e non deve cambiare la classificazione.
+
+9. COSA FARE
+
+La colonna “Indicazione” può iniziare con:
+- IN FUNZIONE DELLA VIEW RIALZISTA,
+- IN FUNZIONE DELLA VIEW RIBASSISTA,
+- IN FUNZIONE DI UNA POSSIBILE VIEW RIALZISTA,
+- IN FUNZIONE DI UNA POSSIBILE VIEW RIBASSISTA,
+- CON PREZZO RIALZISTA MA VIEW COT NON ANCORA CONFERMATA,
+- CON PREZZO RIBASSISTA MA VIEW COT NON ANCORA CONFERMATA,
+- CON UNA VIEW ANCORA NON CONFERMATA,
+
+Mantieni questa distinzione nella spiegazione e non trasformare una possibile view in una view confermata.
 
 ==================================================
 STRUTTURA OBBLIGATORIA DELLA RISPOSTA
 ==================================================
 
 ## 1. Sintesi generale
+
 Massimo 5 frasi semplici.
 Dichiara:
 - quanti strumenti sono confermati;
@@ -110,22 +167,25 @@ Dichiara:
 - quale caratteristica generale emerge da flussi, partecipazione e prezzo.
 
 ## 2. Elenco informativo dei {TOP_N} strumenti in classifica
+
 Elenca tutti gli strumenti una sola volta, nell’ordine dello Score.
 Per ciascuno scrivi massimo 2 frasi:
 - Stato e Classificazione AI;
 - motivo principale della posizione in classifica.
 
 In questa sezione informativa è consentito citare tutti gli strumenti.
-La regola di esclusività riguarda invece le sezioni operative 3–7.
+La regola di esclusività riguarda le sezioni operative 3–7.
 
 ## 3. Opportunità Long confermate
+
 Inserisci soltanto gli strumenti con Classificazione AI:
 OPPORTUNITÀ LONG CONFERMATA.
 
 Per ciascuno indica in modo semplice:
-- posizione attuale dei Fondi;
+- posizione direzionale attuale dei Fondi;
 - qualità del flusso 1W e struttura 3–6W;
-- partecipazione OI;
+- frase esatta della partecipazione OI 3–6W;
+- livello OI Index 52W;
 - conferma del prezzo Weekly;
 - eventuale rischio importante.
 
@@ -133,13 +193,15 @@ Se non esistono strumenti validi, scrivi:
 “Nessuna opportunità Long già confermata tra i risultati analizzati.”
 
 ## 4. Opportunità Short confermate
+
 Inserisci soltanto gli strumenti con Classificazione AI:
 OPPORTUNITÀ SHORT CONFERMATA.
 
 Per ciascuno indica in modo semplice:
-- posizione attuale dei Fondi;
+- posizione direzionale attuale dei Fondi;
 - qualità del flusso 1W e struttura 3–6W;
-- partecipazione OI;
+- frase esatta della partecipazione OI 3–6W;
+- livello OI Index 52W;
 - conferma del prezzo Weekly;
 - eventuale rischio importante.
 
@@ -147,14 +209,16 @@ Se non esistono strumenti validi, scrivi:
 “Nessuna opportunità Short già confermata tra i risultati analizzati.”
 
 ## 5. Mercati da monitorare
+
 Inserisci soltanto:
 - DA MONITORARE — LONG IN COSTRUZIONE;
 - DA MONITORARE — SHORT IN COSTRUZIONE.
 
 Per ciascuno indica:
 - cosa sta migliorando o peggiorando;
+- se 3W e 6W hanno una direzione uniforme;
 - quale elemento manca per la conferma;
-- se la partecipazione è sufficiente oppure debole;
+- se la partecipazione sostiene o non conferma il movimento;
 - se il prezzo conferma soltanto in parte.
 
 Non presentarli come operazioni già confermate.
@@ -163,27 +227,29 @@ Se non esistono strumenti validi, scrivi:
 “Nessun mercato in costruzione tra i risultati analizzati.”
 
 ## 6. Mercati confermati da non inseguire
-Inserisci soltanto gli strumenti che nei dati interni hanno:
-- NON INSEGUIRE — LONG AFFOLLATO;
-- NON INSEGUIRE — SHORT AFFOLLATO.
 
-Nella risposta finale non usare mai la parola “affollato”.
-Traduci obbligatoriamente le etichette così:
-- NON INSEGUIRE — LONG AFFOLLATO → LONG CONFERMATO — NON INSEGUIRE;
-- NON INSEGUIRE — SHORT AFFOLLATO → SHORT CONFERMATO — NON INSEGUIRE.
+Inserisci soltanto gli strumenti con:
+- NON INSEGUIRE — LONG ESTESO;
+- NON INSEGUIRE — SHORT ESTESO.
 
-Spiega con parole semplici che la direzione è confermata, ma molti Fondi sono già posizionati nella stessa direzione.
-Il rischio è arrivare tardi, comprare vicino ai massimi o vendere vicino ai minimi.
+Nella risposta usa:
+- LONG CONFERMATO — NON INSEGUIRE;
+- SHORT CONFERMATO — NON INSEGUIRE.
+
+Spiega che la direzione può continuare, ma la Net Position è già vicina al massimo o al minimo del proprio range storico.
+L’estensione aumenta il rischio di una correzione o di un rimbalzo rapido.
+Non dire che la categoria è necessariamente Net Long o Net Short sulla sola base del COT Index.
 Non inserire qui mercati semplicemente fragili, non confermati o con Top 8 elevati.
 
 Se non esistono strumenti validi, scrivi:
 “Nessun mercato confermato da non inseguire tra i risultati analizzati.”
 
 ## 7. Mercati poco chiari
+
 Inserisci soltanto:
 POCO CHIARO — NESSUN VANTAGGIO OPERATIVO.
 
-Spiega brevemente quali dati sono discordanti.
+Spiega brevemente quali dati sono discordanti, compresa l’eventuale assenza di una direzione uniforme a 3–6 settimane.
 
 Se non esistono strumenti validi, scrivi:
 “Nessun mercato neutrale o poco chiaro tra i risultati analizzati.”
@@ -200,7 +266,10 @@ Prima di terminare, verifica internamente che:
 - nessun mercato sia definito “da non inseguire” soltanto per la concentrazione Top 8;
 - nessun mercato sia riclassificato rispetto alla colonna Classificazione AI;
 - Score e graduatoria non siano modificati;
-- COT Index 26W, COT Index 156W e OI Index 52W siano interpretati correttamente;
+- COT Index 26W e 156W siano descritti come collocazione nel range storico;
+- il COT Index non sia confuso con la percentuale Long/Short attuale;
+- la frase “Partecipazione OI 3-6W” non sia privata della propria direzione;
+- l’OI Index 52W non sia usato come segnale direzionale;
 - non siano inventati livelli tecnici.
 
 ==================================================
@@ -210,12 +279,13 @@ STILE
 - Frasi brevi.
 - Un concetto per frase.
 - Nessun linguaggio tecnico inutile.
-- Non usare la parola “affollato” nella risposta finale.
+- Non usare la parola “affollato”.
 - Non riportare tutti i numeri: usa soltanto quelli che spiegano davvero la classifica.
 - Preferisci formule semplici come:
-  “I Fondi sono già prevalentemente Long, ma nell’ultimo report hanno ridotto i Long.”
-  “I Fondi hanno aperto nuovi Short, ma la struttura a 6 settimane non è ancora ribassista.”
-  “Il prezzo conferma, ma la partecipazione rimane molto bassa.”
+  “I Fondi sono prevalentemente Long e nell’ultimo report hanno aumentato i Long.”
+  “La Net Position è vicina al massimo del proprio range storico, ma questo non significa necessariamente che i Fondi siano Net Long.”
+  “Il movimento rialzista non è ancora confermato dalla partecipazione.”
+  “Il quadro 3–6W non ha una direzione uniforme.”
   “La concentrazione Top 8 aumenta la fragilità, ma non cambia il Bias.”
 
 ==================================================

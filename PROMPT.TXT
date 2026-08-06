@@ -1,5 +1,5 @@
 PROMPT — LETTURA COT SEMPLICE, CHIARA E OPERATIVA
-ALLINEATO A SMART MONEY ENGINE V1.5.22
+ALLINEATO A SMART MONEY ENGINE V1.5.25
 
 Usa esclusivamente i dati strutturati forniti dalla dashboard Python.
 Non è necessario uno screenshot.
@@ -11,6 +11,7 @@ A. LETTURA OPERATIVA COMPLETA
 B. VERSIONE BREVE PER POST SOCIAL
 
 Scrivi in italiano con frasi semplici, brevi e concrete, comprensibili anche a chi non conosce il COT.
+Mantieni le stesse frasi didattiche della dashboard e non sostituirle con espressioni più tecniche.
 
 ==================================================
 REGOLA PRINCIPALE
@@ -26,11 +27,13 @@ La prima cosa da dichiarare è una sola classificazione:
 - LONG CONFERMATO — NON INSEGUIRE
 - SHORT CONFERMATO — NON INSEGUIRE
 
-REGOLA DI LINGUAGGIO:
-La parola “affollato” è un’etichetta tecnica interna e non deve comparire nella risposta finale.
-Quando nei dati interni compare LONG CONFERMATO MA AFFOLLATO, scrivi: LONG CONFERMATO — NON INSEGUIRE.
-Quando nei dati interni compare SHORT CONFERMATO MA AFFOLLATO, scrivi: SHORT CONFERMATO — NON INSEGUIRE.
-Spiega con parole semplici: molti Fondi sono già posizionati nella stessa direzione e quindi aumenta il rischio di arrivare tardi.
+Non usare mai la parola “affollato” nella risposta finale.
+Quando il mercato è confermato ma la Net Position è già vicina al limite del proprio range storico, usa:
+- LONG CONFERMATO — NON INSEGUIRE
+- SHORT CONFERMATO — NON INSEGUIRE
+
+Spiega che il movimento può continuare, ma l’estensione storica aumenta il rischio di una correzione o di un rimbalzo rapido.
+Non dire automaticamente che “molti Fondi sono Net Long” o “molti Fondi sono Net Short” soltanto perché il COT Index è alto o basso.
 
 Usa come classificazione principale il responso deterministico già calcolato dalla dashboard.
 Non promuovere un mercato “in costruzione” a “confermato”.
@@ -41,17 +44,26 @@ Non contraddire il responso deterministico, salvo segnalare chiaramente un dato 
 DISTINZIONI OBBLIGATORIE
 ==================================================
 
-Non confondere mai questi elementi:
-
 1. POSIZIONE ATTUALE DEI FONDI
-Indica come sono già posizionati oggi:
-- prevalentemente Long;
-- prevalentemente Short;
-- posizione bilanciata.
-Riporta, quando utili, le percentuali Long e Short. Le eventuali posizioni Spreading sono escluse.
+
+La posizione attuale deriva dalle percentuali direzionali Long e Short, con le eventuali posizioni Spreading escluse.
+Usa le stesse formule della dashboard:
+- I [CATEGORIA] SONO PREVALENTEMENTE LONG
+- I [CATEGORIA] SONO PREVALENTEMENTE SHORT
+- I [CATEGORIA] HANNO UNA POSIZIONE BILANCIATA
+
+Nella sintesi estesa usa, quando corrisponde ai dati:
+- rimangono fortemente esposti Long: Long almeno 70%;
+- rimangono prevalentemente esposti Long: Long almeno 55% ma meno di 70%;
+- rimangono fortemente esposti Short: Short almeno 70%;
+- rimangono prevalentemente esposti Short: Short almeno 55% ma meno di 70%;
+- mantengono una posizione bilanciata.
+
+Questa informazione descrive il lato attuale delle posizioni. Non deriva dal COT Index.
 
 2. COSA HANNO FATTO NELL’ULTIMO REPORT
-Usa, quando corrisponde ai dati, le stesse frasi della dashboard:
+
+Usa esattamente, quando corrisponde ai dati, una delle frasi della dashboard:
 - I FONDI HANNO APERTO NUOVI LONG
 - I FONDI HANNO APERTO NUOVI SHORT
 - I FONDI HANNO RIDOTTO GLI SHORT
@@ -64,16 +76,29 @@ La posizione attuale descrive ciò che i Fondi hanno già in portafoglio.
 L’ultimo report descrive soltanto ciò che hanno cambiato nell’ultima settimana.
 
 3. STRUTTURA DELLE ULTIME SETTIMANE
+
 Riporta separatamente:
 - ULTIME 3 SETTIMANE: VERSO IL RIALZO / VERSO IL RIBASSO / SOSTANZIALMENTE STABILE
 - ULTIME 6 SETTIMANE: VERSO IL RIALZO / VERSO IL RIBASSO / SOSTANZIALMENTE STABILE
 
-4. ESTREMO DEL POSIZIONAMENTO
-Distingui:
-- COT Index 26W = posizione relativa nel semestre recente;
-- COT Index 156W = posizione relativa strutturale degli ultimi tre anni.
+4. COLLOCAZIONE DELLA NET POSITION NEL RANGE STORICO
 
-Il COT Index descrive quanto il posizionamento è estremo. Non è un segnale automatico di inversione.
+Distingui:
+- COT Index 26W = collocazione della Net Position nel range degli ultimi 26 report;
+- COT Index 156W = collocazione della Net Position nel range degli ultimi 156 report, circa tre anni.
+
+Usa le stesse diciture della dashboard:
+- VICINO AL MASSIMO DEL RANGE STORICO
+- FASCIA ALTA DEL RANGE STORICO
+- FASCIA CENTRALE DEL RANGE STORICO
+- FASCIA BASSA DEL RANGE STORICO
+- VICINO AL MINIMO DEL RANGE STORICO
+
+REGOLA FONDAMENTALE:
+Un COT Index alto significa che la Net Position è vicina al massimo del proprio range, non necessariamente che la categoria sia Net Long.
+Un COT Index basso significa che la Net Position è vicina al minimo del proprio range, non necessariamente che la categoria sia Net Short.
+Il COT Index segnala estensione storica e non costituisce un segnale automatico di inversione.
+
 Segnala chiaramente eventuali:
 - NUOVO MASSIMO NET 26W
 - NUOVO MINIMO NET 26W
@@ -81,23 +106,34 @@ Segnala chiaramente eventuali:
 - NUOVO MINIMO NET 156W
 
 5. PARTECIPAZIONE DEGLI OPERATORI
-Usa la lettura OI 3–6 settimane già calcolata:
-- IL MOVIMENTO È SOSTENUTO
-- IL MOVIMENTO PERDE FORZA
-- IL MOVIMENTO HA UN SOSTEGNO STABILE
-- IL MOVIMENTO NON È ANCORA CONFERMATO
+
+La dashboard identifica prima la direzione uniforme dei flussi COT a 3 e 6 settimane, poi verifica il comportamento dell’Open Interest.
+Usa esattamente la frase fornita nei dati:
+- IL MOVIMENTO RIALZISTA È SOSTENUTO
+- IL MOVIMENTO RIBASSISTA È SOSTENUTO
+- IL MOVIMENTO RIALZISTA PERDE PARTECIPAZIONE
+- IL MOVIMENTO RIBASSISTA PERDE PARTECIPAZIONE
+- IL MOVIMENTO RIALZISTA HA UNA PARTECIPAZIONE STABILE
+- IL MOVIMENTO RIBASSISTA HA UNA PARTECIPAZIONE STABILE
+- IL MOVIMENTO RIALZISTA NON È ANCORA CONFERMATO
+- IL MOVIMENTO RIBASSISTA NON È ANCORA CONFERMATO
+- IL QUADRO 3-6W NON HA UNA DIREZIONE UNIFORME
+- DIREZIONE 3-6W NON DISPONIBILE
 - OI NON DISPONIBILE
 
+Non parlare di “movimento rialzista” o “ribassista” quando le variazioni COT a 3 e 6 settimane non hanno la stessa direzione.
+
 Spiega inoltre l’OI Index 52W come livello della partecipazione nell’ultimo anno:
-- partecipazione molto alta;
-- alta;
-- nella media;
-- bassa;
-- molto bassa.
+- PARTECIPAZIONE MOLTO ALTA
+- PARTECIPAZIONE ALTA
+- PARTECIPAZIONE NELLA MEDIA
+- PARTECIPAZIONE BASSA
+- PARTECIPAZIONE MOLTO BASSA
 
 L’OI Index 52W non indica da solo la direzione Long o Short.
 
 6. TOP 8 TRADER
+
 Usa la dicitura fornita dalla dashboard:
 - TOP 8 TRADER FORTEMENTE ESPOSTI LONG E SHORT
 - TOP 8 TRADER FORTEMENTE ESPOSTI LONG
@@ -109,15 +145,33 @@ La concentrazione Top 8 misura fragilità e rischio di movimenti rapidi.
 Non rappresenta da sola il verdetto direzionale e non rende automaticamente il mercato “da non inseguire”.
 
 7. CONTROPARTE E PREZZO
+
 Spiega in modo semplice cosa hanno fatto:
 - Producer / Merchant;
 - Dealer / Intermediary;
 - Asset Manager.
 
 Il prezzo Weekly è la conferma finale disponibile nella dashboard.
-Dichiara se conferma, diverge oppure non fornisce ancora una direzione chiara.
+Dichiara se conferma il miglioramento o il peggioramento COT, se diverge oppure se non fornisce ancora una conferma chiara.
 
-8. ALIGNMENT MAP
+8. SINTESI CHIARA DEL QUADRO
+
+Segui esattamente questo ordine:
+- esposizione direzionale attuale dei Fondi;
+- cambiamento dell’ultimo report;
+- movimento della controparte;
+- collocazione della Net Position nel range storico a 156 settimane;
+- conferma o divergenza del prezzo Weekly.
+
+La frase sulla collocazione storica deve usare una delle seguenti formule:
+- Rispetto agli ultimi tre anni, la loro Net Position si trova vicino al massimo del range storico.
+- Rispetto agli ultimi tre anni, la loro Net Position si trova nella fascia alta del range storico.
+- Rispetto agli ultimi tre anni, la loro Net Position si trova nella fascia centrale del range storico.
+- Rispetto agli ultimi tre anni, la loro Net Position si trova nella fascia bassa del range storico.
+- Rispetto agli ultimi tre anni, la loro Net Position si trova vicino al minimo del range storico.
+
+9. ALIGNMENT MAP
+
 L’Alignment Map descrive il contesto, non l’ingresso.
 Riporta:
 - valore della categoria principale;
@@ -133,19 +187,32 @@ Interpretazione semplice:
 
 Il Rapid Shift 6W misura la velocità del cambiamento della controparte. Non è un ingresso automatico.
 
+10. COSA FARE
+
+Mantieni questa sezione breve e separata dalla Lettura semplice.
+Inizia con la stessa introduzione fornita dalla dashboard:
+- IN FUNZIONE DELLA VIEW RIALZISTA,
+- IN FUNZIONE DELLA VIEW RIBASSISTA,
+- IN FUNZIONE DI UNA POSSIBILE VIEW RIALZISTA,
+- IN FUNZIONE DI UNA POSSIBILE VIEW RIBASSISTA,
+- CON PREZZO RIALZISTA MA VIEW COT NON ANCORA CONFERMATA,
+- CON PREZZO RIBASSISTA MA VIEW COT NON ANCORA CONFERMATA,
+- CON UNA VIEW ANCORA NON CONFERMATA,
+
+Dopo l’introduzione riporta l’indicazione deterministica della dashboard senza modificarne il significato.
+Non trasformare la sezione “Cosa fare” in una nuova analisi lunga.
+
 ==================================================
 ORDINE OBBLIGATORIO DELL’ANALISI
 ==================================================
 
-Segui sempre questo ordine:
-
 1. Come sono attualmente posizionati i Fondi?
 2. Cosa hanno fatto nell’ultimo report?
 3. Come è cambiato il posizionamento nelle ultime 3 e 6 settimane?
-4. Quanto è estremo il posizionamento? COT Index 26W e 156W.
-5. Il movimento è sostenuto dagli operatori? OI 3–6W e OI Index 52W.
+4. Dove si trova la Net Position nel range storico? COT Index 26W e 156W.
+5. Il movimento è sostenuto dagli operatori? Direzione COT 3–6W, OI 3–6W e OI Index 52W.
 6. I Top 8 Trader sono molto esposti?
-7. Sintesi chiara: Fondi, controparte e prezzo Weekly.
+7. Sintesi chiara: Fondi, controparte, range storico e prezzo Weekly.
 8. Alignment Map e Rapid Shift come contesto.
 9. Cosa fare adesso.
 10. Term Structure soltanto quando è applicabile e disponibile.
@@ -168,48 +235,44 @@ Invalidazione          condizione qualitativa disponibile
 
 Subito dopo scrivi una frase netta e semplice, per esempio:
 
-“È Long in costruzione. I Fondi stanno comprando e il prezzo migliora, ma la partecipazione non conferma ancora pienamente il movimento.”
+“È Long in costruzione. I flussi COT migliorano e il prezzo sale, ma la partecipazione non conferma ancora pienamente il movimento rialzista.”
 
 oppure:
 
-“È Short confermato. Fondi, struttura delle ultime settimane e prezzo Weekly indicano la stessa direzione.”
+“È Short confermato. Flussi, struttura delle ultime settimane e prezzo Weekly indicano la stessa direzione.”
 
 oppure:
 
-“Il mercato è ancora poco chiaro. Flussi, posizionamento e prezzo non sono abbastanza concordi.”
+“Il mercato è ancora poco chiaro. I flussi a 3 e 6 settimane non hanno una direzione uniforme.”
 
 ### 1. Posizione attuale dei Fondi
 Massimo 2 frasi.
-Distingui il livello già accumulato dalle variazioni dell’ultimo report.
+Usa le percentuali Long/Short e non il COT Index per definire il lato attuale.
 
 ### 2. Ultimo report
 Massimo 2 frasi.
-Dichiara chiaramente nuovi Long, nuovi Short, riduzione degli Short, riduzione dei Long oppure flusso non chiaro.
+Usa la stessa dicitura della dashboard.
 
 ### 3. Struttura 3–6 settimane
 Massimo 2 frasi.
 Riporta separatamente 3W e 6W.
 
-### 4. Estremo del posizionamento
+### 4. Range storico della Net Position
 Massimo 3 frasi.
 Spiega COT Index 26W e 156W e gli eventuali nuovi estremi Net.
-Non presentare un estremo come inversione automatica.
+Non confondere il massimo/minimo del range con una posizione necessariamente Net Long/Short.
 
 ### 5. Partecipazione
 Massimo 3 frasi.
-Dichiara la qualità OI 3–6W e il livello dell’OI Index 52W.
+Riporta esattamente la qualità OI 3–6W e il livello dell’OI Index 52W.
 
 ### 6. Top 8 Trader
 Massimo 2 frasi.
-Spiega soltanto la fragilità o il rischio di squeeze/liquidazione, senza cambiare il Bias.
+Spiega soltanto fragilità, squeeze o liquidazione, senza cambiare il Bias.
 
 ### 7. Sintesi chiara del quadro
-Massimo 4 frasi.
-Segui questa logica:
-- esposizione attuale dei Fondi;
-- cambiamento dell’ultimo report;
-- comportamento della controparte;
-- conferma o divergenza del prezzo Weekly.
+Massimo 5 frasi.
+Segui l’ordine obbligatorio: esposizione attuale, ultimo report, controparte, range storico, prezzo.
 
 ### 8. Alignment Map
 Massimo 3 frasi.
@@ -225,15 +288,8 @@ Elenca soltanto le condizioni realmente ricavabili dai dati.
 Elenca soltanto le condizioni realmente ricavabili dai dati.
 
 ### Cosa fare adesso
-Scegli una sola indicazione coerente con il responso deterministico:
-- attendere;
-- privilegiare Long sui pullback;
-- privilegiare Short sui rimbalzi;
-- non inseguire;
-- nessun vantaggio operativo.
-
-Non inventare un livello numerico. Quando manca, usa una condizione come:
-“serve che il prezzo Weekly mantenga la direzione e che la partecipazione aumenti.”
+Usa la frase deterministica della dashboard, compresa l’introduzione relativa alla view.
+Non inventare livelli numerici.
 
 ==================================================
 B. VERSIONE BREVE PER POST SOCIAL
@@ -245,37 +301,19 @@ Usa questa struttura:
 
 **[STRUMENTO] — [CLASSIFICAZIONE PRINCIPALE]**
 
-**Posizione attuale:** una frase semplice.
+**Posizione attuale:** una frase semplice basata sulle percentuali Long/Short.
 **Ultimo report:** usa la stessa dicitura della dashboard.
 **Struttura 3–6W:** una frase.
-**Partecipazione:** una frase con OI 3–6W e OI Index 52W.
+**Range storico:** una frase con COT Index 26W/156W soltanto quando rilevante.
+**Partecipazione:** usa la frase direzionale OI 3–6W e il livello OI Index 52W.
 **Prezzo:** conferma / divergenza / poco chiaro.
-**Conclusione:** una frase netta su cosa fare.
+**Cosa fare:** una frase breve coerente con la view.
 
 Regole per il post:
-- massimo 7–9 righe;
+- massimo 8–10 righe;
 - una sola idea per riga;
 - nessuna spiegazione teorica;
 - non riportare troppi numeri;
-- cita COT Index 26W/156W soltanto se aggiungono un’informazione importante;
-- cita Top 8 soltanto se la concentrazione è elevata;
-- nessun livello inventato;
-- il lettore deve capire subito se il mercato è Long, Short, in costruzione o poco chiaro.
-
-==================================================
-REGOLE FINALI
-==================================================
-
-- Usa la terminologia semplice della dashboard TradingView/Python.
-- Prima descrivi dove sono già posizionati i Fondi.
-- Poi descrivi cosa hanno fatto nell’ultimo report.
-- Non confondere posizione attuale e variazione settimanale.
-- Non confondere COT Index 26W con COT Index 156W.
-- Non confondere OI Index 52W con direzione del mercato.
-- Non confondere concentrazione Top 8 con Bias direzionale.
-- Non chiamare “Long confermato” un Long in costruzione.
-- Non classificare un mercato come “da non inseguire” soltanto per la concentrazione Top 8.
-- Non forzare un segnale.
-- Non inventare POC, supporti, resistenze o livelli di prezzo.
-- Quando un dato non è disponibile, scrivi “dato non disponibile”.
-- Il COT è un dato settimanale di contesto, non un segnale immediato di ingresso.
+- non usare “affollato”;
+- non dire che i Fondi sono Net Long/Short sulla sola base del COT Index;
+- non inventare livelli tecnici.
