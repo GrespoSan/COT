@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 # CONFIGURAZIONE PAGINA
 # =============================================================================
 st.set_page_config(
-    page_title="COT Smart Money V6.12 — Python",
+    page_title="COT Smart Money V6.13 — Python",
     page_icon="🛡️",
     layout="wide",
 )
@@ -48,7 +48,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🛡️ COT Smart Money — Python V6.12")
+st.title("🛡️ COT Smart Money — Python V6.13")
 st.caption(
     "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale di tutti i mercati. "
     "Il motore seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
@@ -2100,6 +2100,10 @@ def analyze_smart_money(
         "long_liquidation": long_liquidation,
         "confirmed_long": confirmed_long,
         "confirmed_short": confirmed_short,
+        "partial_long": partial_long,
+        "partial_short": partial_short,
+        "partial_long_with_price": partial_long_with_price,
+        "partial_short_with_price": partial_short_with_price,
         "crowded_long": crowded_long,
         "crowded_short": crowded_short,
         "partial_crowded_long": partial_crowded_long,
@@ -2371,14 +2375,15 @@ def screener_status(
     price: dict[str, Any],
     alignment: dict[str, Any],
 ) -> tuple[str, str]:
-    """Classificazione pubblica semplice, aggiornata alla gerarchia V1.5.36."""
-    # Le configurazioni confermate e già estese restano "NON INSEGUIRE".
+    """Classificazione pubblica rigorosa, coerente con la gerarchia TradingView V1.5.36."""
+    # 1) Configurazione COT già confermata, estrema e con prezzo concorde: non inseguire.
     if smart.get("crowded_long") and price.get("long_confirmed"):
         return "LONG CONFERMATO — NON INSEGUIRE", "LONG"
     if smart.get("crowded_short") and price.get("short_confirmed"):
         return "SHORT CONFERMATO — NON INSEGUIRE", "SHORT"
 
-    # Un cambio di regime V1.5.36 confermato è una conferma direzionale completa.
+    # 2) Conferma completa. Il possibile cambio di regime 156W confermato ha precedenza
+    #    perché richiede già Alignment 3/3, flusso coerente, struttura macro e prezzo.
     if smart.get("alignment_bull_regime_confirmed"):
         return "LONG CONFERMATO", "LONG"
     if smart.get("alignment_bear_regime_confirmed"):
@@ -2388,32 +2393,28 @@ def screener_status(
     if smart.get("confirmed_short") and price.get("short_confirmed"):
         return "SHORT CONFERMATO", "SHORT"
 
-    # Il 3/3 è un setup contrarian; diventa "in sviluppo" solo con nuovi Long/Short
-    # e miglioramento/peggioramento coerente della Net Position. Il 2/3 da solo non
-    # crea una direzione nello screener.
+    # 3) Setup contrarian 156W: un 3/3 o uno stadio in sviluppo è ancora in costruzione.
+    #    Un semplice 2/3 NON crea da solo una direzione nello screener.
     if smart.get("alignment_bull_regime_developing") or smart.get("alignment_bull_3"):
         return "LONG IN COSTRUZIONE", "LONG"
     if smart.get("alignment_bear_regime_developing") or smart.get("alignment_bear_3"):
         return "SHORT IN COSTRUZIONE", "SHORT"
 
-    bull_context = bool(
-        smart.get("confirmed_long")
-        or (
-            smart.get("trend_flow_1w", 0) > 0
-            and (smart.get("trend_flow_3w", 0) > 0 or price.get("long_confirmed"))
-        )
-    )
-    bear_context = bool(
-        smart.get("confirmed_short")
-        or (
-            smart.get("trend_flow_1w", 0) < 0
-            and (smart.get("trend_flow_3w", 0) < 0 or price.get("short_confirmed"))
-        )
-    )
-    if bull_context and not bear_context:
+    # 4) Struttura COT istituzionale già confermata ma prezzo non ancora concorde.
+    if smart.get("confirmed_long"):
         return "LONG IN COSTRUZIONE", "LONG"
-    if bear_context and not bull_context:
+    if smart.get("confirmed_short"):
         return "SHORT IN COSTRUZIONE", "SHORT"
+
+    # 5) Configurazioni istituzionali parziali: usa ESATTAMENTE le condizioni
+    #    smart_partial_long / smart_partial_short del motore TradingView V1.5.36.
+    if smart.get("partial_long"):
+        return "LONG IN COSTRUZIONE", "LONG"
+    if smart.get("partial_short"):
+        return "SHORT IN COSTRUZIONE", "SHORT"
+
+    # Nessun fallback basato soltanto su Flow 1W + prezzo/3W: se manca una delle
+    # condizioni COT istituzionali previste dal motore, il quadro resta poco chiaro.
     return "NEUTRALE / POCO CHIARO", "NEUTRALE"
 
 
@@ -3114,7 +3115,7 @@ def render_screener() -> None:
     with extra1:
         rapid_filter = st.selectbox(
             "Filtro Rapid Shift 6W",
-            ["TUTTI", "RAPIDO RIALZISTA ≥ +40", "RAPIDO RIBASSISTA ≤ -40", "MOVIMENTO ASSOLUTO ≥ 40"],
+            ["TUTTI", "RAPIDO RIALZISTA ≥ +40", "RAPIDO RIBASSISTA ≤ -40", "QUALSIASI MOVIMENTO RAPIDO: ≥ +40 O ≤ -40"],
         )
     with extra2:
         oi_index_filter = st.selectbox(
@@ -3126,6 +3127,11 @@ def render_screener() -> None:
             "Filtro cambio di regime 156W",
             ["TUTTI", "CONFERMATO", "IN SVILUPPO", "POSSIBILE 3/3 IN COSTRUZIONE", "SEGNALI 2/3", "NESSUNO"],
         )
+
+    st.caption(
+        "Rapid Shift 6W: ≥ +40 seleziona solo accelerazioni rialziste; ≤ -40 solo accelerazioni ribassiste; "
+        "l'opzione 'qualsiasi movimento rapido' include entrambe le direzioni."
+    )
 
     filtered = results_df.copy()
     if direction_filter != "TUTTI":
@@ -3141,7 +3147,7 @@ def render_screener() -> None:
         filtered = filtered[filtered["Rapid Shift 6W"] >= RAPID_SHIFT_EXTREME]
     elif rapid_filter == "RAPIDO RIBASSISTA ≤ -40":
         filtered = filtered[filtered["Rapid Shift 6W"] <= -RAPID_SHIFT_EXTREME]
-    elif rapid_filter == "MOVIMENTO ASSOLUTO ≥ 40":
+    elif rapid_filter == "QUALSIASI MOVIMENTO RAPIDO: ≥ +40 O ≤ -40":
         filtered = filtered[filtered["Rapid Shift 6W"].abs() >= RAPID_SHIFT_EXTREME]
     if oi_index_filter == "MOLTO ALTO ≥ 80":
         filtered = filtered[filtered["OI Index 52W"] >= 80.0]

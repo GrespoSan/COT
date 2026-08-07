@@ -1,5 +1,5 @@
 PROMPT SCREENER — COT SMART MONEY
-ALLINEATO A G. COT SMART MONEY ENGINE V1.5.36 E SCREENER PYTHON V6.12
+ALLINEATO A G. COT SMART MONEY ENGINE V1.5.36 E SCREENER PYTHON V6.13
 
 Analizza esclusivamente i dati presenti in {DATI_SCREENER}.
 Non modificare Score, Stato, Direzione o Classificazione AI.
@@ -26,7 +26,7 @@ Mappatura obbligatoria:
 Usa esclusivamente le formule pubbliche “LONG/SHORT CONFERMATO — NON INSEGUIRE” ed evita etichette tecniche da addetti ai lavori.
 
 ==================================================
-COME LEGGERE LO SCREENER V6.12
+COME LEGGERE LO SCREENER V6.13
 ==================================================
 
 1. STATO E SCORE
@@ -34,6 +34,7 @@ COME LEGGERE LO SCREENER V6.12
 Lo Stato è deterministico e prevale sulla tua interpretazione.
 Lo Score ordina la qualità complessiva; non è un segnale automatico di ingresso.
 Non trasformare un punteggio alto in “confermato” se lo Stato è “in costruzione”.
+Nella V6.13 lo Stato “IN COSTRUZIONE” è volutamente più rigoroso: deriva solo da una configurazione COT istituzionale prevista dal motore (confirmed senza conferma prezzo, partial_long/partial_short) oppure da un setup contrarian 156W 3/3/in sviluppo. Un semplice Flow 1W concorde con il prezzo o con una sola finestra 3W NON basta. Un Alignment 2/3 da solo NON crea una direzione.
 
 2. POSIZIONE ATTUALE E FLUSSO
 
@@ -110,6 +111,10 @@ Se il dettaglio dice short covering o long liquidation, mantieni questa distinzi
 
 8. RAPID SHIFT
 
+È la variazione in 6 report del COT Index della CONTROPARTE, non del prezzo e non della categoria trend.
+Un valore >= +40 indica uno shift positivo molto rapido della controparte; un valore <= -40 uno shift negativo molto rapido.
+Il filtro “qualsiasi movimento rapido” equivale a: valore >= +40 OPPURE valore <= -40.
+Non interpretare automaticamente “positivo” come mercato rialzista o “negativo” come mercato ribassista: il significato dipende dalla famiglia di mercato e dal resto dell’Alignment.
 È informativo sulla velocità di cambiamento della controparte. Non è parte sufficiente per confermare un regime e non è un ingresso automatico.
 
 9. TOP 8 TRADER

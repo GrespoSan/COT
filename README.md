@@ -1,11 +1,11 @@
-# COT Smart Money — Python V6.12
+# COT Smart Money — Python V6.13
 
 Questa versione aggiorna l'app Python sulla base di **G. COT Smart Money Engine V1.5.36** mantenendo separate:
 
 1. **Analisi singolo strumento** — report didattico completo, grafici e AI facoltativa.
 2. **COT Screener** — scansione deterministica dei mercati, classifica, filtri, Excel, JPG Top 5 / Top 10 / totale e AI facoltativa.
 
-## Novità V6.12
+## Novità V6.13
 
 ### Alignment contrarian fisso 156W
 
@@ -57,7 +57,7 @@ Quando un Long/Short è ancora parziale ma il prezzo ha già confermato, l'indic
 
 La formulazione storica usa **ultime 156W** invece di riferimenti generici ai “tre anni”.
 
-### Screener V6.12
+### Screener V6.13
 
 Lo screener è stato rivisto per non trattare l'Alignment come un semplice filtro direzionale:
 
@@ -102,6 +102,18 @@ I prompt distinguono esplicitamente:
 - nuovi Long/Short vs short covering/long liquidation;
 - Top 8 come fragilità e non come segnale direzionale;
 - OI Index 52W come livello di partecipazione e non come direzione.
+
+
+## Correzione screener V6.13
+
+La classificazione pubblica è stata resa più rigorosa e aderente alla gerarchia TradingView V1.5.36:
+
+- `LONG/SHORT CONFERMATO`: richiede conferma COT + prezzo Weekly, oppure un cambio di regime 156W realmente confermato;
+- `LONG/SHORT IN COSTRUZIONE`: richiede una configurazione istituzionale `partial_long/partial_short`, una struttura COT confermata ma non ancora confermata dal prezzo, oppure un setup contrarian 156W 3/3/in sviluppo;
+- un semplice Flow 1W concorde con prezzo o 3W non basta più;
+- un Alignment 2/3 resta solo un warning e non crea da solo una direzione.
+
+Il filtro Rapid Shift è stato reso più comprensibile. `QUALSIASI MOVIMENTO RAPIDO: ≥ +40 O ≤ -40` include entrambe le direzioni, mentre gli altri due filtri selezionano solo shift positivi o negativi. Rapid Shift misura la variazione a 6 report del COT Index della controparte e non è un segnale diretto sul prezzo.
 
 ## Funzioni mantenute
 
