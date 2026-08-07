@@ -179,6 +179,8 @@ Usa esattamente lo stato deterministico fornito dalla dashboard, tra:
 - DATI ALIGNMENT 156W NON DISPONIBILI
 
 Non promuovere mai un 2/3 o un semplice 3/3 a cambio di regime confermato.
+Un semplice 3/3 descrive un POSSIBILE cambio contrarian separato dalla direzione corrente: non trasformarlo automaticamente nella view principale. Solo “IN SVILUPPO” o “CONFERMATO” indica che il possibile cambio di regime ha compiuto un passo ulteriore.
+Se i dati COT sono dichiarati troppo vecchi, non formulare alcuna view operativa: scrivi che il dato non è utilizzabile finché non arriva un report aggiornato.
 
 Distinzioni importanti della V1.5.36:
 - se i Long aumentano ma la Net Position peggiora, gli Short stanno crescendo più velocemente: Long contrarian ancora in costruzione;

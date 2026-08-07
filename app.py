@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 # CONFIGURAZIONE PAGINA
 # =============================================================================
 st.set_page_config(
-    page_title="COT Smart Money V6.15 — Python",
+    page_title="COT Smart Money V6.16 — Python",
     page_icon="🛡️",
     layout="wide",
 )
@@ -48,7 +48,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🛡️ COT Smart Money — Python V6.15")
+st.title("🛡️ COT Smart Money — Python V6.16")
 st.caption(
     "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale di tutti i mercati. "
     "Il motore seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
@@ -1619,6 +1619,28 @@ def analyze_smart_money(
             "I dati COT mostrano un orientamento ribassista, mentre l'ultima settimana chiusa non conferma questa direzione. "
             "Quando prezzo e Fondi divergono, il timing resta incerto."
         )
+    elif confirmed_long:
+        simple_title = "LONG IN COSTRUZIONE"
+        simple_detail = (
+            "I Fondi sono orientati Long e la struttura COT è già coerente, ma il prezzo settimanale non ha ancora "
+            "completato la conferma rialzista. Il quadro resta favorevole ai Long, ma il timing non è ancora completo."
+        )
+        plain_action = "I FONDI SONO ORIENTATI LONG. ATTENDI LA CONFERMA DEL PREZZO."
+        explanation = (
+            "I Fondi stanno mantenendo una direzione rialzista sia nell'ultimo report sia nelle ultime settimane, "
+            "ma il prezzo settimanale non ha ancora confermato pienamente il rialzo."
+        )
+    elif confirmed_short:
+        simple_title = "SHORT IN COSTRUZIONE"
+        simple_detail = (
+            "I Fondi sono orientati Short e la struttura COT è già coerente, ma il prezzo settimanale non ha ancora "
+            "completato la conferma ribassista. Il quadro resta favorevole agli Short, ma il timing non è ancora completo."
+        )
+        plain_action = "I FONDI SONO ORIENTATI SHORT. ATTENDI LA CONFERMA DEL PREZZO."
+        explanation = (
+            "I Fondi stanno mantenendo una direzione ribassista sia nell'ultimo report sia nelle ultime settimane, "
+            "ma il prezzo settimanale non ha ancora confermato pienamente la discesa."
+        )
     elif partial_long:
         simple_title = "LONG IN COSTRUZIONE"
         simple_detail = (
@@ -2367,6 +2389,7 @@ SCREENER_STATUS_OPTIONS = [
     "SHORT IN COSTRUZIONE",
     "SHORT CONFERMATO",
     "SHORT CONFERMATO — NON INSEGUIRE",
+    "DATI COT DATATI — NON UTILIZZARE",
 ]
 
 
@@ -2376,14 +2399,19 @@ def screener_status(
     alignment: dict[str, Any],
 ) -> tuple[str, str]:
     """Classificazione pubblica rigorosa, coerente con la gerarchia TradingView V1.5.36."""
+    # 0) I dati troppo vecchi non possono produrre uno Stato operativo, anche se le
+    #    vecchie serie storiche mostrano una direzione apparentemente chiara.
+    if int(smart.get("age_days", 0) or 0) > 17:
+        return "DATI COT DATATI — NON UTILIZZARE", "NEUTRALE"
+
     # 1) Configurazione COT già confermata, estrema e con prezzo concorde: non inseguire.
     if smart.get("crowded_long") and price.get("long_confirmed"):
         return "LONG CONFERMATO — NON INSEGUIRE", "LONG"
     if smart.get("crowded_short") and price.get("short_confirmed"):
         return "SHORT CONFERMATO — NON INSEGUIRE", "SHORT"
 
-    # 2) Conferma completa. Il possibile cambio di regime 156W confermato ha precedenza
-    #    perché richiede già Alignment 3/3, flusso coerente, struttura macro e prezzo.
+    # 2) Conferma completa. Un cambio di regime 156W diventa direzione principale
+    #    soltanto quando è realmente confermato (Alignment 3/3 + flusso + struttura + prezzo).
     if smart.get("alignment_bull_regime_confirmed"):
         return "LONG CONFERMATO", "LONG"
     if smart.get("alignment_bear_regime_confirmed"):
@@ -2393,11 +2421,12 @@ def screener_status(
     if smart.get("confirmed_short") and price.get("short_confirmed"):
         return "SHORT CONFERMATO", "SHORT"
 
-    # 3) Setup contrarian 156W: un 3/3 o uno stadio in sviluppo è ancora in costruzione.
-    #    Un semplice 2/3 NON crea da solo una direzione nello screener.
-    if smart.get("alignment_bull_regime_developing") or smart.get("alignment_bull_3"):
+    # 3) Un regime contrarian IN SVILUPPO può diventare Stato principale in costruzione.
+    #    Un semplice 3/3 grezzo resta invece un warning separato nella colonna Regime 156W:
+    #    non deve ribaltare da solo la direzione corrente dello screener.
+    if smart.get("alignment_bull_regime_developing"):
         return "LONG IN COSTRUZIONE", "LONG"
-    if smart.get("alignment_bear_regime_developing") or smart.get("alignment_bear_3"):
+    if smart.get("alignment_bear_regime_developing"):
         return "SHORT IN COSTRUZIONE", "SHORT"
 
     # 4) Struttura COT istituzionale già confermata ma prezzo non ancora concorde.
@@ -2460,7 +2489,7 @@ def calculate_screener_score(
 ) -> dict[str, Any]:
     """Score di qualità 0-100, separato dallo Stato e coerente con la direzione.
 
-    V6.15 mantiene le correzioni dello Score V6.14 e aggiunge una distinzione:
+    V6.16 mantiene le correzioni dello Score V6.15 e completa la coerenza tra Stato, Regime 156W e qualità del dato:
     1) un flusso opposto alla Direzione non viene premiato;
     2) i mercati davvero NEUTRALI non ricevono punti solo perché l'ultimo report è forte;
     3) l'Open Interest 1W non viene contato due volte: NUOVI LONG/SHORT lo incorpora
@@ -2480,14 +2509,12 @@ def calculate_screener_score(
         and not smart.get("confirmed_long")
         and not smart.get("partial_long")
         and not smart.get("alignment_bull_regime_developing")
-        and not smart.get("alignment_bull_3")
     )
     persistence_only_short = (
         status == "SHORT IN COSTRUZIONE"
         and not smart.get("confirmed_short")
         and not smart.get("partial_short")
         and not smart.get("alignment_bear_regime_developing")
-        and not smart.get("alignment_bear_3")
     )
     persistence_only = persistence_only_long or persistence_only_short
 
@@ -3079,6 +3106,7 @@ def screener_ai_classification(status: str) -> str:
         "LONG CONFERMATO — NON INSEGUIRE": "NON INSEGUIRE — LONG ESTESO",
         "SHORT CONFERMATO — NON INSEGUIRE": "NON INSEGUIRE — SHORT ESTESO",
         "NEUTRALE / POCO CHIARO": "POCO CHIARO — NESSUN VANTAGGIO OPERATIVO",
+        "DATI COT DATATI — NON UTILIZZARE": "DATI DATATI — NON UTILIZZARE OPERATIVAMENTE",
     }
     return mapping.get(str(status), "POCO CHIARO — NESSUN VANTAGGIO OPERATIVO")
 

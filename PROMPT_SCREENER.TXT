@@ -1,5 +1,5 @@
 PROMPT SCREENER — COT SMART MONEY
-ALLINEATO A G. COT SMART MONEY ENGINE V1.5.36 E SCREENER PYTHON V6.15
+ALLINEATO A G. COT SMART MONEY ENGINE V1.5.36 E SCREENER PYTHON V6.16
 
 Analizza esclusivamente i dati presenti in {DATI_SCREENER}.
 Non modificare Score, Stato, Direzione o Classificazione AI.
@@ -22,22 +22,24 @@ Mappatura obbligatoria:
 - NON INSEGUIRE — LONG ESTESO → sezione 6; scrivi LONG CONFERMATO — NON INSEGUIRE
 - NON INSEGUIRE — SHORT ESTESO → sezione 6; scrivi SHORT CONFERMATO — NON INSEGUIRE
 - POCO CHIARO — NESSUN VANTAGGIO OPERATIVO → sezione 7
+- DATI DATATI — NON UTILIZZARE OPERATIVAMENTE → sezione 7
 
 Usa esclusivamente le formule pubbliche “LONG/SHORT CONFERMATO — NON INSEGUIRE” ed evita etichette tecniche da addetti ai lavori.
 
 ==================================================
-COME LEGGERE LO SCREENER V6.15
+COME LEGGERE LO SCREENER V6.16
 ==================================================
 
 1. STATO E SCORE
 
 Lo Stato è deterministico e prevale sulla tua interpretazione.
 Lo Score ordina la qualità complessiva; non è un segnale automatico di ingresso.
-Nella V6.15 lo Score è direzionale: premia un flusso soltanto se è coerente con la Direzione dello Stato e penalizza un flusso opposto.
+Nella V6.16 lo Score è direzionale: premia un flusso soltanto se è coerente con la Direzione dello Stato e penalizza un flusso opposto.
 Lo Score OI usa la partecipazione 3-6W; la variazione OI 1W non riceve un secondo bonus perché è già usata per riconoscere NUOVI LONG/NUOVI SHORT.
 Un mercato NEUTRALE / POCO CHIARO non riceve bonus direzionali solo perché l’ultimo report mostra un flusso forte.
 Non trasformare un punteggio alto in “confermato” se lo Stato è “in costruzione”.
-Nella V6.15 lo Stato “IN COSTRUZIONE” resta rigoroso. Deriva da una configurazione COT istituzionale prevista dal motore (confirmed senza conferma prezzo, partial_long/partial_short), da un setup contrarian 156W 3/3/in sviluppo oppure, come livello più debole, da una persistenza direzionale completa: Flow 1W, 3W e 6W tutti concordi e prezzo Weekly confermato nella stessa direzione. Quest’ultimo caso resta IN COSTRUZIONE perché manca la conferma istituzionale completa della controparte e riceve uno Score motore inferiore. Un semplice Flow 1W concorde con il prezzo o con una sola finestra 3W NON basta. Un Alignment 2/3 da solo NON crea una direzione.
+Se lo Stato è “DATI COT DATATI — NON UTILIZZARE”, non ricavare alcuna view operativa: il dato è escluso dalla graduatoria utile e deve essere descritto soltanto come non utilizzabile finché non arriva un report aggiornato.
+Nella V6.16 lo Stato “IN COSTRUZIONE” resta rigoroso. Deriva da una configurazione COT istituzionale prevista dal motore (confirmed senza conferma prezzo, partial_long/partial_short), da un regime contrarian 156W già IN SVILUPPO oppure, come livello più debole, da una persistenza direzionale completa: Flow 1W, 3W e 6W tutti concordi e prezzo Weekly confermato nella stessa direzione. Quest’ultimo caso resta IN COSTRUZIONE perché manca la conferma istituzionale completa della controparte e riceve uno Score motore inferiore. Un semplice Flow 1W concorde con il prezzo o con una sola finestra 3W NON basta. Un Alignment 2/3 e un semplice 3/3 grezzo NON cambiano da soli la Direzione principale dello screener: restano warning/setup separati nella colonna Regime 156W.
 
 2. POSIZIONE ATTUALE E FLUSSO
 
@@ -85,7 +87,7 @@ Categorie:
 Interpretazione obbligatoria:
 - 0/3 o 1/3 = nessun setup completo
 - 2/3 = segnali parziali; NON basta per definire una direzione nello screener
-- 3/3 = setup contrarian in costruzione; NON è ancora confermato
+- 3/3 = setup contrarian in costruzione; NON è ancora confermato e NON cambia da solo la Direzione principale dello screener
 
 7. REGIME 156W
 
@@ -181,7 +183,7 @@ Solo:
 
 Spiega quale conferma manca.
 Se il Regime 156W è “IN SVILUPPO” o “IN COSTRUZIONE”, riportalo ma non presentarlo come operazione già confermata.
-Un Alignment 2/3 da solo non basta a creare un mercato “in costruzione”.
+Un regime 156W IN SVILUPPO può sostenere uno Stato “in costruzione”. Un semplice Alignment 2/3 o un 3/3 grezzo, invece, resta informativo e non basta da solo a creare la Direzione principale.
 
 Se vuota: “Nessun mercato in costruzione tra i risultati analizzati.”
 
@@ -200,12 +202,16 @@ Non inserire qui uno strumento soltanto per Top 8 elevati o per un Alignment con
 
 Se vuota: “Nessun mercato confermato da non inseguire tra i risultati analizzati.”
 
-## 7. Mercati poco chiari
+## 7. Mercati poco chiari o non utilizzabili
 
-Solo Classificazione AI = POCO CHIARO — NESSUN VANTAGGIO OPERATIVO.
-Spiega brevemente i dati discordanti.
+Solo:
+- POCO CHIARO — NESSUN VANTAGGIO OPERATIVO
+- DATI DATATI — NON UTILIZZARE OPERATIVAMENTE
 
-Se vuota: “Nessun mercato neutrale o poco chiaro tra i risultati analizzati.”
+Per i mercati poco chiari spiega brevemente i dati discordanti.
+Per i dati datati scrivi chiaramente che il COT non deve essere usato per nuovi ingressi finché non arriva un report aggiornato. Non formulare una view Long o Short operativa.
+
+Se vuota: “Nessun mercato neutrale, poco chiaro o con dati COT troppo vecchi tra i risultati analizzati.”
 
 ## 8. Focus cambi di regime 156W
 
@@ -227,7 +233,8 @@ Prima di terminare verifica internamente che:
 - ogni strumento compaia in una sola sezione operativa tra 3–7;
 - nessun “in costruzione” sia presentato come confermato;
 - nessun 2/3 sia presentato come regime confermato;
-- nessun 3/3 grezzo sia presentato come regime confermato;
+- nessun 3/3 grezzo sia presentato come regime confermato o usato da solo per ribaltare la Direzione principale;
+- nessun dato COT datato sia presentato come view operativa Long o Short;
 - short covering non sia descritto come nuovi Long;
 - long liquidation non sia descritta come nuovi Short;
 - Top 8 non cambi la classificazione;

@@ -1,8 +1,8 @@
-# COT Smart Money — Python V6.15
+# COT Smart Money — Python V6.16
 
-## Correzione V6.15 — Stato e Score di persistenza
+## Verifica finale V6.16 — coerenza di Stato, giudizi e Regime 156W
 
-La V6.15 corregge l’eccesso di severità introdotto in V6.14: un mercato non viene più classificato NEUTRALE quando Flow 1W, 3W e 6W sono tutti coerenti e il prezzo Weekly conferma la stessa direzione. In questo caso lo Stato è LONG/SHORT IN COSTRUZIONE, ma lo Score motore è ridotto (12 punti invece di 18) perché manca ancora la conferma istituzionale completa della controparte.
+La V6.16 mantiene la correzione di persistenza della V6.15 e completa la coerenza tra Stato principale, giudizi testuali e modulo Regime 156W. Un mercato con Flow 1W, 3W e 6W tutti coerenti e prezzo Weekly confermato può restare LONG/SHORT IN COSTRUZIONE con Score motore ridotto (12 punti), ma un semplice Alignment contrarian 3/3 grezzo non ribalta più da solo la Direzione principale dello screener.
 
 Questo evita casi come 6B British Pound: flussi Leveraged positivi su 1W/3W/6W e prezzo rialzista indicano un Long da monitorare, ma Dealer non ancora coerenti e OI 3–6W in perdita di partecipazione impediscono sia la conferma sia un punteggio eccessivamente alto.
 
@@ -11,7 +11,7 @@ Questa versione aggiorna l'app Python sulla base di **G. COT Smart Money Engine 
 1. **Analisi singolo strumento** — report didattico completo, grafici e AI facoltativa.
 2. **COT Screener** — scansione deterministica dei mercati, classifica, filtri, Excel, JPG Top 5 / Top 10 / totale e AI facoltativa.
 
-## Novità V6.15
+## Novità V6.16
 
 ### Alignment contrarian fisso 156W
 
@@ -63,7 +63,7 @@ Quando un Long/Short è ancora parziale ma il prezzo ha già confermato, l'indic
 
 La formulazione storica usa **ultime 156W** invece di riferimenti generici ai “tre anni”.
 
-### Screener V6.15
+### Screener V6.16
 
 Lo screener è stato rivisto per non trattare l'Alignment come un semplice filtro direzionale:
 
@@ -81,7 +81,7 @@ Sono stati aggiunti:
 - componente **Score Regime 156W**;
 - Regime 156W nei JPG dello screener.
 
-Le sette classificazioni pubbliche restano semplici:
+Le classificazioni pubbliche restano semplici; ai sette stati operativi si aggiunge un ottavo stato non operativo per i dati troppo vecchi:
 
 - LONG IN COSTRUZIONE
 - LONG CONFERMATO
@@ -90,6 +90,7 @@ Le sette classificazioni pubbliche restano semplici:
 - SHORT IN COSTRUZIONE
 - SHORT CONFERMATO
 - SHORT CONFERMATO — NON INSEGUIRE
+- DATI COT DATATI — NON UTILIZZARE
 
 La concentrazione Top 8 resta un indicatore di fragilità e non cambia da sola la classificazione.
 
@@ -110,14 +111,16 @@ I prompt distinguono esplicitamente:
 - OI Index 52W come livello di partecipazione e non come direzione.
 
 
-## Correzione screener V6.15
+## Correzione screener V6.16
 
 La classificazione pubblica è stata resa più rigorosa e aderente alla gerarchia TradingView V1.5.36:
 
 - `LONG/SHORT CONFERMATO`: richiede conferma COT + prezzo Weekly, oppure un cambio di regime 156W realmente confermato;
-- `LONG/SHORT IN COSTRUZIONE`: richiede una configurazione istituzionale `partial_long/partial_short`, una struttura COT confermata ma non ancora confermata dal prezzo, oppure un setup contrarian 156W 3/3/in sviluppo;
+- `LONG/SHORT IN COSTRUZIONE`: richiede una configurazione istituzionale `partial_long/partial_short`, una struttura COT confermata ma non ancora confermata dal prezzo, un regime contrarian 156W già IN SVILUPPO oppure la persistenza 1W+3W+6W+prezzo prevista dalla V6.15;
 - un semplice Flow 1W concorde con prezzo o 3W non basta più;
-- un Alignment 2/3 resta solo un warning e non crea da solo una direzione.
+- un Alignment 2/3 e un 3/3 grezzo restano warning/setup separati e non cambiano da soli la Direzione principale;
+- i dati COT più vecchi di 17 giorni assumono lo Stato `DATI COT DATATI — NON UTILIZZARE` e Score 0;
+- i casi COT già orientati Long/Short ma con prezzo ancora non pienamente confermato mostrano ora un’indicazione coerente e specifica, invece del vecchio testo generico “quadro poco chiaro”.
 
 Il filtro Rapid Shift è stato reso più comprensibile. `QUALSIASI MOVIMENTO RAPIDO: ≥ +40 O ≤ -40` include entrambe le direzioni, mentre gli altri due filtri selezionano solo shift positivi o negativi. Rapid Shift misura la variazione a 6 report del COT Index della controparte e non è un segnale diretto sul prezzo.
 
@@ -164,7 +167,7 @@ streamlit run app_cot_smart_money.py
 
 Non è stata eseguita, durante la costruzione del pacchetto, una scansione live completa di tutti i mercati CFTC/Yahoo.
 
-## Revisione Score V6.15
+## Revisione Score mantenuta in V6.16
 
 Lo Score è stato ricontrollato sul file reale dello screener e corretto per eliminare tre distorsioni:
 
@@ -173,3 +176,10 @@ Lo Score è stato ricontrollato sul file reale dello screener e corretto per eli
 - l’Open Interest 1W non viene più contato due volte: NUOVI LONG/SHORT lo incorporano già, quindi lo Score OI usa la partecipazione 3-6W.
 
 Inoltre un report più vecchio di 17 giorni viene azzerato nello Score, così un dato obsoleto non può salire nella classifica operativa. L’OI Index 52W resta informativo e non entra nello Score.
+
+
+## Controlli finali V6.16
+
+La verifica è stata eseguita sul file reale `cot_screener_2026-08-07(1).xlsx`. Sono stati controllati: somma dei componenti Score, soglie Qualità, coerenza Stato/Direzione, prezzo nei casi confermati, trattamento dei dati datati e coerenza tra Stato principale e Regime 156W.
+
+Sono state corrette tre incongruenze residue: OJ e ZC non mostrano più un giudizio generico quando il COT è già orientato ma il prezzo non ha completato la conferma; HO non conserva più uno Stato operativo con dati del 2013; un 3/3 contrarian grezzo come su 6E/6C non può più trasformare da solo lo Stato principale in LONG mentre i flussi correnti restano ribassisti.
