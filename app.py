@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 # CONFIGURAZIONE PAGINA
 # =============================================================================
 st.set_page_config(
-    page_title="COT Smart Money V6.16 — Python",
+    page_title="COT Smart Money V6.17 — Python",
     page_icon="🛡️",
     layout="wide",
 )
@@ -48,7 +48,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🛡️ COT Smart Money — Python V6.16")
+st.title("🛡️ COT Smart Money — Python V6.17")
 st.caption(
     "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale di tutti i mercati. "
     "Il motore seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
@@ -3553,6 +3553,36 @@ def render_single_analysis() -> None:
     positioning_html = smart["positioning_value"].replace("\n", "<br>")
     current_position_html = smart["current_position_value"].replace("\n", "<br>")
     oi_report_html = smart["oi_report"].replace("\n", "<br>")
+
+    # Nota didattica: il possibile cambio di regime 156W è un modulo anticipatore
+    # separato dalla direzione principale. Serve a evitare che un 2/3 o un 3/3
+    # grezzo venga interpretato come un'inversione già avvenuta.
+    future_regime_title = str(smart.get("future_regime_title", ""))
+    if "IN COSTRUZIONE" in future_regime_title:
+        future_regime_teaching = (
+            "<br><br><b>Come leggerlo:</b> questo è un segnale anticipatore separato dalla direzione principale. "
+            "Non modifica il responso Smart Money finché non passa almeno a <b>IN SVILUPPO</b>."
+        )
+    elif "PARZIALI" in future_regime_title:
+        future_regime_teaching = (
+            "<br><br><b>Come leggerlo:</b> sono segnali contrarian ancora incompleti. "
+            "Non modificano la direzione principale e non indicano ancora un cambio di regime."
+        )
+    elif "IN SVILUPPO" in future_regime_title:
+        future_regime_teaching = (
+            "<br><br><b>Come leggerlo:</b> il possibile cambio di regime ha compiuto un passo ulteriore, "
+            "ma non è ancora un cambio di regime confermato."
+        )
+    elif "CONFERMATO" in future_regime_title:
+        future_regime_teaching = (
+            "<br><br><b>Come leggerlo:</b> il possibile cambio di regime ha ora una conferma iniziale "
+            "coerente con flussi, struttura COT e prezzo Weekly."
+        )
+    else:
+        future_regime_teaching = ""
+
+    future_regime_html = smart["future_regime_text"].replace(chr(10), "<br>") + future_regime_teaching
+
     card(
         "SMART MONEY REPORT — " + spec.trend_label,
         smart["simple_title"],
@@ -3563,7 +3593,7 @@ def render_single_analysis() -> None:
             f"<b>Quanto è estremo il loro posizionamento?</b><br>{smart['positioning']}<br>{positioning_html}<br><br>"
             f"<b>Il movimento è sostenuto dagli operatori (OI 3–6 W)?</b><br>{oi_report_html}<br><br>"
             f"<b>I Top 8 Trader sono molto esposti?</b><br>{smart['concentration_state']}<br><br>"
-            f"<b>Si sta preparando un possibile cambio di regime?</b><br>{smart['future_regime_text'].replace(chr(10), '<br>')}"
+            f"<b>Si sta preparando un possibile cambio di regime?</b><br>{future_regime_html}"
         ),
         main_accent,
     )

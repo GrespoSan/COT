@@ -180,6 +180,14 @@ Usa esattamente lo stato deterministico fornito dalla dashboard, tra:
 
 Non promuovere mai un 2/3 o un semplice 3/3 a cambio di regime confermato.
 Un semplice 3/3 descrive un POSSIBILE cambio contrarian separato dalla direzione corrente: non trasformarlo automaticamente nella view principale. Solo “IN SVILUPPO” o “CONFERMATO” indica che il possibile cambio di regime ha compiuto un passo ulteriore.
+
+REGOLA DIDATTICA OBBLIGATORIA PER IL PUBBLICO NOVIZIO:
+- se lo stato è POSSIBILE LONG/SHORT CONTRARIAN IN COSTRUZIONE, spiega sempre che è un segnale anticipatore separato dalla direzione principale e che NON modifica il responso Smart Money finché non passa almeno a “IN SVILUPPO”;
+- se lo stato è SEGNALI LONG/SHORT CONTRARIAN PARZIALI, spiega che sono segnali incompleti e non indicano ancora un cambio di regime;
+- se lo stato è LONG/SHORT CONTRARIAN IN SVILUPPO, spiega che il possibile cambio ha compiuto un passo ulteriore ma NON è ancora confermato;
+- solo CAMBIO DI REGIME RIALZISTA/RIBASSISTA CONFERMATO può essere trattato come una conferma iniziale del nuovo regime.
+Non usare mai un semplice 3/3 per contraddire il responso principale corrente.
+
 Se i dati COT sono dichiarati troppo vecchi, non formulare alcuna view operativa: scrivi che il dato non è utilizzabile finché non arriva un report aggiornato.
 
 Distinzioni importanti della V1.5.36:
