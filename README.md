@@ -1,11 +1,11 @@
-# COT Smart Money — Python V6.13
+# COT Smart Money — Python V6.14
 
 Questa versione aggiorna l'app Python sulla base di **G. COT Smart Money Engine V1.5.36** mantenendo separate:
 
 1. **Analisi singolo strumento** — report didattico completo, grafici e AI facoltativa.
 2. **COT Screener** — scansione deterministica dei mercati, classifica, filtri, Excel, JPG Top 5 / Top 10 / totale e AI facoltativa.
 
-## Novità V6.13
+## Novità V6.14
 
 ### Alignment contrarian fisso 156W
 
@@ -57,7 +57,7 @@ Quando un Long/Short è ancora parziale ma il prezzo ha già confermato, l'indic
 
 La formulazione storica usa **ultime 156W** invece di riferimenti generici ai “tre anni”.
 
-### Screener V6.13
+### Screener V6.14
 
 Lo screener è stato rivisto per non trattare l'Alignment come un semplice filtro direzionale:
 
@@ -104,7 +104,7 @@ I prompt distinguono esplicitamente:
 - OI Index 52W come livello di partecipazione e non come direzione.
 
 
-## Correzione screener V6.13
+## Correzione screener V6.14
 
 La classificazione pubblica è stata resa più rigorosa e aderente alla gerarchia TradingView V1.5.36:
 
@@ -157,3 +157,13 @@ streamlit run app_cot_smart_money.py
 - controllo integrità ZIP.
 
 Non è stata eseguita, durante la costruzione del pacchetto, una scansione live completa di tutti i mercati CFTC/Yahoo.
+
+## Revisione Score V6.14
+
+Lo Score è stato ricontrollato sul file reale dello screener e corretto per eliminare tre distorsioni:
+
+- i flussi opposti alla Direzione non ricevono più punti positivi;
+- un mercato NEUTRALE non viene premiato solo per un forte Flow 1W;
+- l’Open Interest 1W non viene più contato due volte: NUOVI LONG/SHORT lo incorporano già, quindi lo Score OI usa la partecipazione 3-6W.
+
+Inoltre un report più vecchio di 17 giorni viene azzerato nello Score, così un dato obsoleto non può salire nella classifica operativa. L’OI Index 52W resta informativo e non entra nello Score.

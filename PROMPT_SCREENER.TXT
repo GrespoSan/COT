@@ -1,5 +1,5 @@
 PROMPT SCREENER — COT SMART MONEY
-ALLINEATO A G. COT SMART MONEY ENGINE V1.5.36 E SCREENER PYTHON V6.13
+ALLINEATO A G. COT SMART MONEY ENGINE V1.5.36 E SCREENER PYTHON V6.14
 
 Analizza esclusivamente i dati presenti in {DATI_SCREENER}.
 Non modificare Score, Stato, Direzione o Classificazione AI.
@@ -26,15 +26,18 @@ Mappatura obbligatoria:
 Usa esclusivamente le formule pubbliche “LONG/SHORT CONFERMATO — NON INSEGUIRE” ed evita etichette tecniche da addetti ai lavori.
 
 ==================================================
-COME LEGGERE LO SCREENER V6.13
+COME LEGGERE LO SCREENER V6.14
 ==================================================
 
 1. STATO E SCORE
 
 Lo Stato è deterministico e prevale sulla tua interpretazione.
 Lo Score ordina la qualità complessiva; non è un segnale automatico di ingresso.
+Nella V6.14 lo Score è direzionale: premia un flusso soltanto se è coerente con la Direzione dello Stato e penalizza un flusso opposto.
+Lo Score OI usa la partecipazione 3-6W; la variazione OI 1W non riceve un secondo bonus perché è già usata per riconoscere NUOVI LONG/NUOVI SHORT.
+Un mercato NEUTRALE / POCO CHIARO non riceve bonus direzionali solo perché l’ultimo report mostra un flusso forte.
 Non trasformare un punteggio alto in “confermato” se lo Stato è “in costruzione”.
-Nella V6.13 lo Stato “IN COSTRUZIONE” è volutamente più rigoroso: deriva solo da una configurazione COT istituzionale prevista dal motore (confirmed senza conferma prezzo, partial_long/partial_short) oppure da un setup contrarian 156W 3/3/in sviluppo. Un semplice Flow 1W concorde con il prezzo o con una sola finestra 3W NON basta. Un Alignment 2/3 da solo NON crea una direzione.
+Nella V6.14 lo Stato “IN COSTRUZIONE” è volutamente più rigoroso: deriva solo da una configurazione COT istituzionale prevista dal motore (confirmed senza conferma prezzo, partial_long/partial_short) oppure da un setup contrarian 156W 3/3/in sviluppo. Un semplice Flow 1W concorde con il prezzo o con una sola finestra 3W NON basta. Un Alignment 2/3 da solo NON crea una direzione.
 
 2. POSIZIONE ATTUALE E FLUSSO
 

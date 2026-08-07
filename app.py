@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 # CONFIGURAZIONE PAGINA
 # =============================================================================
 st.set_page_config(
-    page_title="COT Smart Money V6.13 — Python",
+    page_title="COT Smart Money V6.14 — Python",
     page_icon="🛡️",
     layout="wide",
 )
@@ -48,7 +48,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🛡️ COT Smart Money — Python V6.13")
+st.title("🛡️ COT Smart Money — Python V6.14")
 st.caption(
     "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale di tutti i mercati. "
     "Il motore seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
@@ -2446,25 +2446,50 @@ def calculate_screener_score(
     alignment: dict[str, Any],
     oi_threshold: float,
 ) -> dict[str, Any]:
+    """Score di qualità 0-100, separato dallo Stato e coerente con la direzione.
+
+    V6.14 corregge tre distorsioni della versione precedente:
+    1) un flusso opposto alla Direzione non viene più premiato;
+    2) i mercati NEUTRALI non ricevono punti solo perché l'ultimo report è forte;
+    3) l'Open Interest 1W non viene contato due volte: NUOVI LONG/SHORT lo incorpora
+       già, quindi lo Score OI usa la partecipazione 3-6W.
+    """
     status, direction = screener_status(smart, price, alignment)
     flow_type = screener_flow_type(smart)
 
+    # STADIO DEL SETUP: misura la maturità, non decide la direzione.
     if "CONFERMATO" in status:
         motor_score = 30
     elif "IN COSTRUZIONE" in status:
         motor_score = 18
     else:
-        motor_score = 5
+        motor_score = 0
 
-    if flow_type in ("NUOVI LONG", "NUOVI SHORT"):
-        flow_score = 20
-    elif flow_type in ("SHORT COVERING", "LIQUIDAZIONE LONG"):
-        flow_score = 5
-    elif flow_type in ("MIGLIORAMENTO MISTO", "PEGGIORAMENTO MISTO"):
-        flow_score = 10
+    # FLUSSO ULTIMO REPORT: premia solo ciò che è coerente con la Direzione.
+    # NUOVI LONG/SHORT includono già la conferma dell'OI 1W nel motore; per questo
+    # l'OI 1W non riceve un secondo bonus separato più avanti.
+    if direction == "LONG":
+        flow_score = {
+            "NUOVI LONG": 20,
+            "MIGLIORAMENTO MISTO": 10,
+            "SHORT COVERING": 5,
+            "NUOVI SHORT": -20,
+            "PEGGIORAMENTO MISTO": -10,
+            "LIQUIDAZIONE LONG": -8,
+        }.get(flow_type, 0)
+    elif direction == "SHORT":
+        flow_score = {
+            "NUOVI SHORT": 20,
+            "PEGGIORAMENTO MISTO": 10,
+            "LIQUIDAZIONE LONG": 5,
+            "NUOVI LONG": -20,
+            "MIGLIORAMENTO MISTO": -10,
+            "SHORT COVERING": -8,
+        }.get(flow_type, 0)
     else:
         flow_score = 0
 
+    # STRUTTURA 3-6W: conferma o contraddice la Direzione dello screener.
     flow_3w = float(smart.get("trend_flow_3w", 0) or 0)
     flow_6w = float(smart.get("trend_flow_6w", 0) or 0)
     if direction == "LONG":
@@ -2515,13 +2540,14 @@ def calculate_screener_score(
         opposite_alignment = relevant_alignment
         regime_score = 0
 
-    # Un 2/3 resta solo un segnale parziale. Un Alignment opposto forte riduce il punteggio.
+    # Un Alignment opposto è un warning; un 2/3 da solo non crea una direzione.
     if opposite_alignment == 3 and opposite_alignment > relevant_alignment:
         regime_score -= 6
     elif opposite_alignment == 2 and opposite_alignment > relevant_alignment:
         regime_score -= 3
     alignment_score = regime_score  # alias mantenuto per compatibilità con export/storico.
 
+    # PREZZO WEEKLY: conferma esterna al COT.
     if direction == "LONG":
         if price.get("long_confirmed"):
             price_score = 15
@@ -2543,18 +2569,47 @@ def calculate_screener_score(
     else:
         price_score = 0
 
-    oi_change = smart.get("pct_delta_oi", math.nan)
-    if pd.isna(oi_change):
-        oi_score = 0
-    elif abs(float(oi_change)) <= oi_threshold:
-        oi_score = 3
-    elif float(oi_change) > oi_threshold and flow_type in ("NUOVI LONG", "NUOVI SHORT"):
-        oi_score = 10
-    elif float(oi_change) > oi_threshold and direction != "NEUTRALE":
-        oi_score = 6
+    # OPEN INTEREST: usa SOLO la partecipazione 3-6W per evitare il doppio conteggio.
+    # L'OI Index 52W resta informativo, esattamente come nel motore TradingView.
+    oi_quality = str(smart.get("oi_quality", "") or "")
+    if direction == "LONG":
+        if "RIALZISTA È SOSTENUTO" in oi_quality:
+            oi_score = 10
+        elif "RIALZISTA HA UNA PARTECIPAZIONE STABILE" in oi_quality:
+            oi_score = 5
+        elif "RIALZISTA PERDE PARTECIPAZIONE" in oi_quality:
+            oi_score = -6
+        elif "RIBASSISTA È SOSTENUTO" in oi_quality:
+            oi_score = -10
+        elif "RIBASSISTA HA UNA PARTECIPAZIONE STABILE" in oi_quality:
+            oi_score = -5
+        elif "RIBASSISTA PERDE PARTECIPAZIONE" in oi_quality:
+            oi_score = 3
+        elif "NON HA UNA DIREZIONE UNIFORME" in oi_quality:
+            oi_score = -3
+        else:
+            oi_score = 0
+    elif direction == "SHORT":
+        if "RIBASSISTA È SOSTENUTO" in oi_quality:
+            oi_score = 10
+        elif "RIBASSISTA HA UNA PARTECIPAZIONE STABILE" in oi_quality:
+            oi_score = 5
+        elif "RIBASSISTA PERDE PARTECIPAZIONE" in oi_quality:
+            oi_score = -6
+        elif "RIALZISTA È SOSTENUTO" in oi_quality:
+            oi_score = -10
+        elif "RIALZISTA HA UNA PARTECIPAZIONE STABILE" in oi_quality:
+            oi_score = -5
+        elif "RIALZISTA PERDE PARTECIPAZIONE" in oi_quality:
+            oi_score = 3
+        elif "NON HA UNA DIREZIONE UNIFORME" in oi_quality:
+            oi_score = -3
+        else:
+            oi_score = 0
     else:
         oi_score = 0
 
+    # RISCHI / QUALITÀ DEL DATO. La concentrazione resta una fragilità, non una direzione.
     penalty = 0
     if "NON INSEGUIRE" in status:
         penalty -= 8
@@ -2562,8 +2617,9 @@ def calculate_screener_score(
         penalty -= 3
 
     age_days = int(smart.get("age_days", 0) or 0)
-    if age_days > 17:
-        penalty -= 30
+    stale_hard_stop = age_days > 17
+    if stale_hard_stop:
+        penalty -= 100  # un dato obsoleto non deve mai salire nella classifica operativa
     elif age_days > 10:
         penalty -= 10
 
@@ -3198,9 +3254,9 @@ def render_screener() -> None:
 
     with st.expander("Come viene costruito lo Score", expanded=False):
         st.write(
-            "Il punteggio combina motore Smart Money, qualità del flusso, struttura 3–6W, stadio del possibile cambio di regime 156W, "
-            "conferma del prezzo Weekly e Open Interest. Un semplice Alignment 2/3 vale poco; il 3/3 diventa più importante solo quando "
-            "nuovi Long/Short, Net Position, prezzo e struttura confermano la stessa direzione."
+            "Lo Score misura la qualità del setup nella Direzione indicata dallo Stato. Premia soltanto i flussi coerenti, la struttura 3–6W, "
+            "il regime 156W, il prezzo Weekly e la partecipazione OI 3–6W. Un flusso opposto viene penalizzato. L’OI 1W non viene contato due volte: "
+            "è già incluso nella classificazione NUOVI LONG/NUOVI SHORT. I mercati NEUTRALI non ricevono bonus direzionali e i dati molto obsoleti hanno Score 0."
         )
         component_columns = [
             "Strumento", "Score", "Score motore", "Score flusso", "Score struttura",
