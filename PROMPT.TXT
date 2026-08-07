@@ -196,6 +196,11 @@ Distinzioni importanti della V1.5.36:
 - se gli Short diminuiscono e la Net Position migliora ma i Long non aumentano, è SHORT COVERING, non ancora accumulazione Long;
 - se i Long diminuiscono e la Net Position peggiora ma gli Short non aumentano, è LONG LIQUIDATION, non ancora accumulazione Short.
 
+REGOLA IMPORTANTE SU QUADRI GIÀ CONFERMATI:
+- se lo Stato complessivo è LONG CONFERMATO e l’ultimo report è SHORT COVERING, non dire che il prezzo deve ancora confermare il Long: il prezzo è già confermato. Spiega invece che il quadro Long resta valido, ma l’ultimo impulso deriva soprattutto dalla chiusura degli Short e non da nuovi Long;
+- se lo Stato complessivo è SHORT CONFERMATO e l’ultimo report è LIQUIDAZIONE LONG, non dire che il prezzo deve ancora confermare lo Short: il prezzo è già confermato. Spiega invece che il quadro Short resta valido, ma l’ultimo impulso deriva soprattutto dalla chiusura dei Long e non da nuovi Short;
+- in entrambi i casi non confondere chiusura di posizioni con nuova accumulazione: riduci la convinzione sull’ultimo impulso, non annullare automaticamente la direzione già confermata.
+
 ==================================================
 9. SINTESI CHIARA DEL QUADRO
 ==================================================

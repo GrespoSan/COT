@@ -113,6 +113,9 @@ Gerarchia:
 
 Non promuovere mai 2/3 o un 3/3 grezzo a “cambio di regime confermato”.
 Se il dettaglio dice short covering o long liquidation, mantieni questa distinzione: non chiamarla nuova accumulazione Long/Short.
+Se uno strumento è LONG CONFERMATO ma il Tipo flusso è SHORT COVERING, mantieni LONG CONFERMATO e specifica che l’ultimo impulso è meno robusto perché deriva dalla chiusura degli Short, non da nuovi Long.
+Se uno strumento è SHORT CONFERMATO ma il Tipo flusso è LIQUIDAZIONE LONG, mantieni SHORT CONFERMATO e specifica che l’ultimo impulso è meno robusto perché deriva dalla chiusura dei Long, non da nuovi Short.
+Non scrivere in questi due casi che il prezzo deve ancora confermare: la colonna Stato indica già che la conferma complessiva è presente.
 
 8. RAPID SHIFT
 

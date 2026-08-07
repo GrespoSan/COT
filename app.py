@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 # CONFIGURAZIONE PAGINA
 # =============================================================================
 st.set_page_config(
-    page_title="COT Smart Money V6.17 — Python",
+    page_title="COT Smart Money V6.18 — Python",
     page_icon="🛡️",
     layout="wide",
 )
@@ -48,7 +48,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🛡️ COT Smart Money — Python V6.17")
+st.title("🛡️ COT Smart Money — Python V6.18")
 st.caption(
     "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale di tutti i mercati. "
     "Il motore seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
@@ -1345,7 +1345,21 @@ def analyze_smart_money(
     # Indicazione operativa, con priorità coerente con il Pine
     action = "ATTENDI: IL QUADRO NON È ANCORA CHIARO"
     reason = "I Fondi e gli altri operatori non mostrano ancora una direzione abbastanza chiara."
-    if short_covering:
+    if short_covering and full_long:
+        action = "LONG CONFERMATO, MA L'ULTIMO MIGLIORAMENTO È SHORT COVERING: NON INSEGUIRE IL RIALZO"
+        reason = (
+            "Struttura COT e prezzo Weekly confermano il quadro Long, ma nell'ultimo report il miglioramento deriva "
+            "soprattutto dalla chiusura di vecchi Short. Prima di aumentare la convinzione Long è preferibile vedere "
+            "nuovi acquisti reali dei Fondi."
+        )
+    elif long_liquidation and full_short:
+        action = "SHORT CONFERMATO, MA L'ULTIMO PEGGIORAMENTO È LIQUIDAZIONE LONG: NON INSEGUIRE LA DISCESA"
+        reason = (
+            "Struttura COT e prezzo Weekly confermano il quadro Short, ma nell'ultimo report il peggioramento deriva "
+            "soprattutto dalla chiusura di vecchi Long. Prima di aumentare la convinzione Short è preferibile vedere "
+            "nuovi Short reali dei Fondi."
+        )
+    elif short_covering:
         action = "NON INSEGUIRE IL RIALZO: ATTENDI NUOVI ACQUISTI REALI"
         reason = "Il miglioramento può dipendere soprattutto dalla chiusura di vecchi Short, non da nuovi acquisti."
     elif long_liquidation:
@@ -1550,6 +1564,38 @@ def analyze_smart_money(
             f"Il COT Index di {spec.trend_label} è {fmt_decimal(cot_index, 1)} su 100. Un valore sopra 80 indica che la Net "
             f"Position è vicina al massimo degli ultimi {cot_lookback} report. Questo segnala estensione storica, non necessariamente "
             "una posizione Net Long. La direzione può restare rialzista, ma aumenta il rischio di una correzione veloce."
+        )
+    elif short_covering and full_long:
+        simple_title = "LONG CONFERMATO — ULTIMO REPORT IN SHORT COVERING"
+        simple_detail = (
+            "Il quadro complessivo resta rialzista: struttura COT e prezzo settimanale confermano la direzione Long. "
+            "Nell'ultimo report, però, il miglioramento deriva soprattutto dalla chiusura di vecchie posizioni Short e non "
+            "dall'apertura di nuovi Long. Il rialzo è quindi confermato, ma la qualità dell'ultimo impulso è meno robusta."
+        )
+        plain_action = (
+            "IL QUADRO LONG È CONFERMATO, MA NON INSEGUIRE IL RIALZO. ATTENDI NUOVI ACQUISTI REALI DEI FONDI PRIMA DI "
+            "AUMENTARE LA CONVINZIONE LONG."
+        )
+        explanation = (
+            "La struttura delle ultime settimane e il prezzo Weekly sono rialzisti, ma nell'ultimo report la Net Position "
+            "migliora mentre l'Open Interest diminuisce. Questo indica short covering: è compatibile con un quadro Long già "
+            "confermato, ma non equivale a nuova accumulazione Long."
+        )
+    elif long_liquidation and full_short:
+        simple_title = "SHORT CONFERMATO — ULTIMO REPORT IN LIQUIDAZIONE LONG"
+        simple_detail = (
+            "Il quadro complessivo resta ribassista: struttura COT e prezzo settimanale confermano la direzione Short. "
+            "Nell'ultimo report, però, il peggioramento deriva soprattutto dalla chiusura di vecchie posizioni Long e non "
+            "dall'apertura di nuovi Short. Il ribasso è quindi confermato, ma la qualità dell'ultimo impulso è meno robusta."
+        )
+        plain_action = (
+            "IL QUADRO SHORT È CONFERMATO, MA NON INSEGUIRE LA DISCESA. ATTENDI NUOVI SHORT REALI DEI FONDI PRIMA DI "
+            "AUMENTARE LA CONVINZIONE RIBASSISTA."
+        )
+        explanation = (
+            "La struttura delle ultime settimane e il prezzo Weekly sono ribassisti, ma nell'ultimo report la Net Position "
+            "peggiora mentre l'Open Interest diminuisce. Questo indica liquidazione Long: è compatibile con un quadro Short già "
+            "confermato, ma non equivale a nuova accumulazione Short."
         )
     elif short_covering:
         simple_title = "SHORT COVERING"
