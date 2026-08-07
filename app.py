@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 # CONFIGURAZIONE PAGINA
 # =============================================================================
 st.set_page_config(
-    page_title="COT Smart Money V6.14 — Python",
+    page_title="COT Smart Money V6.15 — Python",
     page_icon="🛡️",
     layout="wide",
 )
@@ -48,7 +48,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🛡️ COT Smart Money — Python V6.14")
+st.title("🛡️ COT Smart Money — Python V6.15")
 st.caption(
     "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale di tutti i mercati. "
     "Il motore seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
@@ -2406,15 +2406,27 @@ def screener_status(
     if smart.get("confirmed_short"):
         return "SHORT IN COSTRUZIONE", "SHORT"
 
-    # 5) Configurazioni istituzionali parziali: usa ESATTAMENTE le condizioni
+    # 5) Configurazioni istituzionali parziali: usa le condizioni
     #    smart_partial_long / smart_partial_short del motore TradingView V1.5.36.
     if smart.get("partial_long"):
         return "LONG IN COSTRUZIONE", "LONG"
     if smart.get("partial_short"):
         return "SHORT IN COSTRUZIONE", "SHORT"
 
-    # Nessun fallback basato soltanto su Flow 1W + prezzo/3W: se manca una delle
-    # condizioni COT istituzionali previste dal motore, il quadro resta poco chiaro.
+    # 6) Persistenza direzionale forte, ma senza conferma istituzionale completa.
+    #    Questo NON equivale a "confermato": serve soltanto a non classificare come
+    #    neutrale un mercato in cui 1W, 3W, 6W e prezzo Weekly puntano tutti dalla
+    #    stessa parte. È molto più severo del vecchio fallback V6.12/V6.13.
+    flow_1w = float(smart.get("trend_flow_1w", 0) or 0)
+    flow_3w = float(smart.get("trend_flow_3w", 0) or 0)
+    flow_6w = float(smart.get("trend_flow_6w", 0) or 0)
+    persistent_long = flow_1w > 0 and flow_3w > 0 and flow_6w > 0 and bool(price.get("long_confirmed"))
+    persistent_short = flow_1w < 0 and flow_3w < 0 and flow_6w < 0 and bool(price.get("short_confirmed"))
+    if persistent_long and not persistent_short:
+        return "LONG IN COSTRUZIONE", "LONG"
+    if persistent_short and not persistent_long:
+        return "SHORT IN COSTRUZIONE", "SHORT"
+
     return "NEUTRALE / POCO CHIARO", "NEUTRALE"
 
 
@@ -2448,18 +2460,41 @@ def calculate_screener_score(
 ) -> dict[str, Any]:
     """Score di qualità 0-100, separato dallo Stato e coerente con la direzione.
 
-    V6.14 corregge tre distorsioni della versione precedente:
-    1) un flusso opposto alla Direzione non viene più premiato;
-    2) i mercati NEUTRALI non ricevono punti solo perché l'ultimo report è forte;
+    V6.15 mantiene le correzioni dello Score V6.14 e aggiunge una distinzione:
+    1) un flusso opposto alla Direzione non viene premiato;
+    2) i mercati davvero NEUTRALI non ricevono punti solo perché l'ultimo report è forte;
     3) l'Open Interest 1W non viene contato due volte: NUOVI LONG/SHORT lo incorpora
-       già, quindi lo Score OI usa la partecipazione 3-6W.
+       già, quindi lo Score OI usa la partecipazione 3-6W;
+    4) una persistenza coerente 1W+3W+6W+prezzo può essere "IN COSTRUZIONE",
+       ma con Score motore ridotto finché manca la conferma istituzionale completa.
     """
     status, direction = screener_status(smart, price, alignment)
     flow_type = screener_flow_type(smart)
 
     # STADIO DEL SETUP: misura la maturità, non decide la direzione.
+    # I setup "in costruzione" nati soltanto da persistenza 1W+3W+6W+prezzo
+    # ricevono un punteggio motore inferiore perché manca ancora la conferma
+    # istituzionale della controparte richiesta dal motore specifico di mercato.
+    persistence_only_long = (
+        status == "LONG IN COSTRUZIONE"
+        and not smart.get("confirmed_long")
+        and not smart.get("partial_long")
+        and not smart.get("alignment_bull_regime_developing")
+        and not smart.get("alignment_bull_3")
+    )
+    persistence_only_short = (
+        status == "SHORT IN COSTRUZIONE"
+        and not smart.get("confirmed_short")
+        and not smart.get("partial_short")
+        and not smart.get("alignment_bear_regime_developing")
+        and not smart.get("alignment_bear_3")
+    )
+    persistence_only = persistence_only_long or persistence_only_short
+
     if "CONFERMATO" in status:
         motor_score = 30
+    elif "IN COSTRUZIONE" in status and persistence_only:
+        motor_score = 12
     elif "IN COSTRUZIONE" in status:
         motor_score = 18
     else:
