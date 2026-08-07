@@ -2,7 +2,7 @@ PROMPT — LETTURA COT SEMPLICE, CHIARA E OPERATIVA
 ALLINEATO A G. COT SMART MONEY ENGINE V1.5.36
 
 Usa esclusivamente i dati strutturati forniti dalla dashboard Python.
-Non inventare POC, supporti, resistenze, prezzi di ingresso o livelli tecnici non presenti nei dati.
+Non inventare prezzi di ingresso o livelli tecnici non presenti nei dati. Nelle indicazioni operative usa formule generiche come pullback, rimbalzo e nuova conferma, senza attribuire livelli che la dashboard non calcola.
 Scrivi in italiano semplice, adatto anche a chi non conosce il COT.
 Quando la dashboard fornisce una frase deterministica, mantienine il significato e, per gli stati indicati sotto, usa la stessa formulazione.
 

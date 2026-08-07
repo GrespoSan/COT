@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 # CONFIGURAZIONE PAGINA
 # =============================================================================
 st.set_page_config(
-    page_title="COT Smart Money V6.18 — Python",
+    page_title="COT Smart Money V6.19 — Python",
     page_icon="🛡️",
     layout="wide",
 )
@@ -48,7 +48,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🛡️ COT Smart Money — Python V6.18")
+st.title("🛡️ COT Smart Money — Python V6.19")
 st.caption(
     "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale di tutti i mercati. "
     "Il motore seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
@@ -1366,7 +1366,7 @@ def analyze_smart_money(
         action = "EVITA DI COMPRARE SUBITO: ATTENDI UNA STABILIZZAZIONE"
         reason = "Il ribasso può dipendere soprattutto dalla chiusura di vecchi Long, non da nuova pressione Short."
     elif possible_bottom:
-        action = "CERCA CONFERME LONG SUI SUPPORTI: EVITA SHORT TARDIVI"
+        action = "CERCA CONFERME LONG: EVITA SHORT TARDIVI"
         reason = "Managed Money e Producer migliorano da un estremo Short; un minimo è possibile ma va confermato."
     elif possible_top:
         action = "PROTEGGI GLI EVENTUALI LONG: CERCA CONFERME RIBASSISTE"
@@ -1541,8 +1541,7 @@ def analyze_smart_money(
             "perché si potrebbe vendere vicino ai minimi del movimento."
         )
         plain_action = (
-            "NON INSEGUIRE I MINIMI. ATTENDI UN RIMBALZO VERSO UNA RESISTENZA, IL POC O UN ALTRO LIVELLO IMPORTANTE. "
-            "VALUTA UNO SHORT SOLO DOPO UNA NUOVA CONFERMA RIBASSISTA."
+            "NON INSEGUIRE I MINIMI. ATTENDI UN RIMBALZO E UNA NUOVA CONFERMA RIBASSISTA PRIMA DI VALUTARE UNO SHORT."
         )
         explanation = (
             f"Il COT Index di {spec.trend_label} è {fmt_decimal(cot_index, 1)} su 100. Un valore sotto 20 indica che la Net "
@@ -1557,8 +1556,7 @@ def analyze_smart_money(
             "perché si potrebbe comprare vicino ai massimi del movimento."
         )
         plain_action = (
-            "NON INSEGUIRE I MASSIMI. ATTENDI UN PULLBACK VERSO UN SUPPORTO, IL POC O UN ALTRO LIVELLO IMPORTANTE. "
-            "VALUTA UN LONG SOLO DOPO UNA NUOVA CONFERMA RIALZISTA."
+            "NON INSEGUIRE I MASSIMI. ATTENDI UN PULLBACK E UNA NUOVA CONFERMA RIALZISTA PRIMA DI VALUTARE UN LONG."
         )
         explanation = (
             f"Il COT Index di {spec.trend_label} è {fmt_decimal(cot_index, 1)} su 100. Un valore sopra 80 indica che la Net "
@@ -3874,9 +3872,9 @@ def render_single_analysis() -> None:
     In questa interrogazione non è allegato automaticamente uno screenshot.
     Usa come fonte principale esclusivamente i dati strutturati riportati sotto.
     La dashboard calcola automaticamente Smart Money Report, tabella tecnica e COT Alignment Map.
-    Non calcola ancora POC, supporti o resistenze.
-    Per questi elementi scrivi "dato non chiaramente leggibile" e non inventare valori o livelli.
-    Quando un trigger numerico non è disponibile, descrivi soltanto la condizione necessaria.
+    Non calcola livelli tecnici di prezzo.
+    Non citarne di inventati nelle indicazioni operative. Quando un trigger numerico non è disponibile, descrivi soltanto la condizione necessaria.
+    Per il timing usa formule generiche come pullback, rimbalzo e nuova conferma, senza attribuire livelli non calcolati.
 
     MERCATO
     - Strumento: {spec.label}
@@ -3950,7 +3948,7 @@ def render_single_analysis() -> None:
 
     VINCOLI FINALI DELLA DASHBOARD
     - Il responso deterministico è il punto di partenza: non contraddirlo senza dichiarare chiaramente il limite dei dati.
-    - Usa i valori calcolati dell'Alignment Map; non inventare screenshot, POC, supporti, resistenze o livelli tecnici.
+    - Usa i valori calcolati dell'Alignment Map; non inventare screenshot o livelli tecnici. Nelle indicazioni operative usa solo pullback/rimbalzo e nuova conferma se non esiste un livello calcolato.
     - Distingui nuovi Long, nuovi Short, short covering, liquidazione Long e flusso misto usando i delta disponibili.
     - Un COT Index estremo descrive la collocazione della Net Position nel proprio range storico, non necessariamente una posizione Net Long o Net Short e non un segnale automatico di inversione.
     - L'Alignment Map usato per il possibile cambio di regime è fisso a 156W e usa la stessa logica contrarian per tutte le famiglie: Trend basso + Controparte alta + Small basso per Bull; l'opposto per Bear.

@@ -1,16 +1,25 @@
-# COT Smart Money Python V6.18
+# COT Smart Money Python V6.19
 
-Aggiornamento testuale della V6.17 dopo verifica con il COT del 04/08/2026.
+Micro-aggiornamento testuale della V6.18.
 
-## Modifica V6.18
+## Modifica V6.19
 
-Nessuna modifica a motore Smart Money, Stato, Score o logica dello screener.
+Nessuna modifica a:
 
-È stata corretta la lettura dei casi in cui il quadro complessivo è già confermato ma l’ultimo report deriva dalla chiusura di posizioni:
+- motore Smart Money;
+- Stato dello screener;
+- Score;
+- Alignment 156W;
+- logica dei flussi;
+- classificazione della graduatoria.
 
-- **LONG CONFERMATO + SHORT COVERING**: il Long resta confermato; si precisa che l’ultimo impulso è meno robusto perché deriva soprattutto dalla chiusura degli Short e non da nuovi Long. Non viene più chiesta una conferma prezzo già presente.
-- **SHORT CONFERMATO + LIQUIDAZIONE LONG**: lo Short resta confermato; si precisa che l’ultimo impulso è meno robusto perché deriva soprattutto dalla chiusura dei Long e non da nuovi Short. Non viene più chiesta una conferma prezzo già presente.
+Sono stati eliminati dalle indicazioni operative i riferimenti a livelli tecnici che la dashboard Python non calcola.
 
-Se short covering o liquidazione Long compaiono senza un quadro già confermato, resta la lettura prudente precedente.
+In particolare:
 
-Aggiornati anche `PROMPT.TXT` e `PROMPT_SCREENER.TXT` per impedire all’AI di confondere chiusura di posizioni con nuova accumulazione e per evitare la frase contraddittoria “attendi conferma del prezzo” quando lo Stato è già confermato.
+- `SHORT CONFERMATO — NON INSEGUIRE`: ora invita ad attendere **un rimbalzo e una nuova conferma ribassista**, senza indicare livelli non calcolati;
+- `LONG CONFERMATO — NON INSEGUIRE`: ora invita ad attendere **un pullback e una nuova conferma rialzista**, senza indicare livelli non calcolati;
+- il possibile minimo Commodity non usa più la formula “conferme Long sui supporti”, ma la più neutra **“cerca conferme Long”**;
+- `PROMPT.TXT` e `PROMPT_SCREENER.TXT` vietano all'AI di attribuire livelli tecnici non presenti nei dati e le chiedono di usare soltanto formulazioni generiche come pullback, rimbalzo e nuova conferma.
+
+La modifica è esclusivamente testuale: Stato e Score devono restare identici alla V6.18 a parità di dati.
