@@ -1,44 +1,38 @@
-# COT Smart Money Python V6.23
+# COT Smart Money Python V6.24
 
-Aggiornamento della V6.22 dedicato esclusivamente alla **classificazione per settore del COT Weekly Change Radar**.
+Aggiornamento della V6.23 dedicato esclusivamente all'**export Excel del COT Weekly Change Radar**.
 
-## Novità V6.23
+## Novità V6.24
 
-La categoria generica **Resto** è stata eliminata.
+L'Excel scaricato dalla pagina **Weekly Change Radar** non è più influenzato dai filtri a video.
 
-Il Weekly Change Radar usa ora nove categorie operative, sia nei filtri a video sia negli export Excel:
+Il file Excel contiene sempre **tutti i mercati presenti nella scansione completata**, compresi:
 
-- **Indici**
-- **Valute**
-- **Metalli**
-- **Energetici**
-- **Tassi**
-- **Crypto**
-- **Agricoli**
-- **Soft**
-- **Bestiame**
+- tutti i verdetti (`DA APPROFONDIRE`, `DA MONITORARE`, `PERDE INTERESSE`, `NESSUNA NOVITÀ — IGNORA`);
+- tutte le categorie disponibili nella scansione;
+- il foglio generale `Weekly Change Radar`;
+- i nove fogli settoriali:
+  - `Radar Indici`
+  - `Radar Valute`
+  - `Radar Metalli`
+  - `Radar Energetici`
+  - `Radar Tassi`
+  - `Radar Crypto`
+  - `Radar Agricoli`
+  - `Radar Soft`
+  - `Radar Bestiame`
 
-Nell'Excel rimane il foglio generale `Weekly Change Radar` e vengono creati automaticamente anche:
+I filtri **Verdetto Radar**, **Categoria mercati** e **Mostra anche i mercati senza novità** continuano a modificare soltanto ciò che viene mostrato a video.
 
-- `Radar Indici`
-- `Radar Valute`
-- `Radar Metalli`
-- `Radar Energetici`
-- `Radar Tassi`
-- `Radar Crypto`
-- `Radar Agricoli`
-- `Radar Soft`
-- `Radar Bestiame`
+Gli export **JPG Top 5 / Top 10 / Totale** continuano invece a rispettare la vista filtrata, perché rappresentano ciò che si sta guardando nella pagina.
 
-I fogli settoriali sono presenti sia nell'**Excel completo dello Screener** sia nell'**Excel dedicato del Weekly Change Radar**. Nel secondo caso rispettano i filtri correnti del Radar.
+Il pulsante Excel è ora denominato **Scarica Radar Excel completo** per rendere evidente questa differenza.
 
-La formattazione della colonna `Oggi` resta invariata:
-- LONG in verde;
-- SHORT in rosso.
+> Nota: l'Excel può includere soltanto i mercati effettivamente analizzati nella scansione. Se prima di avviare lo Screener vengono esclusi interi gruppi o mercati dalla sidebar, questi non possono comparire nell'export.
 
 ## Cosa NON cambia
 
-La V6.23 **non modifica**:
+La V6.24 **non modifica**:
 
 - Smart Money Engine;
 - Stato dello Screener;
@@ -49,6 +43,8 @@ La V6.23 **non modifica**:
 - OI 3–6W / OI Index 52W;
 - conferma prezzo Weekly;
 - Analisi singolo strumento;
-- logica AI.
+- logica AI;
+- filtri a video del Radar;
+- comportamento degli export JPG.
 
-La modifica riguarda esclusivamente **filtri per categoria ed export settoriali del Weekly Change Radar**.
+La modifica riguarda esclusivamente **quale DataFrame viene passato all'export Excel dedicato del Radar**: ora viene usato il Radar completo anziché la vista filtrata.

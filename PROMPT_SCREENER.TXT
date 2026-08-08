@@ -1,5 +1,5 @@
 PROMPT SCREENER — COT SMART MONEY
-ALLINEATO A G. COT SMART MONEY ENGINE V1.5.36 E SCREENER PYTHON V6.23
+ALLINEATO A G. COT SMART MONEY ENGINE V1.5.36 E SCREENER PYTHON V6.24
 
 Analizza esclusivamente i dati presenti in {DATI_SCREENER}.
 Non modificare Score, Stato, Direzione o Classificazione AI.

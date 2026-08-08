@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 # CONFIGURAZIONE PAGINA
 # =============================================================================
 st.set_page_config(
-    page_title="COT Smart Money V6.23 — Python",
+    page_title="COT Smart Money V6.24 — Python",
     page_icon="🛡️",
     layout="wide",
 )
@@ -48,7 +48,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🛡️ COT Smart Money — Python V6.23")
+st.title("🛡️ COT Smart Money — Python V6.24")
 st.caption(
     "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale con Weekly Change Radar. "
     "Il motore seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
@@ -3295,7 +3295,7 @@ def build_screener_excel(results: pd.DataFrame, errors: pd.DataFrame) -> bytes:
 
 
 def build_weekly_radar_excel(radar_frame: pd.DataFrame) -> bytes:
-    """Esporta la vista filtrata del Weekly Change Radar in un file Excel dedicato."""
+    """Esporta il Weekly Change Radar completo in un file Excel dedicato."""
     output = io.BytesIO()
     export_columns = [
         "Priorità", "Strumento", "Categoria Radar", "Report precedente", "Report attuale",
@@ -3948,8 +3948,14 @@ def render_weekly_change_radar_tab(results_df: pd.DataFrame) -> None:
         "PERDE INTERESSE segnala un deterioramento; NESSUNA NOVITÀ — IGNORA serve a ridurre il rumore settimanale."
     )
 
-    # Export dedicati del Radar: rispettano esattamente i filtri correnti.
-    radar_excel_bytes = build_weekly_radar_excel(radar_filtered)
+    # Excel dedicato: NON rispetta i filtri a video. Deve contenere l'intero Radar
+    # della scansione, comprese tutte le categorie e anche i mercati senza novità.
+    # I JPG, invece, continuano a rappresentare la vista filtrata corrente.
+    radar_excel_bytes = build_weekly_radar_excel(radar)
+    st.caption(
+        "L'Excel del Radar include tutti i mercati della scansione e tutte le categorie, indipendentemente dai filtri a video. "
+        "I JPG continuano invece a rispettare la vista filtrata."
+    )
     radar_jpg_top5 = build_screener_jpg(
         radar_display.head(5),
         "Top 5 risultati visibili",
@@ -3971,7 +3977,7 @@ def render_weekly_change_radar_tab(results_df: pd.DataFrame) -> None:
     ex1, ex2, ex3, ex4 = st.columns(4)
     with ex1:
         st.download_button(
-            "Scarica Radar Excel",
+            "Scarica Radar Excel completo",
             data=radar_excel_bytes,
             file_name=f"cot_weekly_change_radar_{date.today().isoformat()}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
