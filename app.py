@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 # CONFIGURAZIONE PAGINA
 # =============================================================================
 st.set_page_config(
-    page_title="COT Smart Money V6.21 — Python",
+    page_title="COT Smart Money V6.23 — Python",
     page_icon="🛡️",
     layout="wide",
 )
@@ -48,7 +48,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🛡️ COT Smart Money — Python V6.21")
+st.title("🛡️ COT Smart Money — Python V6.23")
 st.caption(
     "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale con Weekly Change Radar. "
     "Il motore seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
@@ -2958,17 +2958,20 @@ def _radar_regime_stage(regime: str) -> tuple[int, str]:
 
 
 def radar_market_bucket(group: str) -> str:
-    """Raggruppamento operativo compatto usato solo dai filtri del Weekly Change Radar."""
+    """Categoria operativa usata dai filtri e dagli export del Weekly Change Radar."""
     value = str(group or "").strip()
-    if value == "Indici":
-        return "Indici"
-    if value == "Valute":
-        return "Valute"
-    if value == "Metalli":
-        return "Metalli"
-    if value == "Energia":
-        return "Energetici"
-    return "Resto"
+    mapping = {
+        "Indici": "Indici",
+        "Valute": "Valute",
+        "Metalli": "Metalli",
+        "Energia": "Energetici",
+        "Tassi": "Tassi",
+        "Crypto CME": "Crypto",
+        "Agricoli": "Agricoli",
+        "Soft": "Soft",
+        "Bestiame": "Bestiame",
+    }
+    return mapping.get(value, value or "Non classificato")
 
 
 def _radar_change_text(row: pd.Series) -> str:
@@ -3194,6 +3197,30 @@ def build_weekly_change_radar(results: pd.DataFrame) -> pd.DataFrame:
     return radar
 
 
+
+RADAR_SECTOR_SHEETS: tuple[tuple[str, str], ...] = (
+    ("Indici", "Radar Indici"),
+    ("Valute", "Radar Valute"),
+    ("Metalli", "Radar Metalli"),
+    ("Energetici", "Radar Energetici"),
+    ("Tassi", "Radar Tassi"),
+    ("Crypto", "Radar Crypto"),
+    ("Agricoli", "Radar Agricoli"),
+    ("Soft", "Radar Soft"),
+    ("Bestiame", "Radar Bestiame"),
+)
+
+
+def write_weekly_radar_sector_sheets(writer: Any, radar_frame: pd.DataFrame, export_columns: list[str]) -> None:
+    """Aggiunge un foglio Weekly Change Radar per ciascuna macro-categoria operativa."""
+    frame = radar_frame.copy()
+    for column in export_columns:
+        if column not in frame.columns:
+            frame[column] = ""
+    for category, sheet_name in RADAR_SECTOR_SHEETS:
+        sector = frame[frame["Categoria Radar"] == category] if "Categoria Radar" in frame.columns else frame.iloc[0:0]
+        sector[export_columns].to_excel(writer, sheet_name=sheet_name, index=False)
+
 def build_screener_excel(results: pd.DataFrame, errors: pd.DataFrame) -> bytes:
     output = io.BytesIO()
     ordered = results.sort_values(["Score", "Strumento"], ascending=[False, True]).reset_index(drop=True)
@@ -3215,6 +3242,7 @@ def build_screener_excel(results: pd.DataFrame, errors: pd.DataFrame) -> bytes:
                 "Prezzo Weekly precedente", "Prezzo Weekly", "Regime 156W precedente", "Regime 156W",
             ]
             radar[radar_export_columns].to_excel(writer, sheet_name="Weekly Change Radar", index=False)
+            write_weekly_radar_sector_sheets(writer, radar, radar_export_columns)
         ordered[(ordered["Direzione"] == "LONG") & (ordered["Score"] >= 50)].to_excel(writer, sheet_name="Long interessanti", index=False)
         ordered[(ordered["Direzione"] == "SHORT") & (ordered["Score"] >= 50)].to_excel(writer, sheet_name="Short interessanti", index=False)
         ordered[ordered["Alignment utile"] >= 2].to_excel(writer, sheet_name="Alignment 2-3", index=False)
@@ -3281,39 +3309,40 @@ def build_weekly_radar_excel(radar_frame: pd.DataFrame) -> bytes:
             frame[column] = ""
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         frame[export_columns].to_excel(writer, sheet_name="Weekly Change Radar", index=False)
+        write_weekly_radar_sector_sheets(writer, frame, export_columns)
         from openpyxl.styles import Alignment, Font, PatternFill
         from openpyxl.utils import get_column_letter
 
-        ws = writer.book["Weekly Change Radar"]
-        ws.freeze_panes = "A2"
-        ws.auto_filter.ref = ws.dimensions
         header_fill = PatternFill("solid", fgColor="1F4E78")
         header_font = Font(color="FFFFFF", bold=True)
-        for cell in ws[1]:
-            cell.fill = header_fill
-            cell.font = header_font
-            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-        headers = {cell.value: cell.column for cell in ws[1]}
-        for column_cells in ws.columns:
-            max_length = 0
-            column_letter = get_column_letter(column_cells[0].column)
-            for cell in column_cells[:200]:
-                value = "" if cell.value is None else str(cell.value)
-                max_length = max(max_length, min(len(value), 55))
-                cell.alignment = Alignment(vertical="top", wrap_text=False)
-            ws.column_dimensions[column_letter].width = max(10, min(max_length + 2, 48))
-        if "Oggi" in headers:
-            oggi_col = get_column_letter(headers["Oggi"])
-            for cell in ws[oggi_col][1:]:
-                value = str(cell.value or "")
-                if "SHORT" in value:
-                    cell.font = Font(color="C00000", bold=True)
-                elif "LONG" in value:
-                    cell.font = Font(color="008000", bold=True)
-        if "Δ Score" in headers:
-            delta_col = get_column_letter(headers["Δ Score"])
-            for cell in ws[delta_col][1:]:
-                cell.number_format = '+0;-0;0'
+        for ws in writer.book.worksheets:
+            ws.freeze_panes = "A2"
+            ws.auto_filter.ref = ws.dimensions
+            for cell in ws[1]:
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            headers = {cell.value: cell.column for cell in ws[1]}
+            for column_cells in ws.columns:
+                max_length = 0
+                column_letter = get_column_letter(column_cells[0].column)
+                for cell in column_cells[:200]:
+                    value = "" if cell.value is None else str(cell.value)
+                    max_length = max(max_length, min(len(value), 55))
+                    cell.alignment = Alignment(vertical="top", wrap_text=False)
+                ws.column_dimensions[column_letter].width = max(10, min(max_length + 2, 48))
+            if "Oggi" in headers:
+                oggi_col = get_column_letter(headers["Oggi"])
+                for cell in ws[oggi_col][1:]:
+                    value = str(cell.value or "")
+                    if "SHORT" in value:
+                        cell.font = Font(color="C00000", bold=True)
+                    elif "LONG" in value:
+                        cell.font = Font(color="008000", bold=True)
+            if "Δ Score" in headers:
+                delta_col = get_column_letter(headers["Δ Score"])
+                for cell in ws[delta_col][1:]:
+                    cell.number_format = '+0;-0;0'
     return output.getvalue()
 
 
@@ -3870,7 +3899,7 @@ def render_weekly_change_radar_tab(results_df: pd.DataFrame) -> None:
             key="radar_verdict_filter",
         )
     with rv2:
-        category_options = ["Indici", "Valute", "Metalli", "Energetici", "Resto"]
+        category_options = ["Indici", "Valute", "Metalli", "Energetici", "Tassi", "Crypto", "Agricoli", "Soft", "Bestiame"]
         selected_categories = st.multiselect(
             "Categoria mercati",
             category_options,
