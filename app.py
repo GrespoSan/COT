@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 # CONFIGURAZIONE PAGINA
 # =============================================================================
 st.set_page_config(
-    page_title="COT Smart Money V6.19 — Python",
+    page_title="COT Smart Money V6.20 — Python",
     page_icon="🛡️",
     layout="wide",
 )
@@ -48,9 +48,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🛡️ COT Smart Money — Python V6.19")
+st.title("🛡️ COT Smart Money — Python V6.20")
 st.caption(
-    "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale di tutti i mercati. "
+    "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale con Weekly Change Radar. "
     "Il motore seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
 )
 
@@ -78,6 +78,10 @@ RAPID_SHIFT_EXTREME = 40.0
 RAPID_SHIFT_WARNING = 20.0
 COT_INDEX_SHORT_LOOKBACK = 26
 COT_INDEX_LONG_LOOKBACK = 156
+RADAR_ACTIONABLE_SCORE = 50
+RADAR_CONFIRMED_STRENGTH_DELTA = 10
+RADAR_ACCELERATION_DELTA = 15
+RADAR_DETERIORATION_DELTA = -15
 
 
 @dataclass(frozen=True)
@@ -815,6 +819,7 @@ def analyze_smart_money(
     cot_lookback: int,
     report_mode: str = "Compatto",
     show_all_category_flows: bool = False,
+    analysis_date: date | None = None,
 ) -> dict[str, Any]:
     if df.empty or len(df) < 7:
         return {
@@ -1415,7 +1420,8 @@ def analyze_smart_money(
         reason = "Il flusso principale peggiora, ma manca ancora una conferma Short completa."
 
     report_date = pd.Timestamp(cur["date"]).date()
-    age_days = max((date.today() - report_date).days, 0)
+    reference_date = analysis_date or date.today()
+    age_days = max((reference_date - report_date).days, 0)
     freshness = "FRESCO" if age_days <= 10 else "POSSIBILE RITARDO" if age_days <= 17 else "DATI DATATI"
     final_bias = combined_bias
     final_detail = combined_detail
@@ -2525,6 +2531,20 @@ def regime_156w_stage(smart: dict[str, Any]) -> str:
     return "NESSUN CAMBIO DI REGIME CONTRARIAN EVIDENTE"
 
 
+def cot_snapshot_reference_date(report_date_value: Any) -> date:
+    """Data di riferimento dello snapshot: il venerdì normalmente associato al report COT del martedì."""
+    report_day = pd.Timestamp(report_date_value).date()
+    return report_day + timedelta(days=3)
+
+
+def weekly_price_snapshot(weekly: pd.DataFrame, report_date_value: Any) -> pd.DataFrame:
+    """Prezzo Weekly disponibile alla settimana del report, senza usare settimane future."""
+    if weekly.empty:
+        return weekly.copy()
+    cutoff = pd.Timestamp(cot_snapshot_reference_date(report_date_value))
+    return weekly.loc[weekly.index <= cutoff].copy()
+
+
 def calculate_screener_score(
     smart: dict[str, Any],
     price: dict[str, Any],
@@ -2779,6 +2799,60 @@ def analyze_market_for_screener(
         scoring["Direzione"] == "SHORT" and price.get("short_confirmed")
     )
 
+    # Snapshot del report precedente per il Weekly Change Radar.
+    # La storia COT viene troncata PRIMA dell'ultimo report e il prezzo Weekly
+    # viene troncato alla settimana che era disponibile allora: nessun hindsight.
+    previous_snapshot: dict[str, Any] = {
+        "available": False,
+        "Data COT precedente": "",
+        "Stato precedente": "NON DISPONIBILE",
+        "Direzione precedente": "NEUTRALE",
+        "Qualità precedente": "NON DISPONIBILE",
+        "Score precedente": math.nan,
+        "Tipo flusso precedente": "NON DISPONIBILE",
+        "Flow 1W precedente": math.nan,
+        "Flow 3W precedente": math.nan,
+        "Flow 6W precedente": math.nan,
+        "COT Index 26W precedente": math.nan,
+        "COT Index 156W precedente": math.nan,
+        "Alignment rialzista precedente": math.nan,
+        "Alignment ribassista precedente": math.nan,
+        "Regime 156W precedente": "NON DISPONIBILE",
+        "Prezzo Weekly precedente": "PREZZO WEEKLY NON DISPONIBILE",
+        "Partecipazione OI 3-6W precedente": "OI NON DISPONIBILE",
+    }
+    if len(history_df) >= 8:
+        previous_history = history_df.iloc[:-1].copy()
+        previous_report_date = pd.Timestamp(previous_history.iloc[-1]["date"]).date()
+        previous_weekly = weekly_price_snapshot(weekly_price, previous_report_date)
+        previous_price = analyze_price(previous_weekly)
+        previous_smart = analyze_smart_money(
+            previous_history, spec, previous_price, oi_threshold, cot_lookback,
+            "Compatto", False, analysis_date=cot_snapshot_reference_date(previous_report_date),
+        )
+        previous_alignment = analyze_alignment_map(previous_history, spec)
+        if previous_smart.get("available"):
+            previous_scoring = calculate_screener_score(previous_smart, previous_price, previous_alignment, oi_threshold)
+            previous_snapshot = {
+                "available": True,
+                "Data COT precedente": previous_report_date.isoformat(),
+                "Stato precedente": previous_scoring["Stato"],
+                "Direzione precedente": previous_scoring["Direzione"],
+                "Qualità precedente": previous_scoring["Qualità"],
+                "Score precedente": previous_scoring["Score"],
+                "Tipo flusso precedente": previous_scoring["Tipo flusso"],
+                "Flow 1W precedente": previous_smart.get("trend_flow_1w", math.nan),
+                "Flow 3W precedente": previous_smart.get("trend_flow_3w", math.nan),
+                "Flow 6W precedente": previous_smart.get("trend_flow_6w", math.nan),
+                "COT Index 26W precedente": previous_smart.get("cot_index_26w", math.nan),
+                "COT Index 156W precedente": previous_smart.get("cot_index_156w", math.nan),
+                "Alignment rialzista precedente": int(previous_alignment.get("bull_score", 0)),
+                "Alignment ribassista precedente": int(previous_alignment.get("bear_score", 0)),
+                "Regime 156W precedente": regime_156w_stage(previous_smart),
+                "Prezzo Weekly precedente": previous_price.get("text", "PREZZO WEEKLY NON DISPONIBILE"),
+                "Partecipazione OI 3-6W precedente": previous_smart.get("oi_quality", "OI NON DISPONIBILE"),
+            }
+
     row = {
         "Strumento": spec.label,
         "Root": spec.root,
@@ -2823,6 +2897,23 @@ def analyze_market_for_screener(
         "Bias motore": smart["final_bias"],
         "Indicazione": smart["action"],
         "Motivazione": smart["reason"],
+        "Snapshot precedente disponibile": bool(previous_snapshot.get("available")),
+        "Data COT precedente": previous_snapshot["Data COT precedente"],
+        "Stato precedente": previous_snapshot["Stato precedente"],
+        "Direzione precedente": previous_snapshot["Direzione precedente"],
+        "Qualità precedente": previous_snapshot["Qualità precedente"],
+        "Score precedente": previous_snapshot["Score precedente"],
+        "Tipo flusso precedente": previous_snapshot["Tipo flusso precedente"],
+        "Flow 1W precedente": previous_snapshot["Flow 1W precedente"],
+        "Flow 3W precedente": previous_snapshot["Flow 3W precedente"],
+        "Flow 6W precedente": previous_snapshot["Flow 6W precedente"],
+        "COT Index 26W precedente": previous_snapshot["COT Index 26W precedente"],
+        "COT Index 156W precedente": previous_snapshot["COT Index 156W precedente"],
+        "Alignment rialzista precedente": previous_snapshot["Alignment rialzista precedente"],
+        "Alignment ribassista precedente": previous_snapshot["Alignment ribassista precedente"],
+        "Regime 156W precedente": previous_snapshot["Regime 156W precedente"],
+        "Prezzo Weekly precedente": previous_snapshot["Prezzo Weekly precedente"],
+        "Partecipazione OI 3-6W precedente": previous_snapshot["Partecipazione OI 3-6W precedente"],
         "Mercato CFTC": market_name,
         "Risoluzione nome": resolution,
         "Ticker Yahoo": spec.yahoo_ticker,
@@ -2839,9 +2930,259 @@ def screener_signature(frame: pd.DataFrame) -> str:
     return hashlib.sha256(payload).hexdigest()[:20]
 
 
+def _radar_status_kind(status: str) -> str:
+    value = str(status or "")
+    if "DATI COT DATATI" in value:
+        return "STALE"
+    if "NON INSEGUIRE" in value:
+        return "NON_INSEGUIRE"
+    if "CONFERMATO" in value:
+        return "CONFERMATO"
+    if "IN COSTRUZIONE" in value:
+        return "IN_COSTRUZIONE"
+    return "NEUTRALE"
+
+
+def _radar_regime_stage(regime: str) -> tuple[int, str]:
+    value = str(regime or "")
+    direction = "LONG" if "LONG" in value or "RIALZISTA" in value else "SHORT" if "SHORT" in value or "RIBASSISTA" in value else "NEUTRALE"
+    if "CONFERMATO" in value:
+        return 4, direction
+    if "IN SVILUPPO" in value:
+        return 3, direction
+    if "IN COSTRUZIONE" in value:
+        return 2, direction
+    if "2/3" in value:
+        return 1, direction
+    return 0, direction
+
+
+def _radar_change_text(row: pd.Series) -> str:
+    if not bool(row.get("Snapshot precedente disponibile", False)):
+        return "Confronto con il report precedente non disponibile."
+
+    changes: list[str] = []
+    old_status = str(row.get("Stato precedente", ""))
+    new_status = str(row.get("Stato", ""))
+    if old_status != new_status:
+        changes.append(f"Stato: {old_status} → {new_status}")
+
+    old_score = pd.to_numeric(pd.Series([row.get("Score precedente", math.nan)]), errors="coerce").iloc[0]
+    new_score = pd.to_numeric(pd.Series([row.get("Score", math.nan)]), errors="coerce").iloc[0]
+    if not pd.isna(old_score) and not pd.isna(new_score):
+        delta = float(new_score - old_score)
+        if abs(delta) >= 5:
+            changes.append(f"Score {delta:+.0f}")
+
+    old_flow = str(row.get("Tipo flusso precedente", ""))
+    new_flow = str(row.get("Tipo flusso", ""))
+    if old_flow != new_flow:
+        changes.append(f"Flusso: {old_flow} → {new_flow}")
+
+    old_price = str(row.get("Prezzo Weekly precedente", ""))
+    new_price = str(row.get("Prezzo Weekly", ""))
+    if old_price != new_price:
+        changes.append(f"Prezzo: {old_price} → {new_price}")
+
+    old_regime = str(row.get("Regime 156W precedente", ""))
+    new_regime = str(row.get("Regime 156W", ""))
+    if old_regime != new_regime:
+        changes.append(f"Regime 156W: {old_regime} → {new_regime}")
+
+    old_oi = str(row.get("Partecipazione OI 3-6W precedente", ""))
+    new_oi = str(row.get("Partecipazione OI 3-6W", ""))
+    if old_oi != new_oi and len(changes) < 5:
+        changes.append(f"OI: {old_oi} → {new_oi}")
+
+    return "; ".join(changes[:5]) if changes else "Nessun cambiamento rilevante rispetto al report precedente."
+
+
+def build_weekly_change_radar(results: pd.DataFrame) -> pd.DataFrame:
+    """Confronta automaticamente report corrente e precedente senza creare un nuovo Score.
+
+    Il Radar usa gli stessi Stato e Score dello screener su due snapshot causali:
+    - COT precedente = storia troncata al report precedente;
+    - prezzo precedente = Weekly disponibile alla settimana di quel report.
+    """
+    columns = [
+        "Ordine Radar", "Priorità", "Strumento", "Report precedente", "Report attuale",
+        "Settimana precedente", "Oggi", "Δ Score", "Cosa è cambiato", "Verdetto", "Lettura operativa",
+        "Stato precedente", "Stato", "Score precedente", "Score", "Tipo flusso precedente", "Tipo flusso",
+        "Prezzo Weekly precedente", "Prezzo Weekly", "Regime 156W precedente", "Regime 156W",
+    ]
+    if results.empty:
+        return pd.DataFrame(columns=columns)
+
+    radar_rows: list[dict[str, Any]] = []
+    for _, row in results.iterrows():
+        current_status = str(row.get("Stato", ""))
+        previous_status = str(row.get("Stato precedente", ""))
+        current_direction = str(row.get("Direzione", "NEUTRALE"))
+        previous_direction = str(row.get("Direzione precedente", "NEUTRALE"))
+        current_kind = _radar_status_kind(current_status)
+        previous_kind = _radar_status_kind(previous_status)
+        snapshot_available = bool(row.get("Snapshot precedente disponibile", False))
+
+        current_score = float(row.get("Score", 0) or 0)
+        previous_score_raw = row.get("Score precedente", math.nan)
+        previous_score = float(previous_score_raw) if not pd.isna(previous_score_raw) else math.nan
+        delta_score = current_score - previous_score if not pd.isna(previous_score) else math.nan
+
+        current_flow = str(row.get("Tipo flusso", ""))
+        previous_flow = str(row.get("Tipo flusso precedente", ""))
+        current_price = str(row.get("Prezzo Weekly", ""))
+        previous_price = str(row.get("Prezzo Weekly precedente", ""))
+        current_regime = str(row.get("Regime 156W", ""))
+        previous_regime = str(row.get("Regime 156W precedente", ""))
+        current_regime_rank, current_regime_direction = _radar_regime_stage(current_regime)
+        previous_regime_rank, previous_regime_direction = _radar_regime_stage(previous_regime)
+
+        regime_progressed = (
+            current_regime_rank >= 2
+            and (
+                current_regime_rank > previous_regime_rank
+                or current_regime_direction != previous_regime_direction
+            )
+        )
+        coherent_new_flow = (
+            (current_direction == "LONG" and current_flow == "NUOVI LONG" and previous_flow != "NUOVI LONG")
+            or (current_direction == "SHORT" and current_flow == "NUOVI SHORT" and previous_flow != "NUOVI SHORT")
+        )
+        price_newly_confirmed = (
+            (current_direction == "LONG" and current_price == "CONFERMA RIALZISTA" and previous_price != "CONFERMA RIALZISTA")
+            or (current_direction == "SHORT" and current_price == "CONFERMA RIBASSISTA" and previous_price != "CONFERMA RIBASSISTA")
+        )
+        same_direction = current_direction in ("LONG", "SHORT") and current_direction == previous_direction
+        same_confirmed_direction = same_direction and previous_kind in ("CONFERMATO", "NON_INSEGUIRE")
+        same_construction_direction = same_direction and previous_kind == "IN_COSTRUZIONE"
+
+        if not snapshot_available:
+            priority = "⚪ CONFRONTO NON DISPONIBILE"
+            verdict = "NESSUNA NOVITÀ — IGNORA"
+            order = 6
+            reading = "Manca uno snapshot precedente sufficiente per valutare il cambiamento settimanale."
+        elif current_kind == "STALE":
+            priority = "⛔ DATI NON UTILIZZABILI"
+            verdict = "NESSUNA NOVITÀ — IGNORA"
+            order = 6
+            reading = "Il dato COT corrente è troppo vecchio: non dedicare tempo operativo finché non arriva un report aggiornato."
+        elif current_kind == "NON_INSEGUIRE":
+            priority = "⚠️ CONFERMATO MA NON INSEGUIRE"
+            verdict = "DA MONITORARE"
+            order = 2
+            reading = "Il quadro è confermato ma già esteso. Tienilo in watchlist senza inseguire il movimento e attendi una nuova configurazione."
+        elif current_kind == "CONFERMATO":
+            if not same_confirmed_direction:
+                priority = "🔥 NUOVA OPPORTUNITÀ CONFERMATA"
+                verdict = "DA APPROFONDIRE" if current_score >= RADAR_ACTIONABLE_SCORE else "DA MONITORARE"
+                order = 1
+                reading = "Il mercato è passato a una configurazione confermata. Apri l'analisi singola e verifica il grafico prima di valutare un'operazione."
+            elif not pd.isna(delta_score) and delta_score <= RADAR_DETERIORATION_DELTA:
+                priority = "🔻 CONFERMATO MA IN DETERIORAMENTO"
+                verdict = "PERDE INTERESSE"
+                order = 3
+                reading = "La direzione resta confermata, ma la qualità è peggiorata in modo sensibile rispetto alla settimana scorsa. Riduci la priorità."
+            elif (not pd.isna(delta_score) and delta_score >= RADAR_CONFIRMED_STRENGTH_DELTA) or coherent_new_flow or price_newly_confirmed or regime_progressed:
+                priority = "⚡ SETUP CONFERMATO IN RAFFORZAMENTO"
+                verdict = "DA APPROFONDIRE" if current_score >= RADAR_ACTIONABLE_SCORE else "DA MONITORARE"
+                order = 1
+                reading = "Il setup confermato si è rafforzato rispetto al report precedente. Merita un controllo operativo più approfondito."
+            else:
+                priority = "✅ SETUP CONFERMATO STABILE"
+                verdict = "DA APPROFONDIRE" if current_score >= RADAR_ACTIONABLE_SCORE else "DA MONITORARE"
+                order = 2
+                reading = "Il setup resta confermato. Anche senza una nuova accelerazione settimanale merita controllo operativo."
+        elif current_kind == "IN_COSTRUZIONE":
+            if same_confirmed_direction:
+                priority = "🔻 SETUP IN DETERIORAMENTO"
+                verdict = "PERDE INTERESSE"
+                order = 3
+                reading = "Il mercato è sceso da confermato a in costruzione. Riduci la priorità finché non recupera una conferma completa."
+            elif not same_construction_direction:
+                priority = "🟡 NUOVA OPPORTUNITÀ IN COSTRUZIONE"
+                verdict = "DA MONITORARE"
+                order = 2
+                reading = "È comparsa una nuova direzione, ma il setup non è ancora confermato. Monitoralo senza anticipare l'ingresso."
+            elif not pd.isna(delta_score) and delta_score <= RADAR_DETERIORATION_DELTA:
+                priority = "🔻 SETUP IN DETERIORAMENTO"
+                verdict = "PERDE INTERESSE"
+                order = 3
+                reading = "Il setup è ancora in costruzione ma ha perso qualità. Riduci il tempo dedicato finché non torna a migliorare."
+            elif (not pd.isna(delta_score) and delta_score >= RADAR_ACCELERATION_DELTA) or coherent_new_flow or price_newly_confirmed or regime_progressed:
+                priority = "⚡ SETUP IN ACCELERAZIONE"
+                verdict = "DA MONITORARE"
+                order = 2
+                reading = "Il setup in costruzione sta migliorando. Mantienilo in watchlist, ma attendi la conferma prima di considerarlo operativo."
+            elif current_score >= RADAR_ACTIONABLE_SCORE:
+                priority = "🟡 SETUP IN COSTRUZIONE"
+                verdict = "DA MONITORARE"
+                order = 2
+                reading = "Il quadro non è ancora confermato ma la qualità resta sufficiente per mantenerlo in watchlist."
+            else:
+                priority = "⏸️ IN COSTRUZIONE SENZA NUOVA ACCELERAZIONE"
+                verdict = "NESSUNA NOVITÀ — IGNORA"
+                order = 5
+                reading = "Il setup non ha fatto un passo avanti sufficiente. Questa settimana non merita ulteriore tempo di analisi."
+        else:
+            if previous_kind in ("CONFERMATO", "NON_INSEGUIRE", "IN_COSTRUZIONE"):
+                priority = "🔻 SETUP PERSO / DETERIORAMENTO"
+                verdict = "PERDE INTERESSE"
+                order = 3
+                reading = "Il mercato ha perso la precedente configurazione direzionale. Toglilo dalle priorità finché non ricompare un segnale coerente."
+            elif regime_progressed:
+                priority = "⚠️ POSSIBILE CAMBIO DI REGIME"
+                verdict = "DA MONITORARE"
+                order = 2
+                reading = "La direzione principale non è ancora operativa, ma il regime 156W ha fatto un passo avanti. Monitoralo senza anticipare."
+            else:
+                priority = "⛔ NESSUNA NOVITÀ RILEVANTE"
+                verdict = "NESSUNA NOVITÀ — IGNORA"
+                order = 5
+                reading = "Nessun cambiamento abbastanza significativo da giustificare ulteriore analisi questa settimana."
+
+        old_summary = f"{previous_status} | Score {previous_score:.0f}" if not pd.isna(previous_score) else previous_status
+        new_summary = f"{current_status} | Score {current_score:.0f}"
+        radar_rows.append(
+            {
+                "Ordine Radar": order,
+                "Priorità": priority,
+                "Strumento": row.get("Strumento", ""),
+                "Report precedente": row.get("Data COT precedente", ""),
+                "Report attuale": row.get("Data COT", ""),
+                "Settimana precedente": old_summary,
+                "Oggi": new_summary,
+                "Δ Score": round(delta_score, 0) if not pd.isna(delta_score) else math.nan,
+                "Cosa è cambiato": _radar_change_text(row),
+                "Verdetto": verdict,
+                "Lettura operativa": reading,
+                "Stato precedente": previous_status,
+                "Stato": current_status,
+                "Score precedente": previous_score,
+                "Score": current_score,
+                "Tipo flusso precedente": previous_flow,
+                "Tipo flusso": current_flow,
+                "Prezzo Weekly precedente": previous_price,
+                "Prezzo Weekly": current_price,
+                "Regime 156W precedente": previous_regime,
+                "Regime 156W": current_regime,
+            }
+        )
+
+    radar = pd.DataFrame(radar_rows)
+    if radar.empty:
+        return pd.DataFrame(columns=columns)
+    radar = radar.sort_values(
+        ["Ordine Radar", "Score", "Δ Score", "Strumento"],
+        ascending=[True, False, False, True],
+        na_position="last",
+    ).reset_index(drop=True)
+    return radar
+
+
 def build_screener_excel(results: pd.DataFrame, errors: pd.DataFrame) -> bytes:
     output = io.BytesIO()
     ordered = results.sort_values(["Score", "Strumento"], ascending=[False, True]).reset_index(drop=True)
+    radar = build_weekly_change_radar(results)
     display_columns = [
         "Strumento", "Stato", "Direzione", "Qualità", "Score", "Tipo flusso",
         "COT Index", "COT Index 26W", "COT Index 156W", "Posizione attuale", "Posizionamento", "Esposizione Long %", "Esposizione Short %",
@@ -2851,6 +3192,14 @@ def build_screener_excel(results: pd.DataFrame, errors: pd.DataFrame) -> bytes:
 
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         ordered[display_columns].to_excel(writer, sheet_name="Classifica generale", index=False)
+        if not radar.empty:
+            radar_export_columns = [
+                "Priorità", "Strumento", "Report precedente", "Report attuale",
+                "Settimana precedente", "Oggi", "Δ Score", "Cosa è cambiato",
+                "Verdetto", "Lettura operativa", "Tipo flusso precedente", "Tipo flusso",
+                "Prezzo Weekly precedente", "Prezzo Weekly", "Regime 156W precedente", "Regime 156W",
+            ]
+            radar[radar_export_columns].to_excel(writer, sheet_name="Weekly Change Radar", index=False)
         ordered[(ordered["Direzione"] == "LONG") & (ordered["Score"] >= 50)].to_excel(writer, sheet_name="Long interessanti", index=False)
         ordered[(ordered["Direzione"] == "SHORT") & (ordered["Score"] >= 50)].to_excel(writer, sheet_name="Short interessanti", index=False)
         ordered[ordered["Alignment utile"] >= 2].to_excel(writer, sheet_name="Alignment 2-3", index=False)
@@ -2892,7 +3241,7 @@ def build_screener_excel(results: pd.DataFrame, errors: pd.DataFrame) -> bytes:
                     f"{col}2:{col}{ws.max_row}",
                     ColorScaleRule(start_type="num", start_value=0, start_color="F8696B", mid_type="num", mid_value=60, mid_color="FFEB84", end_type="num", end_value=100, end_color="63BE7B"),
                 )
-            for pct_header in ("Variazione OI %", "Rapid Shift 6W", "OI Index 52W"):
+            for pct_header in ("Variazione OI %", "Rapid Shift 6W", "OI Index 52W", "Δ Score"):
                 if pct_header in headers:
                     col = get_column_letter(headers[pct_header])
                     for cell in ws[col][1:]:
@@ -3175,88 +3524,7 @@ def build_screener_ai_prompt(top_rows: pd.DataFrame, top_n: int) -> str:
     )
 
 
-def render_screener() -> None:
-    st.header("COT Screener — tutti i mercati")
-    st.caption(
-        "La scansione parte soltanto su richiesta. Ogni mercato usa lo stesso motore Smart Money, "
-        "la stessa Alignment Map e la stessa conferma prezzo dell'analisi singola."
-    )
-
-    with st.sidebar:
-        st.header("Impostazioni Screener")
-        all_groups = sorted({m.group for m in MARKETS})
-        selected_groups = st.multiselect("Famiglie da analizzare", all_groups, default=all_groups)
-        available_markets = [m for m in MARKETS if m.group in selected_groups]
-        selected_labels = st.multiselect(
-            "Mercati",
-            [m.label for m in available_markets],
-            default=[m.label for m in available_markets],
-            help="Puoi ridurre la selezione per velocizzare la prima prova.",
-        )
-        cot_lookback = st.selectbox(
-            "COT Index lookback Screener",
-            [26, 52, 156, 260],
-            index=2,
-            format_func=lambda x: f"{x} settimane",
-            key="screener_lookback",
-        )
-        oi_threshold = st.number_input(
-            "Soglia Open Interest Screener (%)",
-            min_value=0.0,
-            max_value=10.0,
-            value=0.5,
-            step=0.1,
-            key="screener_oi_threshold",
-        )
-        run_scan = st.button("Avvia analisi di tutti i mercati selezionati", type="primary", width="stretch")
-        st.caption("La prima scansione completa può richiedere alcuni minuti. I dati vengono poi memorizzati nella cache.")
-
-    if run_scan:
-        selected_specs = [MARKET_BY_LABEL[label] for label in selected_labels]
-        if not selected_specs:
-            st.warning("Seleziona almeno un mercato.")
-        else:
-            rows: list[dict[str, Any]] = []
-            errors: list[dict[str, str]] = []
-            progress = st.progress(0.0, text="Avvio screener...")
-            status_box = st.empty()
-            for index, spec in enumerate(selected_specs, start=1):
-                status_box.info(f"Analisi {index}/{len(selected_specs)} — {spec.label}")
-                try:
-                    row, _ = analyze_market_for_screener(spec, int(cot_lookback), float(oi_threshold))
-                    rows.append(row)
-                except Exception as exc:
-                    errors.append({"Strumento": spec.label, "Root": spec.root, "Errore": str(exc)})
-                progress.progress(index / len(selected_specs), text=f"Completati {index}/{len(selected_specs)} mercati")
-            progress.empty()
-            status_box.empty()
-
-            results_df = pd.DataFrame(rows)
-            errors_df = pd.DataFrame(errors, columns=["Strumento", "Root", "Errore"])
-            if not results_df.empty:
-                results_df = results_df.sort_values(["Score", "Strumento"], ascending=[False, True]).reset_index(drop=True)
-                results_df.insert(0, "Posizione", range(1, len(results_df) + 1))
-            st.session_state["screener_results"] = results_df
-            st.session_state["screener_errors"] = errors_df
-            st.session_state["screener_signature"] = screener_signature(results_df)
-            for key in ("screener_ai_answer", "screener_ai_context"):
-                st.session_state.pop(key, None)
-
-    results_df = st.session_state.get("screener_results", pd.DataFrame())
-    errors_df = st.session_state.get("screener_errors", pd.DataFrame(columns=["Strumento", "Root", "Errore"]))
-    if results_df.empty:
-        st.info("Premi il pulsante nella sidebar per creare la prima classifica.")
-        return
-
-    st.success(f"Screener completato: {len(results_df)} mercati analizzati; {len(errors_df)} errori o dati mancanti.")
-
-    metric1, metric2, metric3, metric4, metric5 = st.columns(5)
-    metric1.metric("Mercati analizzati", len(results_df))
-    metric2.metric("Score ≥ 65", int((results_df["Score"] >= 65).sum()))
-    metric3.metric("Long", int((results_df["Direzione"] == "LONG").sum()))
-    metric4.metric("Short", int((results_df["Direzione"] == "SHORT").sum()))
-    metric5.metric("Regime 156W confermato", int(results_df["Regime 156W"].str.contains("CONFERMATO", na=False).sum()))
-
+def render_screener_current_tab(results_df: pd.DataFrame, errors_df: pd.DataFrame) -> None:
     st.subheader("Filtri classifica")
     f1, f2, f3, f4 = st.columns(4)
     with f1:
@@ -3462,6 +3730,182 @@ def render_screener() -> None:
         "Lo screener serve a stabilire quali mercati meritano un approfondimento. "
         "Prima di operare apri sempre il singolo strumento e verifica il prezzo sul grafico."
     )
+
+
+
+def render_weekly_change_radar_tab(results_df: pd.DataFrame) -> None:
+    st.subheader("COT Weekly Change Radar")
+    st.caption(
+        "Confronta automaticamente l'ultimo report COT con quello precedente usando lo stesso motore dello screener. "
+        "Il prezzo della settimana precedente è ricostruito solo con i dati Weekly disponibili allora: non vengono usati dati futuri. "
+        "Il Radar non crea un nuovo Score: confronta Stato, Score e struttura dei due snapshot."
+    )
+
+    radar = build_weekly_change_radar(results_df)
+    if radar.empty:
+        st.info("Il confronto settimanale non è disponibile per i mercati selezionati.")
+        return
+
+    current_dates = sorted({str(v) for v in radar["Report attuale"].dropna() if str(v)})
+    previous_dates = sorted({str(v) for v in radar["Report precedente"].dropna() if str(v)})
+    if current_dates and previous_dates:
+        st.info(f"Confronto automatico: report {previous_dates[-1]} → {current_dates[-1]}")
+
+    r1, r2, r3, r4 = st.columns(4)
+    r1.metric("DA APPROFONDIRE", int((radar["Verdetto"] == "DA APPROFONDIRE").sum()))
+    r2.metric("DA MONITORARE", int((radar["Verdetto"] == "DA MONITORARE").sum()))
+    r3.metric("PERDE INTERESSE", int((radar["Verdetto"] == "PERDE INTERESSE").sum()))
+    r4.metric("NESSUNA NOVITÀ — IGNORA", int((radar["Verdetto"] == "NESSUNA NOVITÀ — IGNORA").sum()))
+
+    st.markdown("#### Dove vale la pena concentrare il tempo")
+    rv1, rv2 = st.columns([1.2, 1])
+    with rv1:
+        verdict_options = ["DA APPROFONDIRE", "DA MONITORARE", "PERDE INTERESSE", "NESSUNA NOVITÀ — IGNORA"]
+        selected_verdicts = st.multiselect(
+            "Verdetto Radar",
+            verdict_options,
+            default=["DA APPROFONDIRE", "DA MONITORARE", "PERDE INTERESSE"],
+            key="radar_verdict_filter",
+        )
+    with rv2:
+        show_all_radar = st.toggle("Mostra anche i mercati senza novità", value=False, key="radar_show_all")
+
+    radar_filtered = radar.copy()
+    if show_all_radar:
+        selected_verdicts = verdict_options
+    if selected_verdicts:
+        radar_filtered = radar_filtered[radar_filtered["Verdetto"].isin(selected_verdicts)]
+    else:
+        radar_filtered = radar_filtered.iloc[0:0]
+
+    visible_columns = [
+        "Priorità", "Strumento", "Settimana precedente", "Oggi", "Δ Score",
+        "Cosa è cambiato", "Verdetto", "Lettura operativa",
+    ]
+    st.dataframe(
+        radar_filtered[visible_columns],
+        width="stretch",
+        hide_index=True,
+        column_config={
+            "Priorità": st.column_config.TextColumn("Priorità", width="large"),
+            "Settimana precedente": st.column_config.TextColumn("Settimana precedente", width="large"),
+            "Oggi": st.column_config.TextColumn("Oggi", width="large"),
+            "Δ Score": st.column_config.NumberColumn("Δ Score", format="%+.0f"),
+            "Cosa è cambiato": st.column_config.TextColumn("Cosa è cambiato", width="large"),
+            "Verdetto": st.column_config.TextColumn("Verdetto", width="medium"),
+            "Lettura operativa": st.column_config.TextColumn("Lettura operativa", width="large"),
+        },
+    )
+    st.caption(
+        f"Mercati mostrati: {len(radar_filtered)} su {len(radar)}. "
+        "DA APPROFONDIRE significa che vale la pena aprire l'analisi singola; DA MONITORARE indica un cambiamento interessante ma non ancora maturo; "
+        "PERDE INTERESSE segnala un deterioramento; NESSUNA NOVITÀ — IGNORA serve a ridurre il rumore settimanale."
+    )
+
+    with st.expander("Come viene deciso il verdetto del Weekly Change Radar", expanded=False):
+        st.write(
+            "Il Radar dà priorità ai passaggi a LONG/SHORT CONFERMATO, alle nuove configurazioni IN COSTRUZIONE, "
+            "ai setup che accelerano e ai cambi di regime 156W che avanzano. Penalizza invece i passaggi da confermato a in costruzione/neutrale "
+            "e le forti perdite di Score. Come soglie di variazione usa +10 per il rafforzamento di un setup già confermato, +15 per l'accelerazione "
+            "di un setup in costruzione e -15 per un deterioramento significativo. Un semplice 2/3 non viene promosso a opportunità operativa. "
+            "I setup CONFERMATI — NON INSEGUIRE restano in watchlist ma non vengono classificati come opportunità da inseguire."
+        )
+
+    st.markdown("#### Tutti i dettagli del confronto")
+    details_columns = [
+        "Strumento", "Report precedente", "Report attuale", "Stato precedente", "Stato",
+        "Score precedente", "Score", "Δ Score", "Tipo flusso precedente", "Tipo flusso",
+        "Prezzo Weekly precedente", "Prezzo Weekly", "Regime 156W precedente", "Regime 156W", "Verdetto",
+    ]
+    st.dataframe(radar[details_columns], width="stretch", hide_index=True)
+
+def render_screener() -> None:
+    st.header("COT Screener — tutti i mercati")
+    st.caption(
+        "La scansione parte soltanto su richiesta. Ogni mercato usa lo stesso motore Smart Money, "
+        "la stessa Alignment Map e la stessa conferma prezzo dell'analisi singola."
+    )
+
+    with st.sidebar:
+        st.header("Impostazioni Screener")
+        all_groups = sorted({m.group for m in MARKETS})
+        selected_groups = st.multiselect("Famiglie da analizzare", all_groups, default=all_groups)
+        available_markets = [m for m in MARKETS if m.group in selected_groups]
+        selected_labels = st.multiselect(
+            "Mercati",
+            [m.label for m in available_markets],
+            default=[m.label for m in available_markets],
+            help="Puoi ridurre la selezione per velocizzare la prima prova.",
+        )
+        cot_lookback = st.selectbox(
+            "COT Index lookback Screener",
+            [26, 52, 156, 260],
+            index=2,
+            format_func=lambda x: f"{x} settimane",
+            key="screener_lookback",
+        )
+        oi_threshold = st.number_input(
+            "Soglia Open Interest Screener (%)",
+            min_value=0.0,
+            max_value=10.0,
+            value=0.5,
+            step=0.1,
+            key="screener_oi_threshold",
+        )
+        run_scan = st.button("Avvia analisi di tutti i mercati selezionati", type="primary", width="stretch")
+        st.caption("La prima scansione completa può richiedere alcuni minuti. I dati vengono poi memorizzati nella cache.")
+
+    if run_scan:
+        selected_specs = [MARKET_BY_LABEL[label] for label in selected_labels]
+        if not selected_specs:
+            st.warning("Seleziona almeno un mercato.")
+        else:
+            rows: list[dict[str, Any]] = []
+            errors: list[dict[str, str]] = []
+            progress = st.progress(0.0, text="Avvio screener...")
+            status_box = st.empty()
+            for index, spec in enumerate(selected_specs, start=1):
+                status_box.info(f"Analisi {index}/{len(selected_specs)} — {spec.label}")
+                try:
+                    row, _ = analyze_market_for_screener(spec, int(cot_lookback), float(oi_threshold))
+                    rows.append(row)
+                except Exception as exc:
+                    errors.append({"Strumento": spec.label, "Root": spec.root, "Errore": str(exc)})
+                progress.progress(index / len(selected_specs), text=f"Completati {index}/{len(selected_specs)} mercati")
+            progress.empty()
+            status_box.empty()
+
+            results_df = pd.DataFrame(rows)
+            errors_df = pd.DataFrame(errors, columns=["Strumento", "Root", "Errore"])
+            if not results_df.empty:
+                results_df = results_df.sort_values(["Score", "Strumento"], ascending=[False, True]).reset_index(drop=True)
+                results_df.insert(0, "Posizione", range(1, len(results_df) + 1))
+            st.session_state["screener_results"] = results_df
+            st.session_state["screener_errors"] = errors_df
+            st.session_state["screener_signature"] = screener_signature(results_df)
+            for key in ("screener_ai_answer", "screener_ai_context"):
+                st.session_state.pop(key, None)
+
+    results_df = st.session_state.get("screener_results", pd.DataFrame())
+    errors_df = st.session_state.get("screener_errors", pd.DataFrame(columns=["Strumento", "Root", "Errore"]))
+    if results_df.empty:
+        st.info("Premi il pulsante nella sidebar per creare la prima classifica.")
+        return
+
+    st.success(f"Screener completato: {len(results_df)} mercati analizzati; {len(errors_df)} errori o dati mancanti.")
+
+    metric1, metric2, metric3, metric4, metric5 = st.columns(5)
+    metric1.metric("Mercati analizzati", len(results_df))
+    metric2.metric("Score ≥ 65", int((results_df["Score"] >= 65).sum()))
+    metric3.metric("Long", int((results_df["Direzione"] == "LONG").sum()))
+    metric4.metric("Short", int((results_df["Direzione"] == "SHORT").sum()))
+    metric5.metric("Regime 156W confermato", int(results_df["Regime 156W"].str.contains("CONFERMATO", na=False).sum()))
+
+    tab_classifica, tab_radar = st.tabs(["Classifica attuale", "Cambiamenti settimanali"])
+    with tab_classifica:
+        render_screener_current_tab(results_df, errors_df)
+    with tab_radar:
+        render_weekly_change_radar_tab(results_df)
 
 
 
