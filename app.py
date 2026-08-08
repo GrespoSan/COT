@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 # CONFIGURAZIONE PAGINA
 # =============================================================================
 st.set_page_config(
-    page_title="COT Smart Money V6.20 — Python",
+    page_title="COT Smart Money V6.21 — Python",
     page_icon="🛡️",
     layout="wide",
 )
@@ -48,7 +48,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🛡️ COT Smart Money — Python V6.20")
+st.title("🛡️ COT Smart Money — Python V6.21")
 st.caption(
     "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale con Weekly Change Radar. "
     "Il motore seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
@@ -2957,6 +2957,20 @@ def _radar_regime_stage(regime: str) -> tuple[int, str]:
     return 0, direction
 
 
+def radar_market_bucket(group: str) -> str:
+    """Raggruppamento operativo compatto usato solo dai filtri del Weekly Change Radar."""
+    value = str(group or "").strip()
+    if value == "Indici":
+        return "Indici"
+    if value == "Valute":
+        return "Valute"
+    if value == "Metalli":
+        return "Metalli"
+    if value == "Energia":
+        return "Energetici"
+    return "Resto"
+
+
 def _radar_change_text(row: pd.Series) -> str:
     if not bool(row.get("Snapshot precedente disponibile", False)):
         return "Confronto con il report precedente non disponibile."
@@ -3005,7 +3019,7 @@ def build_weekly_change_radar(results: pd.DataFrame) -> pd.DataFrame:
     - prezzo precedente = Weekly disponibile alla settimana di quel report.
     """
     columns = [
-        "Ordine Radar", "Priorità", "Strumento", "Report precedente", "Report attuale",
+        "Ordine Radar", "Priorità", "Strumento", "Categoria Radar", "Report precedente", "Report attuale",
         "Settimana precedente", "Oggi", "Δ Score", "Cosa è cambiato", "Verdetto", "Lettura operativa",
         "Stato precedente", "Stato", "Score precedente", "Score", "Tipo flusso precedente", "Tipo flusso",
         "Prezzo Weekly precedente", "Prezzo Weekly", "Regime 156W precedente", "Regime 156W",
@@ -3147,6 +3161,7 @@ def build_weekly_change_radar(results: pd.DataFrame) -> pd.DataFrame:
                 "Ordine Radar": order,
                 "Priorità": priority,
                 "Strumento": row.get("Strumento", ""),
+                "Categoria Radar": radar_market_bucket(row.get("Gruppo", "")),
                 "Report precedente": row.get("Data COT precedente", ""),
                 "Report attuale": row.get("Data COT", ""),
                 "Settimana precedente": old_summary,
@@ -3194,7 +3209,7 @@ def build_screener_excel(results: pd.DataFrame, errors: pd.DataFrame) -> bytes:
         ordered[display_columns].to_excel(writer, sheet_name="Classifica generale", index=False)
         if not radar.empty:
             radar_export_columns = [
-                "Priorità", "Strumento", "Report precedente", "Report attuale",
+                "Priorità", "Strumento", "Categoria Radar", "Report precedente", "Report attuale",
                 "Settimana precedente", "Oggi", "Δ Score", "Cosa è cambiato",
                 "Verdetto", "Lettura operativa", "Tipo flusso precedente", "Tipo flusso",
                 "Prezzo Weekly precedente", "Prezzo Weekly", "Regime 156W precedente", "Regime 156W",
@@ -3251,6 +3266,58 @@ def build_screener_excel(results: pd.DataFrame, errors: pd.DataFrame) -> bytes:
 
 
 
+def build_weekly_radar_excel(radar_frame: pd.DataFrame) -> bytes:
+    """Esporta la vista filtrata del Weekly Change Radar in un file Excel dedicato."""
+    output = io.BytesIO()
+    export_columns = [
+        "Priorità", "Strumento", "Categoria Radar", "Report precedente", "Report attuale",
+        "Settimana precedente", "Oggi", "Δ Score", "Cosa è cambiato", "Verdetto", "Lettura operativa",
+        "Stato precedente", "Stato", "Score precedente", "Score", "Tipo flusso precedente", "Tipo flusso",
+        "Prezzo Weekly precedente", "Prezzo Weekly", "Regime 156W precedente", "Regime 156W",
+    ]
+    frame = radar_frame.copy()
+    for column in export_columns:
+        if column not in frame.columns:
+            frame[column] = ""
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        frame[export_columns].to_excel(writer, sheet_name="Weekly Change Radar", index=False)
+        from openpyxl.styles import Alignment, Font, PatternFill
+        from openpyxl.utils import get_column_letter
+
+        ws = writer.book["Weekly Change Radar"]
+        ws.freeze_panes = "A2"
+        ws.auto_filter.ref = ws.dimensions
+        header_fill = PatternFill("solid", fgColor="1F4E78")
+        header_font = Font(color="FFFFFF", bold=True)
+        for cell in ws[1]:
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        headers = {cell.value: cell.column for cell in ws[1]}
+        for column_cells in ws.columns:
+            max_length = 0
+            column_letter = get_column_letter(column_cells[0].column)
+            for cell in column_cells[:200]:
+                value = "" if cell.value is None else str(cell.value)
+                max_length = max(max_length, min(len(value), 55))
+                cell.alignment = Alignment(vertical="top", wrap_text=False)
+            ws.column_dimensions[column_letter].width = max(10, min(max_length + 2, 48))
+        if "Oggi" in headers:
+            oggi_col = get_column_letter(headers["Oggi"])
+            for cell in ws[oggi_col][1:]:
+                value = str(cell.value or "")
+                if "SHORT" in value:
+                    cell.font = Font(color="C00000", bold=True)
+                elif "LONG" in value:
+                    cell.font = Font(color="008000", bold=True)
+        if "Δ Score" in headers:
+            delta_col = get_column_letter(headers["Δ Score"])
+            for cell in ws[delta_col][1:]:
+                cell.number_format = '+0;-0;0'
+    return output.getvalue()
+
+
+
 def _table_font(size: int, bold: bool = False) -> ImageFont.ImageFont:
     """Carica un font leggibile, con fallback al font predefinito di Pillow."""
     regular_candidates = (
@@ -3301,7 +3368,12 @@ def _wrap_image_text(
     return lines or [""]
 
 
-def build_screener_jpg(frame: pd.DataFrame, export_label: str = "Tabella completa") -> bytes:
+def build_screener_jpg(
+    frame: pd.DataFrame,
+    export_label: str = "Tabella completa",
+    title_prefix: str = "COT Screener",
+    footer_text: str = "Lo Score ordina la qualità complessiva e non rappresenta un segnale automatico di ingresso.",
+) -> bytes:
     """Crea un'immagine JPG della porzione selezionata della tabella visibile."""
     image_frame = frame.copy()
     if image_frame.empty:
@@ -3329,6 +3401,14 @@ def build_screener_jpg(frame: pd.DataFrame, export_label: str = "Tabella complet
         "Prezzo Weekly": 285,
         "Concentrazione Top 8": 590,
         "Data COT": 145,
+        "Priorità": 360,
+        "Categoria Radar": 150,
+        "Settimana precedente": 390,
+        "Oggi": 390,
+        "Δ Score": 120,
+        "Cosa è cambiato": 620,
+        "Verdetto": 210,
+        "Lettura operativa": 620,
     }
     columns = list(image_frame.columns)
     column_widths = [preferred_widths.get(column, 190) for column in columns]
@@ -3365,6 +3445,10 @@ def build_screener_jpg(frame: pd.DataFrame, export_label: str = "Tabella complet
         max_lines = 1
         for column, width in zip(columns, column_widths):
             value = row[column]
+            if column == "Priorità" and not pd.isna(value):
+                value = str(value)
+                for symbol in ("🔥", "🟡", "⚡", "⚠️", "⚠", "🔻", "✅", "⛔", "⚪"):
+                    value = value.replace(symbol, "").strip()
             if column == "Score" and not pd.isna(value):
                 value = f"{float(value):.0f}"
             elif column in ("COT Index", "COT Index 26W", "COT Index 156W", "Esposizione Long %", "Esposizione Short %") and not pd.isna(value):
@@ -3375,6 +3459,8 @@ def build_screener_jpg(frame: pd.DataFrame, export_label: str = "Tabella complet
                 value = f"{float(value):+.1f}"
             elif column == "OI Index 52W" and not pd.isna(value):
                 value = f"{float(value):.1f}"
+            elif column == "Δ Score" and not pd.isna(value):
+                value = f"{float(value):+.0f}"
             lines = _wrap_image_text(probe_draw, value, body_font, width - 2 * cell_padding_x)
             wrapped_cells.append(lines)
             max_lines = max(max_lines, len(lines))
@@ -3386,7 +3472,7 @@ def build_screener_jpg(frame: pd.DataFrame, export_label: str = "Tabella complet
     image = Image.new("RGB", (canvas_width, canvas_height), "#F5F7FA")
     draw = ImageDraw.Draw(image)
 
-    draw.text((margin, margin), f"COT Screener — {export_label}", font=title_font, fill="#111827")
+    draw.text((margin, margin), f"{title_prefix} — {export_label}", font=title_font, fill="#111827")
     subtitle = f"Righe esportate: {len(frame)}   |   Generato il {date.today().isoformat()}"
     draw.text((margin, margin + 51), subtitle, font=subtitle_font, fill="#4B5563")
 
@@ -3417,16 +3503,23 @@ def build_screener_jpg(frame: pd.DataFrame, export_label: str = "Tabella complet
                 elif "IN COSTRUZIONE" in joined:
                     fill = "#E0F2FE"
             draw.rectangle((x, y, x + width, y + row_height), fill=fill, outline="#CBD5E1", width=1)
+            text_fill = "#111827"
+            if column == "Oggi":
+                joined = " ".join(lines)
+                if "SHORT" in joined:
+                    text_fill = "#B91C1C"
+                elif "LONG" in joined:
+                    text_fill = "#15803D"
             text_y = y + cell_padding_y
             for line in lines:
-                draw.text((x + cell_padding_x, text_y), line, font=body_font, fill="#111827")
+                draw.text((x + cell_padding_x, text_y), line, font=body_font, fill=text_fill)
                 text_y += line_height
             x += width
         y += row_height
 
     draw.text(
         (margin, canvas_height - margin - 25),
-        "Lo Score ordina la qualità complessiva e non rappresenta un segnale automatico di ingresso.",
+        footer_text,
         font=subtitle_font,
         fill="#4B5563",
     )
@@ -3733,6 +3826,15 @@ def render_screener_current_tab(results_df: pd.DataFrame, errors_df: pd.DataFram
 
 
 
+def _radar_today_style(value: Any) -> str:
+    text = str(value or "")
+    if "SHORT" in text:
+        return "color: #ff4b4b; font-weight: 700;"
+    if "LONG" in text:
+        return "color: #21c55d; font-weight: 700;"
+    return ""
+
+
 def render_weekly_change_radar_tab(results_df: pd.DataFrame) -> None:
     st.subheader("COT Weekly Change Radar")
     st.caption(
@@ -3758,7 +3860,7 @@ def render_weekly_change_radar_tab(results_df: pd.DataFrame) -> None:
     r4.metric("NESSUNA NOVITÀ — IGNORA", int((radar["Verdetto"] == "NESSUNA NOVITÀ — IGNORA").sum()))
 
     st.markdown("#### Dove vale la pena concentrare il tempo")
-    rv1, rv2 = st.columns([1.2, 1])
+    rv1, rv2, rv3 = st.columns([1.25, 1.05, 0.8])
     with rv1:
         verdict_options = ["DA APPROFONDIRE", "DA MONITORARE", "PERDE INTERESSE", "NESSUNA NOVITÀ — IGNORA"]
         selected_verdicts = st.multiselect(
@@ -3768,6 +3870,14 @@ def render_weekly_change_radar_tab(results_df: pd.DataFrame) -> None:
             key="radar_verdict_filter",
         )
     with rv2:
+        category_options = ["Indici", "Valute", "Metalli", "Energetici", "Resto"]
+        selected_categories = st.multiselect(
+            "Categoria mercati",
+            category_options,
+            default=category_options,
+            key="radar_category_filter",
+        )
+    with rv3:
         show_all_radar = st.toggle("Mostra anche i mercati senza novità", value=False, key="radar_show_all")
 
     radar_filtered = radar.copy()
@@ -3777,13 +3887,19 @@ def render_weekly_change_radar_tab(results_df: pd.DataFrame) -> None:
         radar_filtered = radar_filtered[radar_filtered["Verdetto"].isin(selected_verdicts)]
     else:
         radar_filtered = radar_filtered.iloc[0:0]
+    if selected_categories:
+        radar_filtered = radar_filtered[radar_filtered["Categoria Radar"].isin(selected_categories)]
+    else:
+        radar_filtered = radar_filtered.iloc[0:0]
 
     visible_columns = [
         "Priorità", "Strumento", "Settimana precedente", "Oggi", "Δ Score",
         "Cosa è cambiato", "Verdetto", "Lettura operativa",
     ]
+    radar_display = radar_filtered[visible_columns].copy()
+    radar_styled = radar_display.style.map(_radar_today_style, subset=["Oggi"])
     st.dataframe(
-        radar_filtered[visible_columns],
+        radar_styled,
         width="stretch",
         hide_index=True,
         column_config={
@@ -3798,9 +3914,68 @@ def render_weekly_change_radar_tab(results_df: pd.DataFrame) -> None:
     )
     st.caption(
         f"Mercati mostrati: {len(radar_filtered)} su {len(radar)}. "
+        "Nella colonna OGGI il testo è verde per i setup Long e rosso per i setup Short. "
         "DA APPROFONDIRE significa che vale la pena aprire l'analisi singola; DA MONITORARE indica un cambiamento interessante ma non ancora maturo; "
         "PERDE INTERESSE segnala un deterioramento; NESSUNA NOVITÀ — IGNORA serve a ridurre il rumore settimanale."
     )
+
+    # Export dedicati del Radar: rispettano esattamente i filtri correnti.
+    radar_excel_bytes = build_weekly_radar_excel(radar_filtered)
+    radar_jpg_top5 = build_screener_jpg(
+        radar_display.head(5),
+        "Top 5 risultati visibili",
+        title_prefix="COT Weekly Change Radar",
+        footer_text="Il Radar confronta due snapshot settimanali e serve a decidere dove concentrare il tempo di analisi.",
+    )
+    radar_jpg_top10 = build_screener_jpg(
+        radar_display.head(10),
+        "Top 10 risultati visibili",
+        title_prefix="COT Weekly Change Radar",
+        footer_text="Il Radar confronta due snapshot settimanali e serve a decidere dove concentrare il tempo di analisi.",
+    )
+    radar_jpg_total = build_screener_jpg(
+        radar_display,
+        "Tabella completa visibile",
+        title_prefix="COT Weekly Change Radar",
+        footer_text="Il Radar confronta due snapshot settimanali e serve a decidere dove concentrare il tempo di analisi.",
+    )
+    ex1, ex2, ex3, ex4 = st.columns(4)
+    with ex1:
+        st.download_button(
+            "Scarica Radar Excel",
+            data=radar_excel_bytes,
+            file_name=f"cot_weekly_change_radar_{date.today().isoformat()}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            width="stretch",
+            key="radar_export_excel",
+        )
+    with ex2:
+        st.download_button(
+            "Scarica JPG Top 5",
+            data=radar_jpg_top5,
+            file_name=f"cot_weekly_change_radar_top5_{date.today().isoformat()}.jpg",
+            mime="image/jpeg",
+            width="stretch",
+            key="radar_export_jpg_top5",
+        )
+    with ex3:
+        st.download_button(
+            "Scarica JPG Top 10",
+            data=radar_jpg_top10,
+            file_name=f"cot_weekly_change_radar_top10_{date.today().isoformat()}.jpg",
+            mime="image/jpeg",
+            width="stretch",
+            key="radar_export_jpg_top10",
+        )
+    with ex4:
+        st.download_button(
+            "Scarica JPG Totale",
+            data=radar_jpg_total,
+            file_name=f"cot_weekly_change_radar_totale_{date.today().isoformat()}.jpg",
+            mime="image/jpeg",
+            width="stretch",
+            key="radar_export_jpg_total",
+        )
 
     with st.expander("Come viene deciso il verdetto del Weekly Change Radar", expanded=False):
         st.write(
@@ -3811,13 +3986,13 @@ def render_weekly_change_radar_tab(results_df: pd.DataFrame) -> None:
             "I setup CONFERMATI — NON INSEGUIRE restano in watchlist ma non vengono classificati come opportunità da inseguire."
         )
 
-    st.markdown("#### Tutti i dettagli del confronto")
+    st.markdown("#### Dettagli del confronto filtrati")
     details_columns = [
-        "Strumento", "Report precedente", "Report attuale", "Stato precedente", "Stato",
+        "Strumento", "Categoria Radar", "Report precedente", "Report attuale", "Stato precedente", "Stato",
         "Score precedente", "Score", "Δ Score", "Tipo flusso precedente", "Tipo flusso",
         "Prezzo Weekly precedente", "Prezzo Weekly", "Regime 156W precedente", "Regime 156W", "Verdetto",
     ]
-    st.dataframe(radar[details_columns], width="stretch", hide_index=True)
+    st.dataframe(radar_filtered[details_columns], width="stretch", hide_index=True)
 
 def render_screener() -> None:
     st.header("COT Screener — tutti i mercati")
