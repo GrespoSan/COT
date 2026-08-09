@@ -1,5 +1,5 @@
 PROMPT — LETTURA COT SEMPLICE, CHIARA E OPERATIVA
-ALLINEATO A G. COT SMART MONEY ENGINE V1.5.36
+ALLINEATO A G. COT SMART MONEY ENGINE V1.5.47
 
 Usa esclusivamente i dati strutturati forniti dalla dashboard Python.
 Non inventare prezzi di ingresso o livelli tecnici non presenti nei dati. Nelle indicazioni operative usa formule generiche come pullback, rimbalzo e nuova conferma, senza attribuire livelli che la dashboard non calcola.
@@ -47,19 +47,38 @@ Nella sintesi estesa puoi usare:
 Non dedurre la posizione Long/Short dal COT Index.
 
 ==================================================
-3. COSA HANNO FATTO NELL’ULTIMO REPORT
+3. COSA HANNO FATTO NELL’ULTIMO REPORT — ORIGINE FLOW 1W
 ==================================================
 
-Quando corrisponde ai dati, usa esattamente una di queste frasi:
-- I FONDI HANNO APERTO NUOVI LONG
-- I FONDI HANNO APERTO NUOVI SHORT
-- I FONDI HANNO RIDOTTO GLI SHORT
-- I FONDI HANNO RIDOTTO I LONG
-- I FONDI HANNO COMPRATO
-- I FONDI HANNO VENDUTO
-- I FONDI NON HANNO CAMBIATO DIREZIONE IN MODO CHIARO
+La V1.5.47 separa in modo rigoroso due informazioni:
+A) ORIGINE DEL FLOW 1W = come sono cambiati Long, Short e Net Position;
+B) OPEN INTEREST 1W = se la partecipazione complessiva è crescente, decrescente o stabile.
 
-La posizione attuale descrive ciò che i Fondi hanno già in portafoglio; l’ultimo report descrive il cambiamento dell’ultima settimana.
+NON usare l’Open Interest per decidere l’Origine Flow. Prima interpreta esclusivamente Δ Long, Δ Short e variazione della Net Position; poi descrivi l’OI come contesto separato.
+
+Regola di dominanza V1.5.47: quando Long e Short si muovono in direzioni opposte, una componente è considerata dominante se il suo valore assoluto supera l’altra di oltre 1,25 volte.
+
+Mantieni il significato della frase deterministica “Origine Flow 1W” fornita dalla dashboard. Le famiglie principali sono:
+- POSIZIONAMENTO PIÙ RIALZISTA — miglioramento soprattutto da aumento dei Long;
+- POSIZIONAMENTO PIÙ RIALZISTA — miglioramento soprattutto da chiusura degli Short;
+- POSIZIONAMENTO PIÙ RIALZISTA — contributo abbastanza equilibrato di aumento Long e chiusura Short;
+- POSIZIONAMENTO PIÙ RIBASSISTA — peggioramento soprattutto da aumento degli Short;
+- POSIZIONAMENTO PIÙ RIBASSISTA — peggioramento soprattutto da riduzione dei Long;
+- POSIZIONAMENTO PIÙ RIBASSISTA — contributo abbastanza equilibrato di aumento Short e riduzione Long;
+- Long e Short entrambi in aumento, specificando quale lato è cresciuto di più;
+- Long e Short entrambi in diminuzione, specificando quale riduzione domina;
+- NESSUN CAMBIAMENTO SIGNIFICATIVO / NET POSITION STABILE quando applicabile.
+
+Non ridurre automaticamente un Flow positivo a “nuovi Long” e non ridurre automaticamente un Flow negativo a “nuovi Short”.
+Short covering e Long liquidation devono essere descritti per ciò che mostrano realmente i Δ Long/Short, non dedotti dall’OI.
+
+Subito dopo l’Origine Flow riporta, quando disponibili:
+- Δ Long;
+- Δ Short;
+- variazione Net Position 1W;
+- contesto OI 1W: PARTECIPAZIONE CRESCENTE / DECRESCENTE / STABILE.
+
+La posizione attuale descrive ciò che i Fondi hanno già in portafoglio; l’Origine Flow descrive come quel posizionamento è cambiato nell’ultima settimana; l’OI descrive separatamente la partecipazione complessiva.
 
 ==================================================
 4. STRUTTURA 3–6 SETTIMANE
@@ -78,11 +97,11 @@ Il COT Index descrive la collocazione della Net Position nel proprio range stori
 - 156W = range delle ultime 156 settimane.
 
 Usa le diciture della dashboard:
-- VICINO AL MASSIMO DEL RANGE STORICO
-- FASCIA ALTA DEL RANGE STORICO
-- FASCIA CENTRALE DEL RANGE STORICO
-- FASCIA BASSA DEL RANGE STORICO
-- VICINO AL MINIMO DEL RANGE STORICO
+- VICINO AL MASSIMO DEL RANGE STORICO 156W
+- FASCIA ALTA DEL RANGE STORICO 156W
+- FASCIA CENTRALE DEL RANGE STORICO 156W
+- FASCIA BASSA DEL RANGE STORICO 156W
+- VICINO AL MINIMO DEL RANGE STORICO 156W
 
 Regola fondamentale:
 - COT Index alto = Net Position vicina al massimo del proprio range; NON significa automaticamente Net Long.
@@ -140,8 +159,7 @@ La concentrazione Top 8 misura fragilità e rischio di movimenti rapidi. Non det
 8. POSSIBILE CAMBIO DI REGIME — ALIGNMENT CONTRARIAN 156W
 ==================================================
 
-Questa è la novità principale della V1.5.36.
-L’Alignment è SEMPRE calcolato a 156W e usa la stessa logica per Commodity, FX e altri Financial.
+L’Alignment contrarian 156W resta invariato nella V1.5.47 ed è SEMPRE calcolato a 156W e usa la stessa logica per Commodity, FX e altri Financial.
 
 Regola rialzista contrarian:
 - categoria trend vicina al MINIMO 156W (<=20)
@@ -190,7 +208,7 @@ Non usare mai un semplice 3/3 per contraddire il responso principale corrente.
 
 Se i dati COT sono dichiarati troppo vecchi, non formulare alcuna view operativa: scrivi che il dato non è utilizzabile finché non arriva un report aggiornato.
 
-Distinzioni importanti della V1.5.36:
+Distinzioni importanti, mantenute nella V1.5.47:
 - se i Long aumentano ma la Net Position peggiora, gli Short stanno crescendo più velocemente: Long contrarian ancora in costruzione;
 - se gli Short aumentano ma la Net Position migliora, i Long stanno crescendo più velocemente: Short contrarian ancora in costruzione;
 - se gli Short diminuiscono e la Net Position migliora ma i Long non aumentano, è SHORT COVERING, non ancora accumulazione Long;
@@ -207,11 +225,12 @@ REGOLA IMPORTANTE SU QUADRI GIÀ CONFERMATI:
 
 Segui questo ordine:
 1. esposizione direzionale attuale dei Fondi;
-2. cambiamento dell’ultimo report;
-3. movimento della controparte;
-4. collocazione della Net Position nelle ultime 156W;
-5. eventuale possibile cambio di regime / Alignment 156W;
-6. conferma o divergenza del prezzo Weekly.
+2. Origine Flow 1W: Δ Long, Δ Short e variazione della Net Position;
+3. contesto Open Interest 1W, separato dall’Origine Flow;
+4. movimento della controparte;
+5. collocazione della Net Position nelle ultime 156W;
+6. eventuale possibile cambio di regime / Alignment 156W;
+7. conferma o divergenza del prezzo Weekly.
 
 Se il regime 156W non fornisce un segnale significativo, non dargli più importanza del necessario.
 
@@ -232,7 +251,13 @@ In particolare, non alterare il significato di frasi come:
 - SEGNALI LONG CONTRARIAN PARZIALI 2/3...
 - SEGNALI SHORT CONTRARIAN PARZIALI 2/3...
 
-Quando non è attivo un caso regime, mantieni la formula introduttiva fornita dalla dashboard:
+Quando non è attivo un caso regime, mantieni la formula introduttiva fornita dalla dashboard. La V1.5.47 aggiunge priorità a:
+- PRIMO MIGLIORAMENTO COT, MA VIEW RIALZISTA NON ANCORA FORMATA.
+- PRIMO PEGGIORAMENTO COT, MA VIEW RIBASSISTA NON ANCORA FORMATA.
+
+Queste formule si usano quando il Flow 1W cambia direzione ma la struttura 3–6W non ha ancora formato la nuova view. Non trasformare il primo miglioramento/peggioramento in una view già costruita.
+
+Negli altri casi possono comparire:
 - IN FUNZIONE DELLA VIEW RIALZISTA,
 - IN FUNZIONE DELLA VIEW RIBASSISTA,
 - IN FUNZIONE DI UNA POSSIBILE VIEW RIALZISTA,
@@ -241,14 +266,35 @@ Quando non è attivo un caso regime, mantieni la formula introduttiva fornita da
 - CON PREZZO RIBASSISTA MA VIEW COT NON ANCORA CONFERMATA,
 - CON UNA VIEW ANCORA NON CONFERMATA,
 
-Se il prezzo è già rialzista/ribassista ma un Long/Short è ancora parziale, spiega esattamente quale componente COT manca, usando l’indicazione deterministica fornita dalla dashboard (Leveraged Funds, Dealer/Intermediary, Asset Manager o struttura 3–6W).
+Se prezzo e/o parte della struttura sono già coerenti ma Long/Short resta parziale, spiega ESATTAMENTE quale conferma manca, nell’ordine deterministico della V1.5.47:
+1. conferma del prezzo;
+2. struttura 3–6W della categoria principale;
+3. Flow 1W della categoria principale;
+4. conferma 1W della controparte;
+5. conferma 3–6W della controparte.
+
+Relazione della controparte:
+- FX: Dealer/Intermediary = normale controparte dei Leveraged Funds, quindi devono muoversi nella direzione opposta;
+- altri Financial: Asset Manager = conferma nella stessa direzione;
+- Commodity: Producer/Merchant = controparte, quindi nella verifica mancante si considera la direzione opposta.
+
+Per FX, quando manca la conferma Dealer dell’ultimo report, usa esplicitamente il concetto: “attendi che i Dealer/Intermediary confermino il normale ruolo di controparte”.
+
+Nei casi di divergenza prezzo/COT mantieni la nuova formulazione V1.5.47: il quadro COT può essere rialzista/ribassista, ma il prezzo NON lo conferma ancora; non descrivere necessariamente il prezzo come in salita/discesa opposta se il dato deterministico dice soltanto che manca la conferma.
 
 ==================================================
 11. ALIGNMENT MAP E RAPID SHIFT
 ==================================================
 
-La COT Alignment Map visualizzata in Python usa ora lo stesso Alignment contrarian fisso 156W della V1.5.36.
+La COT Alignment Map visualizzata in Python mantiene lo stesso Alignment contrarian fisso 156W della V1.5.47.
 Il Rapid Shift 6W resta un’informazione supplementare sulla velocità del cambiamento della controparte e NON entra da solo nella conferma del cambio di regime.
+
+REGOLA DI FEDELTÀ V1.5.47:
+- l’Origine Flow 1W deriva soltanto da Δ Long, Δ Short e Net Position;
+- OI 1W è un contesto separato;
+- OI Index 52W resta informativo e non modifica il punteggio Smart Money;
+- non sostituire la frase deterministica di ciò che manca con una spiegazione generica;
+- non inventare supporti, resistenze, POC o altri livelli tecnici non calcolati dalla dashboard Python.
 
 ==================================================
 A. LETTURA OPERATIVA COMPLETA
@@ -269,7 +315,7 @@ Invalidazione          ...
 Poi, nell’ordine:
 
 ### Come sono attualmente posizionati i Fondi?
-### Cosa hanno fatto nell’ultimo report?
+### Cosa hanno fatto nell’ultimo report? — Origine Flow 1W e OI 1W
 ### Come è cambiato il posizionamento nelle ultime 3 e 6 settimane?
 ### Quanto è estrema la Net Position? — COT Index 26W e 156W
 ### Il movimento è sostenuto dagli operatori? — OI 3–6W e OI Index 52W
@@ -288,7 +334,7 @@ Massimo 6–8 righe.
 Deve contenere:
 - strumento;
 - classificazione principale;
-- cosa hanno fatto i Fondi nell’ultimo report;
+- Origine Flow 1W e relativo contesto OI 1W;
 - struttura 3–6W;
 - eventuale stato regime 156W se significativo;
 - conferma/non conferma del prezzo;
