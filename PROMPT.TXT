@@ -1,5 +1,5 @@
 PROMPT — LETTURA COT SEMPLICE, CHIARA E OPERATIVA
-ALLINEATO A G. COT SMART MONEY ENGINE V1.5.47
+ALLINEATO A G. COT SMART MONEY ENGINE V1.5.48
 
 Usa esclusivamente i dati strutturati forniti dalla dashboard Python.
 Non inventare prezzi di ingresso o livelli tecnici non presenti nei dati. Nelle indicazioni operative usa formule generiche come pullback, rimbalzo e nuova conferma, senza attribuire livelli che la dashboard non calcola.
@@ -50,13 +50,13 @@ Non dedurre la posizione Long/Short dal COT Index.
 3. COSA HANNO FATTO NELL’ULTIMO REPORT — ORIGINE FLOW 1W
 ==================================================
 
-La V1.5.47 separa in modo rigoroso due informazioni:
+La V1.5.48 separa in modo rigoroso due informazioni:
 A) ORIGINE DEL FLOW 1W = come sono cambiati Long, Short e Net Position;
 B) OPEN INTEREST 1W = se la partecipazione complessiva è crescente, decrescente o stabile.
 
 NON usare l’Open Interest per decidere l’Origine Flow. Prima interpreta esclusivamente Δ Long, Δ Short e variazione della Net Position; poi descrivi l’OI come contesto separato.
 
-Regola di dominanza V1.5.47: quando Long e Short si muovono in direzioni opposte, una componente è considerata dominante se il suo valore assoluto supera l’altra di oltre 1,25 volte.
+Regola di dominanza V1.5.48: quando Long e Short si muovono in direzioni opposte, una componente è considerata dominante se il suo valore assoluto supera l’altra di oltre 1,25 volte.
 
 Mantieni il significato della frase deterministica “Origine Flow 1W” fornita dalla dashboard. Le famiglie principali sono:
 - POSIZIONAMENTO PIÙ RIALZISTA — miglioramento soprattutto da aumento dei Long;
@@ -159,7 +159,7 @@ La concentrazione Top 8 misura fragilità e rischio di movimenti rapidi. Non det
 8. POSSIBILE CAMBIO DI REGIME — ALIGNMENT CONTRARIAN 156W
 ==================================================
 
-L’Alignment contrarian 156W resta invariato nella V1.5.47 ed è SEMPRE calcolato a 156W e usa la stessa logica per Commodity, FX e altri Financial.
+L’Alignment contrarian 156W resta invariato nella V1.5.48 ed è SEMPRE calcolato a 156W e usa la stessa logica per Commodity, FX e altri Financial.
 
 Regola rialzista contrarian:
 - categoria trend vicina al MINIMO 156W (<=20)
@@ -180,6 +180,8 @@ Gerarchia obbligatoria:
 - 0/3 o 1/3 = nessun cambio di regime evidente
 - 2/3 = SEGNALI ... CONTRARIAN PARZIALI; non è un cambio di regime
 - 3/3 = POSSIBILE ... CONTRARIAN IN COSTRUZIONE; è un setup, non una conferma
+- 3/3 + prezzo Weekly già rialzista, ma senza la combinazione nuovi Long + Net Position in miglioramento = DIVERGENZA RIALZISTA PREZZO/COT IN ATTO: il prezzo anticipa il COT
+- 3/3 + prezzo Weekly già ribassista, ma senza la combinazione nuovi Short + Net Position in peggioramento = DIVERGENZA RIBASSISTA PREZZO/COT IN ATTO: il prezzo anticipa il COT
 - 3/3 + nuovi Long e Net Position in miglioramento = LONG CONTRARIAN IN SVILUPPO
 - 3/3 + nuovi Short e Net Position in peggioramento = SHORT CONTRARIAN IN SVILUPPO
 - “CONFERMATO” richiede inoltre prezzo Weekly coerente e struttura macro 3–6W coerente secondo il motore
@@ -189,6 +191,8 @@ Usa esattamente lo stato deterministico fornito dalla dashboard, tra:
 - CAMBIO DI REGIME RIBASSISTA CONFERMATO
 - LONG CONTRARIAN IN SVILUPPO
 - SHORT CONTRARIAN IN SVILUPPO
+- DIVERGENZA RIALZISTA PREZZO/COT IN ATTO
+- DIVERGENZA RIBASSISTA PREZZO/COT IN ATTO
 - POSSIBILE LONG CONTRARIAN IN COSTRUZIONE
 - POSSIBILE SHORT CONTRARIAN IN COSTRUZIONE
 - SEGNALI LONG CONTRARIAN PARZIALI
@@ -202,17 +206,20 @@ Un semplice 3/3 descrive un POSSIBILE cambio contrarian separato dalla direzione
 REGOLA DIDATTICA OBBLIGATORIA PER IL PUBBLICO NOVIZIO:
 - se lo stato è POSSIBILE LONG/SHORT CONTRARIAN IN COSTRUZIONE, spiega sempre che è un segnale anticipatore separato dalla direzione principale e che NON modifica il responso Smart Money finché non passa almeno a “IN SVILUPPO”;
 - se lo stato è SEGNALI LONG/SHORT CONTRARIAN PARZIALI, spiega che sono segnali incompleti e non indicano ancora un cambio di regime;
+- se lo stato è DIVERGENZA RIALZISTA/RIBASSISTA PREZZO/COT IN ATTO, spiega che l'Alignment è già 3/3 e il prezzo Weekly sta anticipando il possibile cambio, ma il COT non lo conferma ancora: servono nuovi Long/Short della categoria trend insieme alla corrispondente variazione della Net Position; NON promuoverlo a Long/Short confermato;
 - se lo stato è LONG/SHORT CONTRARIAN IN SVILUPPO, spiega che il possibile cambio ha compiuto un passo ulteriore ma NON è ancora confermato;
 - solo CAMBIO DI REGIME RIALZISTA/RIBASSISTA CONFERMATO può essere trattato come una conferma iniziale del nuovo regime.
 Non usare mai un semplice 3/3 per contraddire il responso principale corrente.
 
 Se i dati COT sono dichiarati troppo vecchi, non formulare alcuna view operativa: scrivi che il dato non è utilizzabile finché non arriva un report aggiornato.
 
-Distinzioni importanti, mantenute nella V1.5.47:
+Distinzioni importanti della V1.5.48:
 - se i Long aumentano ma la Net Position peggiora, gli Short stanno crescendo più velocemente: Long contrarian ancora in costruzione;
 - se gli Short aumentano ma la Net Position migliora, i Long stanno crescendo più velocemente: Short contrarian ancora in costruzione;
 - se gli Short diminuiscono e la Net Position migliora ma i Long non aumentano, è SHORT COVERING, non ancora accumulazione Long;
-- se i Long diminuiscono e la Net Position peggiora ma gli Short non aumentano, è LONG LIQUIDATION, non ancora accumulazione Short.
+- se i Long diminuiscono e la Net Position peggiora ma gli Short non aumentano, è LONG LIQUIDATION, non ancora accumulazione Short;
+- la classificazione “domina la LONG LIQUIDATION” in un Alignment rialzista 3/3 richiede che Long E Short stiano entrambi diminuendo e che la Net Position peggiori;
+- la classificazione “domina lo SHORT COVERING” in un Alignment ribassista 3/3 richiede che Long E Short stiano entrambi diminuendo e che la Net Position migliori.
 
 REGOLA IMPORTANTE SU QUADRI GIÀ CONFERMATI:
 - se lo Stato complessivo è LONG CONFERMATO e l’ultimo report è SHORT COVERING, non dire che il prezzo deve ancora confermare il Long: il prezzo è già confermato. Spiega invece che il quadro Long resta valido, ma l’ultimo impulso deriva soprattutto dalla chiusura degli Short e non da nuovi Long;
@@ -246,12 +253,14 @@ In particolare, non alterare il significato di frasi come:
 - CAMBIO DI REGIME RIBASSISTA CONFERMATO. CERCA EVENTUALI SHORT SUI RIMBALZI E NON INSEGUIRE IL PREZZO.
 - LONG CONTRARIAN IN SVILUPPO...
 - SHORT CONTRARIAN IN SVILUPPO...
+- DIVERGENZA RIALZISTA PREZZO/COT IN ATTO. IL PREZZO STA ANTICIPANDO IL COT. NON INSEGUIRE NUOVI SHORT, MA NON CONSIDERARE ANCORA IL LONG CONFERMATO. ATTENDI NUOVI LONG DELLA CATEGORIA TREND E MIGLIORAMENTO DELLA NET POSITION.
+- DIVERGENZA RIBASSISTA PREZZO/COT IN ATTO. IL PREZZO STA ANTICIPANDO IL COT. NON INSEGUIRE NUOVI LONG, MA NON CONSIDERARE ANCORA LO SHORT CONFERMATO. ATTENDI NUOVI SHORT DELLA CATEGORIA TREND E PEGGIORAMENTO DELLA NET POSITION.
 - POSSIBILE LONG CONTRARIAN IN COSTRUZIONE...
 - POSSIBILE SHORT CONTRARIAN IN COSTRUZIONE...
 - SEGNALI LONG CONTRARIAN PARZIALI 2/3...
 - SEGNALI SHORT CONTRARIAN PARZIALI 2/3...
 
-Quando non è attivo un caso regime, mantieni la formula introduttiva fornita dalla dashboard. La V1.5.47 aggiunge priorità a:
+Quando non è attivo un caso regime, mantieni la formula introduttiva fornita dalla dashboard. La V1.5.48 aggiunge priorità a:
 - PRIMO MIGLIORAMENTO COT, MA VIEW RIALZISTA NON ANCORA FORMATA.
 - PRIMO PEGGIORAMENTO COT, MA VIEW RIBASSISTA NON ANCORA FORMATA.
 
@@ -266,7 +275,7 @@ Negli altri casi possono comparire:
 - CON PREZZO RIBASSISTA MA VIEW COT NON ANCORA CONFERMATA,
 - CON UNA VIEW ANCORA NON CONFERMATA,
 
-Se prezzo e/o parte della struttura sono già coerenti ma Long/Short resta parziale, spiega ESATTAMENTE quale conferma manca, nell’ordine deterministico della V1.5.47:
+Se prezzo e/o parte della struttura sono già coerenti ma Long/Short resta parziale, spiega ESATTAMENTE quale conferma manca, nell’ordine deterministico della V1.5.48:
 1. conferma del prezzo;
 2. struttura 3–6W della categoria principale;
 3. Flow 1W della categoria principale;
@@ -280,16 +289,20 @@ Relazione della controparte:
 
 Per FX, quando manca la conferma Dealer dell’ultimo report, usa esplicitamente il concetto: “attendi che i Dealer/Intermediary confermino il normale ruolo di controparte”.
 
-Nei casi di divergenza prezzo/COT mantieni la nuova formulazione V1.5.47: il quadro COT può essere rialzista/ribassista, ma il prezzo NON lo conferma ancora; non descrivere necessariamente il prezzo come in salita/discesa opposta se il dato deterministico dice soltanto che manca la conferma.
+Nei casi di DISALLINEAMENTO COT/PREZZO già presenti nel motore (COT rialzista/ribassista ma prezzo non ancora confermato), mantieni la formulazione deterministica: non descrivere necessariamente il prezzo come in salita/discesa opposta se il dato dice soltanto che manca la conferma.
+
+NON confondere questo caso con il nuovo stato V1.5.48 “DIVERGENZA RIALZISTA/RIBASSISTA PREZZO/COT IN ATTO”: qui è il PREZZO a essere già confermato nella direzione contrarian mentre l'Alignment è 3/3, ma mancano ancora nuovi Long/Short e variazione coerente della Net Position. È un segnale di prezzo che anticipa il COT, non una conferma del nuovo regime.
 
 ==================================================
 11. ALIGNMENT MAP E RAPID SHIFT
 ==================================================
 
-La COT Alignment Map visualizzata in Python mantiene lo stesso Alignment contrarian fisso 156W della V1.5.47.
+La COT Alignment Map visualizzata in Python mantiene lo stesso Alignment contrarian fisso 156W della V1.5.48.
 Il Rapid Shift 6W resta un’informazione supplementare sulla velocità del cambiamento della controparte e NON entra da solo nella conferma del cambio di regime.
 
-REGOLA DI FEDELTÀ V1.5.47:
+REGOLA DI FEDELTÀ V1.5.48:
+- riconosci esplicitamente i nuovi stati “DIVERGENZA RIALZISTA PREZZO/COT IN ATTO” e “DIVERGENZA RIBASSISTA PREZZO/COT IN ATTO” senza promuoverli a regime confermato;
+- nelle classificazioni dominanti 3/3, LONG LIQUIDATION / SHORT COVERING richiedono Long e Short entrambi in diminuzione, oltre alla direzione coerente della Net Position;
 - l’Origine Flow 1W deriva soltanto da Δ Long, Δ Short e Net Position;
 - OI 1W è un contesto separato;
 - OI Index 52W resta informativo e non modifica il punteggio Smart Money;

@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 # CONFIGURAZIONE PAGINA
 # =============================================================================
 st.set_page_config(
-    page_title="COT Smart Money V6.25 — Python",
+    page_title="COT Smart Money V6.26 — Python",
     page_icon="🛡️",
     layout="wide",
 )
@@ -48,10 +48,10 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🛡️ COT Smart Money — Python V6.25")
+st.title("🛡️ COT Smart Money — Python V6.26")
 st.caption(
     "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale con Weekly Change Radar. "
-    "Il motore è allineato a TradingView G. COT Smart Money Engine V1.5.47 e seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
+    "Il motore è allineato a TradingView G. COT Smart Money Engine V1.5.48 e seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
 )
 
 
@@ -604,10 +604,10 @@ def build_history_df(
     df["small_index"] = rolling_cot_index(df["small_net"], cot_lookback)
     df["cot_index"] = df["trend_index"]
 
-    # Due orizzonti informativi fissi, identici a TradingView V1.5.47.
+    # Due orizzonti informativi fissi, identici a TradingView V1.5.48.
     df["trend_index_26w"] = rolling_cot_index(df["trend_net"], COT_INDEX_SHORT_LOOKBACK)
     df["trend_index_156w"] = rolling_cot_index(df["trend_net"], COT_INDEX_LONG_LOOKBACK)
-    # TradingView V1.5.47 usa un Alignment contrarian fisso a 156W per tutte
+    # TradingView V1.5.48 usa un Alignment contrarian fisso a 156W per tutte
     # le famiglie: categoria trend + controparte + Small Traders.
     df["counter_index_156w"] = rolling_cot_index(df["counter_net"], COT_INDEX_LONG_LOOKBACK)
     df["small_index_156w"] = rolling_cot_index(df["small_net"], COT_INDEX_LONG_LOOKBACK)
@@ -757,7 +757,7 @@ def analyze_price(weekly: pd.DataFrame) -> dict[str, Any]:
 # MOTORE SMART MONEY
 # =============================================================================
 def cot_zone(index_value: float) -> str:
-    """Collocazione della Net Position nel range strutturale 156W, come TradingView V1.5.47."""
+    """Collocazione della Net Position nel range strutturale 156W, come TradingView V1.5.48."""
     if pd.isna(index_value):
         return "NON DISPONIBILE"
     if index_value >= 80:
@@ -772,7 +772,7 @@ def cot_zone(index_value: float) -> str:
 
 
 def flow_origin_title(chg_l: float, chg_s: float, net: float) -> str:
-    """Origine del Flow 1W, traduzione diretta della funzione flow_origin_title V1.5.47."""
+    """Origine del Flow 1W, traduzione diretta della funzione flow_origin_title V1.5.48."""
     if pd.isna(chg_l) or pd.isna(chg_s) or pd.isna(net):
         return "DATI NON DISPONIBILI"
     a_l = abs(float(chg_l))
@@ -816,7 +816,7 @@ def flow_origin_title(chg_l: float, chg_s: float, net: float) -> str:
 
 
 def flow_origin_summary(chg_l: float, chg_s: float, net: float) -> str:
-    """Sintesi narrativa dell'origine del Flow 1W, come TradingView V1.5.47."""
+    """Sintesi narrativa dell'origine del Flow 1W, come TradingView V1.5.48."""
     if pd.isna(chg_l) or pd.isna(chg_s) or pd.isna(net):
         return ""
     a_l = abs(float(chg_l))
@@ -1017,7 +1017,7 @@ def analyze_smart_money(
     oi_index_52w = float(cur["oi_index_52w"]) if "oi_index_52w" in cur and not pd.isna(cur["oi_index_52w"]) else math.nan
     oi_index_52w_state = oi_index_state(oi_index_52w)
 
-    # TradingView V1.5.47: prima identifica la direzione uniforme dei flussi 3-6W,
+    # TradingView V1.5.48: prima identifica la direzione uniforme dei flussi 3-6W,
     # poi verifica se l'Open Interest sostiene, perde partecipazione o resta stabile.
     oi_macro_available = not pd.isna(pct_oi_3w) and not pd.isna(pct_oi_6w)
     oi_macro_up = oi_macro_available and pct_oi_3w > oi_threshold and pct_oi_6w > oi_threshold
@@ -1056,7 +1056,7 @@ def analyze_smart_money(
     short_covering = trend_flow_1w > 0 and trend_chg_s < 0 and oi_down
     long_liquidation = trend_flow_1w < 0 and trend_chg_l < 0 and oi_down
 
-    # TESTO SEMPLICE ULTIMO REPORT — V1.5.47: origine del Flow separata dall'Open Interest.
+    # TESTO SEMPLICE ULTIMO REPORT — V1.5.48: origine del Flow separata dall'Open Interest.
     smart_flow_report_available = not any(pd.isna(v) for v in (trend_flow_1w, trend_chg_l, trend_chg_s))
     flow_origin = flow_origin_title(trend_chg_l, trend_chg_s, trend_flow_1w) if smart_flow_report_available else "DATI NON DISPONIBILI"
     flow_origin_summary_text = flow_origin_summary(trend_chg_l, trend_chg_s, trend_flow_1w) if smart_flow_report_available else ""
@@ -1217,13 +1217,13 @@ def analyze_smart_money(
     partial_short_with_price = partial_short and price["short_confirmed"]
 
     # Configurazioni parziali già estese sul COT Index del motore.
-    # Servono soltanto alla gerarchia testuale di "Cosa fare", come nel Pine V1.5.47.
+    # Servono soltanto alla gerarchia testuale di "Cosa fare", come nel Pine V1.5.48.
     partial_crowded_long = partial_long and extreme_long
     partial_crowded_short = partial_short and extreme_short
 
     # =========================================================================
     # POSSIBILE FUTURO CAMBIO DI REGIME — ALIGNMENT CONTRARIAN FISSO 156W
-    # TradingView V1.5.47 unifica la regola per Commodity, FX e altri Financial:
+    # TradingView V1.5.48 unifica la regola per Commodity, FX e altri Financial:
     # Bull = Trend basso + Controparte alta + Small basso.
     # Bear = Trend alto + Controparte bassa + Small alto.
     # =========================================================================
@@ -1265,9 +1265,9 @@ def analyze_smart_money(
     alignment_bull_longs_but_net_down = alignment_bull_3 and trend_chg_l > 0 and trend_flow_1w <= 0
     alignment_bear_shorts_but_net_up = alignment_bear_3 and trend_chg_s > 0 and trend_flow_1w >= 0
     alignment_bull_short_covering_only = alignment_bull_3 and trend_chg_s < 0 and trend_flow_1w > 0 and trend_chg_l <= 0
-    alignment_bull_long_liquidation_dominant = alignment_bull_3 and trend_chg_l < 0 and trend_flow_1w < 0
+    alignment_bull_long_liquidation_dominant = alignment_bull_3 and trend_chg_l < 0 and trend_chg_s < 0 and trend_flow_1w < 0
     alignment_bear_long_liquidation_only = alignment_bear_3 and trend_chg_l < 0 and trend_flow_1w < 0 and trend_chg_s <= 0
-    alignment_bear_short_covering_dominant = alignment_bear_3 and trend_chg_s < 0 and trend_flow_1w > 0
+    alignment_bear_short_covering_dominant = alignment_bear_3 and trend_chg_l < 0 and trend_chg_s < 0 and trend_flow_1w > 0
 
     alignment_bull_macro_ok = macro_long if spec.family == "commodity" else (macro_recovery or macro_long)
     alignment_bear_macro_ok = macro_short if spec.family == "commodity" else (macro_deterioration or macro_short)
@@ -1275,6 +1275,8 @@ def analyze_smart_money(
     alignment_bear_regime_confirmed = alignment_bear_new_shorts and price["short_confirmed"] and alignment_bear_macro_ok
     alignment_bull_regime_developing = alignment_bull_new_longs and not alignment_bull_regime_confirmed
     alignment_bear_regime_developing = alignment_bear_new_shorts and not alignment_bear_regime_confirmed
+    alignment_bull_price_leads = alignment_bull_3 and price["long_confirmed"] and not alignment_bull_new_longs
+    alignment_bear_price_leads = alignment_bear_3 and price["short_confirmed"] and not alignment_bear_new_shorts
 
     if not alignment_available:
         future_regime_title = "DATI ALIGNMENT 156W NON DISPONIBILI"
@@ -1314,6 +1316,22 @@ def analyze_smart_money(
             f"{alignment_trend_label} vicini al massimo 156W + {alignment_counter_label} vicini al minimo 156W +\n"
             f"Small Traders vicini al massimo 156W.\nPerché è in sviluppo?\n"
             f"Gli Short aumentano e la Net Position peggiora;\n{ending}"
+        )
+    elif alignment_bull_price_leads:
+        future_regime_title = "DIVERGENZA RIALZISTA PREZZO/COT IN ATTO"
+        future_regime_text = (
+            f"{future_regime_title}\nIl prezzo sta già salendo mentre {alignment_trend_label} restano su un estremo ribassista 156W.\n"
+            f"Perché nasce il possibile Long contrarian?\n{alignment_trend_label} vicini al minimo 156W + "
+            f"{alignment_counter_label} vicini al massimo 156W +\nSmall Traders vicini al minimo 156W.\n"
+            "Perché il COT non conferma ancora?\nServono nuovi Long insieme a un miglioramento della Net Position."
+        )
+    elif alignment_bear_price_leads:
+        future_regime_title = "DIVERGENZA RIBASSISTA PREZZO/COT IN ATTO"
+        future_regime_text = (
+            f"{future_regime_title}\nIl prezzo sta già scendendo mentre {alignment_trend_label} restano su un estremo rialzista 156W.\n"
+            f"Perché nasce il possibile Short contrarian?\n{alignment_trend_label} vicini al massimo 156W + "
+            f"{alignment_counter_label} vicini al minimo 156W +\nSmall Traders vicini al massimo 156W.\n"
+            "Perché il COT non conferma ancora?\nServono nuovi Short insieme a un peggioramento della Net Position."
         )
     elif alignment_bull_longs_but_net_down:
         future_regime_title = "POSSIBILE LONG CONTRARIAN IN COSTRUZIONE"
@@ -1401,7 +1419,7 @@ def analyze_smart_money(
         if alignment_available else ""
     )
 
-    # Bias COT + prezzo — frasi allineate a TradingView V1.5.47
+    # Bias COT + prezzo — frasi allineate a TradingView V1.5.48
     combined_bias = engine_bias
     combined_detail = engine_detail
     if possible_bottom and price["long_confirmed"]:
@@ -1573,14 +1591,14 @@ def analyze_smart_money(
         concentration_detail = "L'esposizione dei Top 8 Trader è nella norma."
 
     # =========================================================================
-    # LETTURA SEMPLICE — FRASI IDENTICHE A TRADINGVIEW V1.5.47
+    # LETTURA SEMPLICE — FRASI IDENTICHE A TRADINGVIEW V1.5.48
     # =========================================================================
     short_extreme_recovery = extreme_short and trend_flow_1w > 0
     long_extreme_deterioration = extreme_long and trend_flow_1w < 0
     short_extreme_pressure = extreme_short and trend_flow_1w <= 0
     long_extreme_pressure = extreme_long and trend_flow_1w >= 0
 
-    # V1.5.47 — spiega esattamente quale conferma manca, con la relazione corretta
+    # V1.5.48 — spiega esattamente quale conferma manca, con la relazione corretta
     # della controparte: FX Dealer/Intermediary opposti ai Leveraged Funds; altri
     # Financial Asset Manager nella stessa direzione; Commodity Producer/Merchant opposti.
     smart_main_subject = "i Managed Money" if spec.family == "commodity" else "i Leveraged Funds"
@@ -1907,7 +1925,7 @@ def analyze_smart_money(
         )
 
     # =========================================================================
-    # SINTESI CHIARA DEL QUADRO — allineata alla V1.5.47
+    # SINTESI CHIARA DEL QUADRO — allineata alla V1.5.48
     # L'esposizione attuale deriva dalle percentuali Long/Short direzionali;
     # il COT Index descrive separatamente la collocazione nel range storico.
     # =========================================================================
@@ -2039,6 +2057,16 @@ def analyze_smart_money(
             f"Il COT mostra un possibile Short contrarian 3/3: i {alignment_trend_label} stanno aumentando gli Short e la Net Position sta peggiorando. "
             + ("Il prezzo è già ribassista; manca ancora il completamento della struttura COT 3-6W." if price["short_confirmed"] else "Il cambio di regime non è ancora confermato finché il prezzo non completa la conferma ribassista.")
         )
+    elif alignment_bull_price_leads:
+        future_regime_summary = (
+            f"Il prezzo è già rialzista mentre {alignment_trend_label} restano su un estremo ribassista e l'Alignment 156W è rialzista 3/3. "
+            "Il prezzo sta quindi anticipando il COT: il possibile cambio di regime è interessante, ma non è ancora confermato finché non compaiono nuovi Long insieme a un miglioramento della Net Position."
+        )
+    elif alignment_bear_price_leads:
+        future_regime_summary = (
+            f"Il prezzo è già ribassista mentre {alignment_trend_label} restano su un estremo rialzista e l'Alignment 156W è ribassista 3/3. "
+            "Il prezzo sta quindi anticipando il COT: il possibile cambio di regime è interessante, ma non è ancora confermato finché non compaiono nuovi Short insieme a un peggioramento della Net Position."
+        )
     elif alignment_bull_longs_but_net_down:
         future_regime_summary = f"Il COT mostra un Alignment rialzista 3/3 e i {alignment_trend_label} hanno aumentato i Long, ma gli Short sono cresciuti di più e la Net Position continua a peggiorare. Il possibile Long contrarian resta quindi in costruzione, non ancora in sviluppo."
     elif alignment_bear_shorts_but_net_up:
@@ -2122,6 +2150,18 @@ def analyze_smart_money(
                 f"SHORT CONTRARIAN IN SVILUPPO. {alignment_trend_label.upper()} AUMENTANO GLI SHORT, LA NET POSITION PEGGIORA E IL PREZZO È GIÀ RIBASSISTA. ATTENDI CHE IL PEGGIORAMENTO SI ESTENDA ALLA STRUTTURA COT 3-6W PRIMA DI CONSIDERARE IL REGIME CONFERMATO."
                 if price["short_confirmed"] else
                 f"SHORT CONTRARIAN IN SVILUPPO. {alignment_trend_label.upper()} AUMENTANO GLI SHORT E LA NET POSITION PEGGIORA. NON INSEGUIRE NUOVI LONG E ATTENDI LA CONFERMA RIBASSISTA DEL PREZZO PRIMA DI VALUTARE SHORT."
+            )
+        elif alignment_bull_price_leads:
+            plain_action = (
+                "DIVERGENZA RIALZISTA PREZZO/COT IN ATTO. IL PREZZO STA ANTICIPANDO IL COT. "
+                "NON INSEGUIRE NUOVI SHORT, MA NON CONSIDERARE ANCORA IL LONG CONFERMATO. "
+                f"ATTENDI CHE {alignment_trend_label.upper()} AUMENTINO I LONG E CHE LA NET POSITION MIGLIORI."
+            )
+        elif alignment_bear_price_leads:
+            plain_action = (
+                "DIVERGENZA RIBASSISTA PREZZO/COT IN ATTO. IL PREZZO STA ANTICIPANDO IL COT. "
+                "NON INSEGUIRE NUOVI LONG, MA NON CONSIDERARE ANCORA LO SHORT CONFERMATO. "
+                f"ATTENDI CHE {alignment_trend_label.upper()} AUMENTINO GLI SHORT E CHE LA NET POSITION PEGGIORI."
             )
         elif alignment_bull_longs_but_net_down:
             plain_action = "POSSIBILE LONG CONTRARIAN IN COSTRUZIONE.\nI LONG SONO AUMENTATI, MA LA NET POSITION PEGGIORA\nPERCHÉ GLI SHORT CRESCONO DI PIÙ.\nNON INSEGUIRE NUOVI SHORT.\nATTENDI CHE NUOVI LONG E MIGLIORAMENTO DELLA NET POSITION\nSI PRESENTINO INSIEME, POI LA CONFERMA RIALZISTA DEL PREZZO."
@@ -2371,6 +2411,8 @@ def analyze_smart_money(
         "alignment_bear_regime_confirmed": alignment_bear_regime_confirmed,
         "alignment_bull_regime_developing": alignment_bull_regime_developing,
         "alignment_bear_regime_developing": alignment_bear_regime_developing,
+        "alignment_bull_price_leads": alignment_bull_price_leads,
+        "alignment_bear_price_leads": alignment_bear_price_leads,
         "future_regime_title": future_regime_title,
         "future_regime_text": future_regime_text,
         "future_regime_detail": future_regime_detail,
@@ -2410,7 +2452,7 @@ def alignment_zone(value: float) -> str:
 
 
 def analyze_alignment_map(df: pd.DataFrame, spec: MarketSpec) -> dict[str, Any]:
-    """Alignment contrarian fisso 156W, unificato come TradingView V1.5.47."""
+    """Alignment contrarian fisso 156W, unificato come TradingView V1.5.48."""
     unavailable = {
         "available": False,
         "lookback": COT_INDEX_LONG_LOOKBACK,
@@ -2437,7 +2479,7 @@ def analyze_alignment_map(df: pd.DataFrame, spec: MarketSpec) -> dict[str, Any]:
     if any(pd.isna(value) for value in (speculative_index, counterparty_index, small_index)):
         return unavailable
 
-    # V1.5.47: stessa regola contrarian per tutte le famiglie.
+    # V1.5.48: stessa regola contrarian per tutte le famiglie.
     bull_speculative = speculative_index <= ALIGNMENT_LOWER
     bull_counterparty = counterparty_index >= ALIGNMENT_UPPER
     bull_small = small_index <= ALIGNMENT_LOWER
@@ -2615,7 +2657,7 @@ def screener_status(
     price: dict[str, Any],
     alignment: dict[str, Any],
 ) -> tuple[str, str]:
-    """Classificazione pubblica rigorosa, coerente con la gerarchia TradingView V1.5.47."""
+    """Classificazione pubblica rigorosa, coerente con la gerarchia TradingView V1.5.48."""
     # 0) I dati troppo vecchi non possono produrre uno Stato operativo, anche se le
     #    vecchie serie storiche mostrano una direzione apparentemente chiara.
     if int(smart.get("age_days", 0) or 0) > 17:
@@ -2653,7 +2695,7 @@ def screener_status(
         return "SHORT IN COSTRUZIONE", "SHORT"
 
     # 5) Configurazioni istituzionali parziali: usa le condizioni
-    #    smart_partial_long / smart_partial_short del motore TradingView V1.5.47.
+    #    smart_partial_long / smart_partial_short del motore TradingView V1.5.48.
     if smart.get("partial_long"):
         return "LONG IN COSTRUZIONE", "LONG"
     if smart.get("partial_short"):
@@ -2685,6 +2727,10 @@ def regime_156w_stage(smart: dict[str, Any]) -> str:
         return "LONG CONTRARIAN IN SVILUPPO"
     if smart.get("alignment_bear_regime_developing"):
         return "SHORT CONTRARIAN IN SVILUPPO"
+    if smart.get("alignment_bull_price_leads"):
+        return "DIVERGENZA RIALZISTA PREZZO/COT IN ATTO"
+    if smart.get("alignment_bear_price_leads"):
+        return "DIVERGENZA RIBASSISTA PREZZO/COT IN ATTO"
     if smart.get("alignment_bull_3"):
         return "POSSIBILE LONG CONTRARIAN IN COSTRUZIONE"
     if smart.get("alignment_bear_3"):
@@ -2720,7 +2766,7 @@ def calculate_screener_score(
 ) -> dict[str, Any]:
     """Score di qualità 0-100, separato dallo Stato e coerente con la direzione.
 
-    V6.25 conserva la logica di Score validata nelle versioni precedenti e la separa dalla nuova lettura pubblica Flow Origin V1.5.47:
+    V6.26 conserva la logica di Score validata nelle versioni precedenti e la separa dalla nuova lettura pubblica Flow Origin V1.5.48:
     1) un flusso opposto alla Direzione non viene premiato;
     2) i mercati davvero NEUTRALI non ricevono punti solo perché l'ultimo report è forte;
     3) l'Open Interest 1W non viene contato due volte: NUOVI LONG/SHORT lo incorpora
@@ -2991,6 +3037,7 @@ def analyze_market_for_screener(
         "Alignment rialzista precedente": math.nan,
         "Alignment ribassista precedente": math.nan,
         "Regime 156W precedente": "NON DISPONIBILE",
+        "Prezzo anticipa COT precedente": "NO",
         "Prezzo Weekly precedente": "PREZZO WEEKLY NON DISPONIBILE",
         "Partecipazione OI 3-6W precedente": "OI NON DISPONIBILE",
     }
@@ -3027,6 +3074,11 @@ def analyze_market_for_screener(
                 "Alignment rialzista precedente": int(previous_alignment.get("bull_score", 0)),
                 "Alignment ribassista precedente": int(previous_alignment.get("bear_score", 0)),
                 "Regime 156W precedente": regime_156w_stage(previous_smart),
+                "Prezzo anticipa COT precedente": (
+                    "RIALZISTA" if previous_smart.get("alignment_bull_price_leads")
+                    else "RIBASSISTA" if previous_smart.get("alignment_bear_price_leads")
+                    else "NO"
+                ),
                 "Prezzo Weekly precedente": previous_price.get("text", "PREZZO WEEKLY NON DISPONIBILE"),
                 "Partecipazione OI 3-6W precedente": previous_smart.get("oi_quality", "OI NON DISPONIBILE"),
             }
@@ -3072,6 +3124,13 @@ def analyze_market_for_screener(
         "Regime ribassista confermato": bool(smart.get("alignment_bear_regime_confirmed")),
         "Regime Long in sviluppo": bool(smart.get("alignment_bull_regime_developing")),
         "Regime Short in sviluppo": bool(smart.get("alignment_bear_regime_developing")),
+        "Divergenza rialzista prezzo/COT": bool(smart.get("alignment_bull_price_leads")),
+        "Divergenza ribassista prezzo/COT": bool(smart.get("alignment_bear_price_leads")),
+        "Prezzo anticipa COT": (
+            "RIALZISTA" if smart.get("alignment_bull_price_leads")
+            else "RIBASSISTA" if smart.get("alignment_bear_price_leads")
+            else "NO"
+        ),
         "Speculativi Index": alignment.get("speculative_index", math.nan),
         "Controparte Index": alignment.get("counterparty_index", math.nan),
         "Small Traders Index": alignment.get("small_index", math.nan),
@@ -3099,6 +3158,7 @@ def analyze_market_for_screener(
         "Alignment rialzista precedente": previous_snapshot["Alignment rialzista precedente"],
         "Alignment ribassista precedente": previous_snapshot["Alignment ribassista precedente"],
         "Regime 156W precedente": previous_snapshot["Regime 156W precedente"],
+        "Prezzo anticipa COT precedente": previous_snapshot["Prezzo anticipa COT precedente"],
         "Prezzo Weekly precedente": previous_snapshot["Prezzo Weekly precedente"],
         "Partecipazione OI 3-6W precedente": previous_snapshot["Partecipazione OI 3-6W precedente"],
         "Mercato CFTC": market_name,
@@ -3137,6 +3197,8 @@ def _radar_regime_stage(regime: str) -> tuple[int, str]:
         return 4, direction
     if "IN SVILUPPO" in value:
         return 3, direction
+    if "DIVERGENZA" in value and "PREZZO/COT" in value:
+        return 2.5, direction
     if "IN COSTRUZIONE" in value:
         return 2, direction
     if "2/3" in value:
@@ -3188,9 +3250,14 @@ def _radar_change_text(row: pd.Series) -> str:
     if old_oi_1w and new_oi_1w and old_oi_1w != new_oi_1w and len(changes) < 5:
         changes.append(f"OI 1W: {old_oi_1w} → {new_oi_1w}")
 
+    old_price_leads = str(row.get("Prezzo anticipa COT precedente", "NO"))
+    new_price_leads = str(row.get("Prezzo anticipa COT", "NO"))
+    if old_price_leads != new_price_leads and len(changes) < 5:
+        changes.append(f"Prezzo anticipa COT: {old_price_leads} → {new_price_leads}")
+
     old_price = str(row.get("Prezzo Weekly precedente", ""))
     new_price = str(row.get("Prezzo Weekly", ""))
-    if old_price != new_price:
+    if old_price != new_price and len(changes) < 5:
         changes.append(f"Prezzo: {old_price} → {new_price}")
 
     old_regime = str(row.get("Regime 156W precedente", ""))
@@ -3221,6 +3288,7 @@ def build_weekly_change_radar(results: pd.DataFrame) -> pd.DataFrame:
         "Δ Long 1W precedente", "Δ Long 1W", "Δ Short 1W precedente", "Δ Short 1W",
         "Contesto OI 1W precedente", "Contesto OI 1W",
         "Segnale flusso motore precedente", "Segnale flusso motore",
+        "Prezzo anticipa COT precedente", "Prezzo anticipa COT",
         "Prezzo Weekly precedente", "Prezzo Weekly", "Regime 156W precedente", "Regime 156W",
     ]
     if results.empty:
@@ -3253,6 +3321,8 @@ def build_weekly_change_radar(results: pd.DataFrame) -> pd.DataFrame:
         previous_delta_short = row.get("Δ Short 1W precedente", math.nan)
         current_oi_1w_context = str(row.get("Contesto OI 1W", ""))
         previous_oi_1w_context = str(row.get("Contesto OI 1W precedente", ""))
+        current_price_leads = str(row.get("Prezzo anticipa COT", "NO"))
+        previous_price_leads = str(row.get("Prezzo anticipa COT precedente", "NO"))
         current_price = str(row.get("Prezzo Weekly", ""))
         previous_price = str(row.get("Prezzo Weekly precedente", ""))
         current_regime = str(row.get("Regime 156W", ""))
@@ -3352,6 +3422,15 @@ def build_weekly_change_radar(results: pd.DataFrame) -> pd.DataFrame:
                 verdict = "PERDE INTERESSE"
                 order = 3
                 reading = "Il mercato ha perso la precedente configurazione direzionale. Toglilo dalle priorità finché non ricompare un segnale coerente."
+            elif current_price_leads in ("RIALZISTA", "RIBASSISTA") and current_price_leads != previous_price_leads:
+                priority = "⚠️ PREZZO ANTICIPA IL COT"
+                verdict = "DA MONITORARE"
+                order = 2
+                direction_text = "rialzista" if current_price_leads == "RIALZISTA" else "ribassista"
+                reading = (
+                    f"Il prezzo Weekly sta anticipando un possibile cambio contrarian {direction_text} con Alignment 156W 3/3, "
+                    "ma il COT non ha ancora confermato con nuovi Long/Short e variazione coerente della Net Position. Monitoralo senza anticipare."
+                )
             elif regime_progressed:
                 priority = "⚠️ POSSIBILE CAMBIO DI REGIME"
                 verdict = "DA MONITORARE"
@@ -3395,6 +3474,8 @@ def build_weekly_change_radar(results: pd.DataFrame) -> pd.DataFrame:
                 "Tipo flusso": current_flow,
                 "Segnale flusso motore precedente": previous_motor_flow,
                 "Segnale flusso motore": current_motor_flow,
+                "Prezzo anticipa COT precedente": previous_price_leads,
+                "Prezzo anticipa COT": current_price_leads,
                 "Prezzo Weekly precedente": previous_price,
                 "Prezzo Weekly": current_price,
                 "Regime 156W precedente": previous_regime,
@@ -3444,7 +3525,7 @@ def build_screener_excel(results: pd.DataFrame, errors: pd.DataFrame) -> bytes:
     display_columns = [
         "Strumento", "Stato", "Direzione", "Qualità", "Score", "Origine Flow 1W", "Segnale flusso motore",
         "COT Index", "COT Index 26W", "COT Index 156W", "Posizione attuale", "Posizionamento", "Esposizione Long %", "Esposizione Short %",
-        "Alignment rialzista", "Alignment ribassista", "Regime 156W", "Rapid Shift 6W",
+        "Alignment rialzista", "Alignment ribassista", "Regime 156W", "Prezzo anticipa COT", "Rapid Shift 6W",
         "Variazione OI %", "Partecipazione OI 3-6W", "OI Index 52W", "Prezzo Weekly", "Concentrazione Top 8", "Data COT",
     ]
 
@@ -3459,6 +3540,7 @@ def build_screener_excel(results: pd.DataFrame, errors: pd.DataFrame) -> bytes:
                 "Δ Long 1W precedente", "Δ Long 1W", "Δ Short 1W precedente", "Δ Short 1W",
                 "Contesto OI 1W precedente", "Contesto OI 1W",
                 "Segnale flusso motore precedente", "Segnale flusso motore",
+                "Prezzo anticipa COT precedente", "Prezzo anticipa COT",
                 "Prezzo Weekly precedente", "Prezzo Weekly", "Regime 156W precedente", "Regime 156W",
             ]
             radar[radar_export_columns].to_excel(writer, sheet_name="Weekly Change Radar", index=False)
@@ -3468,6 +3550,7 @@ def build_screener_excel(results: pd.DataFrame, errors: pd.DataFrame) -> bytes:
         ordered[ordered["Alignment utile"] >= 2].to_excel(writer, sheet_name="Alignment 2-3", index=False)
         ordered[ordered["Regime 156W"].str.contains("CONFERMATO", na=False)].to_excel(writer, sheet_name="Regime confermato", index=False)
         ordered[ordered["Regime 156W"].str.contains("IN SVILUPPO", na=False)].to_excel(writer, sheet_name="Contrarian sviluppo", index=False)
+        ordered[ordered["Regime 156W"].str.contains("DIVERGENZA", na=False)].to_excel(writer, sheet_name="Prezzo anticipa COT", index=False)
         ordered[ordered["Regime 156W"].str.contains("IN COSTRUZIONE", na=False)].to_excel(writer, sheet_name="Contrarian 3-3", index=False)
         ordered[ordered["Rapid Shift 6W"] >= RAPID_SHIFT_EXTREME].to_excel(writer, sheet_name="Rapid Shift rialzista", index=False)
         ordered[ordered["Rapid Shift 6W"] <= -RAPID_SHIFT_EXTREME].to_excel(writer, sheet_name="Rapid Shift ribassista", index=False)
@@ -3525,6 +3608,7 @@ def build_weekly_radar_excel(radar_frame: pd.DataFrame) -> bytes:
         "Δ Long 1W precedente", "Δ Long 1W", "Δ Short 1W precedente", "Δ Short 1W",
         "Contesto OI 1W precedente", "Contesto OI 1W",
         "Segnale flusso motore precedente", "Segnale flusso motore",
+        "Prezzo anticipa COT precedente", "Prezzo anticipa COT",
         "Prezzo Weekly precedente", "Prezzo Weekly", "Regime 156W precedente", "Regime 156W",
     ]
     frame = radar_frame.copy()
@@ -3864,7 +3948,7 @@ def build_screener_ai_prompt(top_rows: pd.DataFrame, top_n: int) -> str:
         "COT Index", "COT Index 26W", "COT Index 156W", "Posizionamento", "Posizione attuale", "Esposizione Long %", "Esposizione Short %",
         "Flow 1W", "Flow 3W", "Flow 6W", "Rapid Shift 6W", "Stato Rapid Shift",
         "Variazione OI %", "Partecipazione OI 3-6W", "OI Index 52W", "Stato OI 52W",
-        "Alignment rialzista", "Alignment ribassista", "Regime 156W", "Dettaglio Regime 156W", "Prezzo Weekly", "Concentrazione Top 8",
+        "Alignment rialzista", "Alignment ribassista", "Regime 156W", "Prezzo anticipa COT", "Dettaglio Regime 156W", "Prezzo Weekly", "Concentrazione Top 8",
         "Indicazione", "Motivazione",
     ]
     table_text = ai_rows[compact_columns].to_csv(index=False)
@@ -3908,7 +3992,7 @@ def render_screener_current_tab(results_df: pd.DataFrame, errors_df: pd.DataFram
     with extra3:
         regime_filter = st.selectbox(
             "Filtro cambio di regime 156W",
-            ["TUTTI", "CONFERMATO", "IN SVILUPPO", "POSSIBILE 3/3 IN COSTRUZIONE", "SEGNALI 2/3", "NESSUNO"],
+            ["TUTTI", "CONFERMATO", "IN SVILUPPO", "PREZZO ANTICIPA COT", "POSSIBILE 3/3 IN COSTRUZIONE", "SEGNALI 2/3", "NESSUNO"],
         )
 
     st.caption(
@@ -3945,6 +4029,8 @@ def render_screener_current_tab(results_df: pd.DataFrame, errors_df: pd.DataFram
         filtered = filtered[filtered["Regime 156W"].str.contains("CONFERMATO", na=False)]
     elif regime_filter == "IN SVILUPPO":
         filtered = filtered[filtered["Regime 156W"].str.contains("IN SVILUPPO", na=False)]
+    elif regime_filter == "PREZZO ANTICIPA COT":
+        filtered = filtered[filtered["Regime 156W"].str.contains("DIVERGENZA", na=False)]
     elif regime_filter == "POSSIBILE 3/3 IN COSTRUZIONE":
         filtered = filtered[filtered["Regime 156W"].str.contains("IN COSTRUZIONE", na=False)]
     elif regime_filter == "SEGNALI 2/3":
@@ -3954,7 +4040,7 @@ def render_screener_current_tab(results_df: pd.DataFrame, errors_df: pd.DataFram
 
     visible_columns = [
         "Posizione", "Strumento", "Stato", "Qualità", "Score", "Origine Flow 1W",
-        "COT Index 26W", "COT Index 156W", "Alignment rialzista", "Alignment ribassista", "Regime 156W", "Rapid Shift 6W",
+        "COT Index 26W", "COT Index 156W", "Alignment rialzista", "Alignment ribassista", "Regime 156W", "Prezzo anticipa COT", "Rapid Shift 6W",
         "Variazione OI %", "Partecipazione OI 3-6W", "OI Index 52W", "Prezzo Weekly", "Concentrazione Top 8", "Data COT",
     ]
     display_df = filtered[visible_columns].copy()
@@ -3974,6 +4060,7 @@ def render_screener_current_tab(results_df: pd.DataFrame, errors_df: pd.DataFram
             "Alignment rialzista": "Bull",
             "Alignment ribassista": "Bear",
             "Regime 156W": st.column_config.TextColumn("Regime 156W", width="large"),
+            "Prezzo anticipa COT": st.column_config.TextColumn("Prezzo anticipa COT", width="medium"),
             "Concentrazione Top 8": st.column_config.TextColumn("Concentrazione Top 8", width="large"),
         },
     )
@@ -4489,7 +4576,13 @@ def render_single_analysis() -> None:
     # separato dalla direzione principale. Serve a evitare che un 2/3 o un 3/3
     # grezzo venga interpretato come un'inversione già avvenuta.
     future_regime_title = str(smart.get("future_regime_title", ""))
-    if "IN COSTRUZIONE" in future_regime_title:
+    if "DIVERGENZA" in future_regime_title and "PREZZO/COT" in future_regime_title:
+        future_regime_teaching = (
+            "<br><br><b>Come leggerlo:</b> il prezzo Weekly sta anticipando un possibile cambio contrarian già allineato 3/3, "
+            "ma il COT non ha ancora confermato con nuovi Long/Short e variazione coerente della Net Position. "
+            "È un segnale da monitorare, non una view già confermata."
+        )
+    elif "IN COSTRUZIONE" in future_regime_title:
         future_regime_teaching = (
             "<br><br><b>Come leggerlo:</b> questo è un segnale anticipatore separato dalla direzione principale. "
             "Non modifica il responso Smart Money finché non passa almeno a <b>IN SVILUPPO</b>."
@@ -4615,7 +4708,7 @@ def render_single_analysis() -> None:
     # =============================================================================
     st.header("3. COT Alignment Map")
     st.caption(
-        "Contesto contrarian fisso a 156 settimane, come TradingView V1.5.47. La regola è la stessa per Commodity, FX e altri Financial. "
+        "Contesto contrarian fisso a 156 settimane, come TradingView V1.5.48. La regola è la stessa per Commodity, FX e altri Financial. "
         "Il 2/3 è soltanto parziale; il 3/3 prepara il setup, mentre flussi, Net Position, struttura 3–6W e prezzo determinano lo stadio del possibile cambio di regime."
     )
 
@@ -4816,6 +4909,7 @@ def render_single_analysis() -> None:
     - Small Traders / Nonreportable 156W: {fmt_decimal(smart['alignment_small_index_156w'], 1)} / 100
     - Segnali rialzisti: {smart['alignment_bull_count']}/3
     - Segnali ribassisti: {smart['alignment_bear_count']}/3
+    - Prezzo anticipa COT: {"RIALZISTA" if smart.get('alignment_bull_price_leads') else "RIBASSISTA" if smart.get('alignment_bear_price_leads') else "NO"}
 
     PREZZO WEEKLY
     - Stato: {price_analysis['text']}
@@ -4839,14 +4933,16 @@ def render_single_analysis() -> None:
     - Il responso deterministico è il punto di partenza: non contraddirlo senza dichiarare chiaramente il limite dei dati.
     - Usa i valori calcolati dell'Alignment Map; non inventare screenshot o livelli tecnici. Nelle indicazioni operative usa solo pullback/rimbalzo e nuova conferma se non esiste un livello calcolato.
     - Separa sempre ORIGINE DEL FLOW 1W e OPEN INTEREST: descrivi il cambiamento di Long/Short/Net Position indipendentemente dall’OI; usa l’OI 1W solo come contesto di partecipazione.
-    - Quando disponibile, usa l’Origine Flow 1W deterministica V1.5.47 e non ridurla automaticamente a “nuovi Long/nuovi Short”.
+    - Quando disponibile, usa l’Origine Flow 1W deterministica V1.5.48 e non ridurla automaticamente a “nuovi Long/nuovi Short”.
     - Se una view è incompleta, usa la conferma mancante deterministica nell’ordine prezzo → struttura 3-6W principale → Flow 1W principale → controparte 1W → controparte 3-6W.
     - Nelle valute, Dealer/Intermediary sono la normale controparte dei Leveraged Funds: quando manca la loro conferma, dichiaralo esplicitamente e non richiedere erroneamente che si muovano nella stessa direzione.
     - Un primo miglioramento/peggioramento 1W senza struttura 3-6W coerente resta “view non ancora formata”.
     - Un COT Index estremo descrive la collocazione della Net Position nel proprio range storico, non necessariamente una posizione Net Long o Net Short e non un segnale automatico di inversione.
     - L'Alignment Map usato per il possibile cambio di regime è fisso a 156W e usa la stessa logica contrarian per tutte le famiglie: Trend basso + Controparte alta + Small basso per Bull; l'opposto per Bear.
     - Un Alignment 2/3 è soltanto parziale. Un 3/3 è un setup, non ancora un cambio di regime confermato.
+    - V1.5.48: se Alignment 3/3 e prezzo Weekly confermato anticipano il COT ma mancano nuovi Long/Short coerenti, usa lo stato DIVERGENZA RIALZISTA/RIBASSISTA PREZZO/COT IN ATTO. È interessante ma NON è ancora un regime confermato.
     - "IN SVILUPPO" richiede 3/3 + nuovi Long/Short coerenti + Net Position nella stessa direzione. "CONFERMATO" richiede inoltre prezzo Weekly e struttura macro coerenti.
+    - La classificazione Long liquidation/Short covering dominante nei casi 3/3 richiede che Long e Short siano entrambi in diminuzione; non dedurla da una sola componente.
     - Non promuovere mai 2/3 o 3/3 grezzo a regime confermato. Usa lo stato deterministico già calcolato dalla dashboard.
     - Il Rapid Shift 6W segnala velocità del cambiamento della controparte, non un ingresso automatico.
     - L'OI Index 52W misura il livello di partecipazione nel range annuale e non indica da solo la direzione.

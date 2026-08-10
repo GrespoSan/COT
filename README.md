@@ -1,8 +1,8 @@
-# COT Smart Money Python V6.25
+# COT Smart Money Python V6.26
 
-Versione Python allineata al nuovo indicatore di riferimento **G. COT Smart Money Engine V1.5.47**.
+Versione Python allineata al nuovo indicatore di riferimento **G. COT Smart Money Engine V1.5.48**.
 
-La V6.25 aggiorna insieme:
+La V6.26 aggiorna insieme:
 
 - Analisi singolo strumento;
 - COT Screener;
@@ -11,41 +11,65 @@ La V6.25 aggiorna insieme:
 - `PROMPT.TXT`;
 - `PROMPT_SCREENER.TXT`.
 
-## Novità recepite dalla V1.5.47
+## Novità recepite dalla V1.5.48
 
-### 1. Origine Flow 1W separata dall'Open Interest
+### 1. Prezzo che anticipa il COT su Alignment contrarian 3/3
 
-L'ultimo report non viene più ridotto pubblicamente alle sole etichette `NUOVI LONG`, `NUOVI SHORT`, `SHORT COVERING` o `LIQUIDAZIONE LONG`.
+La V1.5.48 introduce due nuovi stati distinti:
 
-La dashboard espone ora **Origine Flow 1W**, calcolata da:
+- `DIVERGENZA RIALZISTA PREZZO/COT IN ATTO`;
+- `DIVERGENZA RIBASSISTA PREZZO/COT IN ATTO`.
+
+Caso rialzista:
+
+- Alignment rialzista 156W = 3/3;
+- prezzo Weekly già confermato rialzista;
+- non sono ancora presenti nuovi Long della categoria trend insieme a un miglioramento della Net Position.
+
+Caso ribassista speculare:
+
+- Alignment ribassista 156W = 3/3;
+- prezzo Weekly già confermato ribassista;
+- non sono ancora presenti nuovi Short della categoria trend insieme a un peggioramento della Net Position.
+
+La lettura è quindi: **il prezzo sta anticipando il COT**. È un segnale più avanzato di un semplice 3/3 grezzo, ma non è ancora un cambio di regime confermato.
+
+La gerarchia usata nel Weekly Change Radar diventa:
+
+`2/3 < 3/3 grezzo < PREZZO ANTICIPA COT < IN SVILUPPO < CONFERMATO`.
+
+### 2. Correzione Long liquidation / Short covering nei setup 3/3
+
+La V1.5.48 rende più rigorose due classificazioni speciali:
+
+- `alignment_bull_long_liquidation_dominant` richiede ora **Long in calo + Short in calo + Net Position in peggioramento**;
+- `alignment_bear_short_covering_dominant` richiede ora **Long in calo + Short in calo + Net Position in miglioramento**.
+
+In questo modo non viene più usata la frase “domina la Long liquidation / domina lo Short covering” quando soltanto una delle due componenti sta realmente diminuendo.
+
+## Funzioni V1.5.47 mantenute
+
+### Origine Flow 1W separata dall'Open Interest
+
+L'ultimo report mantiene la lettura pubblica **Origine Flow 1W**, calcolata da:
 
 - variazione Long;
 - variazione Short;
 - variazione della Net Position.
 
-L'Open Interest 1W è mostrato a parte come:
+L'Open Interest 1W resta mostrato separatamente come:
 
 - `PARTECIPAZIONE CRESCENTE`;
 - `PARTECIPAZIONE DECRESCENTE`;
 - `PARTECIPAZIONE STABILE`.
 
-Quando Long e Short si muovono in direzioni opposte, la V1.5.47 usa una soglia di dominanza pari a **1,25** per stabilire quale componente spiega soprattutto il cambiamento.
+Quando Long e Short si muovono in direzioni opposte, resta la soglia di dominanza **1,25**.
 
-Le vecchie classificazioni `NUOVI LONG / NUOVI SHORT / SHORT COVERING / LIQUIDAZIONE LONG` restano disponibili esclusivamente come **segnale interno del motore**, perché sono ancora usate dalla logica originale TradingView e dal ranking deterministico dello Screener.
+Le classificazioni `NUOVI LONG / NUOVI SHORT / SHORT COVERING / LIQUIDAZIONE LONG` restano disponibili come **segnale interno del motore**, perché sono ancora utilizzate dalla logica deterministica.
 
-### 2. COT Index: dicitura 156W esplicita
+### Conferme mancanti
 
-Le zone pubbliche sono ora:
-
-- `VICINO AL MASSIMO DEL RANGE STORICO 156W`;
-- `FASCIA ALTA DEL RANGE STORICO 156W`;
-- `FASCIA CENTRALE DEL RANGE STORICO 156W`;
-- `FASCIA BASSA DEL RANGE STORICO 156W`;
-- `VICINO AL MINIMO DEL RANGE STORICO 156W`.
-
-### 3. Conferme mancanti spiegate in modo deterministico
-
-Per i quadri incompleti la dashboard verifica, nello stesso ordine della V1.5.47:
+Per i quadri incompleti la dashboard continua a verificare:
 
 1. prezzo Weekly;
 2. struttura 3–6W della categoria principale;
@@ -53,43 +77,58 @@ Per i quadri incompleti la dashboard verifica, nello stesso ordine della V1.5.47
 4. controparte nell'ultimo report;
 5. controparte nella struttura 3–6W.
 
-Per le valute viene esplicitato che i **Dealer/Intermediary** devono confermare il normale ruolo di controparte dei Leveraged Funds.
+Per le valute i **Dealer/Intermediary** devono svolgere il normale ruolo di controparte dei Leveraged Funds.
 
-### 4. Nuovi warning di prima variazione
+### Primo miglioramento / peggioramento
 
-Sono state aggiunte le formule:
+Restano:
 
 - `PRIMO MIGLIORAMENTO COT, MA VIEW RIALZISTA NON ANCORA FORMATA`;
 - `PRIMO PEGGIORAMENTO COT, MA VIEW RIBASSISTA NON ANCORA FORMATA`.
 
-Servono a evitare che un solo cambiamento settimanale venga interpretato come struttura 3–6W già formata.
+## Analisi singolo strumento V6.26
 
-### 5. Divergenza COT/prezzo
+La sezione **“Si sta preparando un possibile cambio di regime?”** riconosce ora anche le due divergenze Prezzo/COT.
 
-Le frasi Long e Short sono state riallineate alla V1.5.47: quando il COT indica una direzione ma il prezzo Weekly non la conferma, la dashboard lo dichiara esplicitamente e invita a non anticipare l'operazione.
+Quando il prezzo anticipa il COT, la dashboard spiega esplicitamente che:
 
-### 6. Diagnostica completa
+- il prezzo Weekly è già coerente con il possibile cambio;
+- l'Alignment è già 3/3;
+- il COT non ha ancora confermato con nuovi Long/Short e variazione coerente della Net Position;
+- il setup va monitorato ma non trattato come Long/Short confermato.
 
-Nei dettagli dell'analisi vengono ora mostrati anche:
+La diagnostica completa continua a mostrare Origine Flow 1W, Δ Long, Δ Short, Net Position 1W, OI 1W separato e struttura 3–6W.
 
-- Origine Flow 1W;
-- Δ Long 1W;
-- Δ Short 1W;
-- Net Position 1W;
-- contesto OI 1W;
-- Flow 3W e 6W.
+## Screener V6.26
 
-## Screener V6.25
+Lo Screener espone ora anche:
 
-La classifica pubblica mostra **Origine Flow 1W**. Il segnale `NUOVI LONG / NUOVI SHORT / SHORT COVERING / LIQUIDAZIONE LONG` è conservato come **Segnale flusso motore** per la logica deterministica.
+- colonna `Prezzo anticipa COT` = `RIALZISTA`, `RIBASSISTA` oppure `NO`;
+- flag dedicati di divergenza rialzista/ribassista;
+- filtro Regime 156W `PREZZO ANTICIPA COT`;
+- foglio Excel `Prezzo anticipa COT`.
 
-La formula e le soglie dello **Score Screener** non sono state cambiate dalla V6.24: il nuovo indicatore TradingView modifica soprattutto la spiegazione dell'origine del Flow, non la logica interna `smart_new_long`, `smart_new_short`, `smart_short_covering` e `smart_long_liquidation`.
+**La nuova divergenza non promuove automaticamente lo Stato principale dello Screener.** Rimane una informazione del Regime 156W finché il COT non compie il passo successivo previsto dalla V1.5.48.
 
-Lo Score Screener resta un ranking operativo Python e non va confuso con l'output nascosto `Smart Money Score 0-100` dell'indicatore TradingView, che misura un regime direzionale da ribassista a rialzista.
+Lo **Score Screener non è stato modificato** dalla nuova logica V1.5.48: la modifica Pine riguarda la classificazione del possibile cambio di regime, non la formula del ranking operativo Python.
 
-## Weekly Change Radar V6.25
+Lo Score Screener resta inoltre distinto dall'output nascosto `Smart Money Score 0-100` del Pine, che misura un regime direzionale.
 
-Il confronto tra report precedente e corrente ora considera esplicitamente:
+## Weekly Change Radar V6.26
+
+Il Radar confronta ora anche:
+
+- `Prezzo anticipa COT precedente`;
+- `Prezzo anticipa COT` attuale.
+
+Se compare per la prima volta una divergenza prezzo/COT mentre lo Stato principale non è ancora operativo, il Radar restituisce:
+
+- priorità `⚠️ PREZZO ANTICIPA IL COT`;
+- verdetto `DA MONITORARE`.
+
+Non viene promosso automaticamente a `DA APPROFONDIRE`: servono ancora i nuovi Long/Short e la variazione coerente della Net Position richiesti dal riferimento V1.5.48.
+
+Il Radar continua a confrontare anche:
 
 - Origine Flow 1W precedente / corrente;
 - Δ Long precedente / corrente;
@@ -100,57 +139,47 @@ Il confronto tra report precedente e corrente ora considera esplicitamente:
 - prezzo Weekly;
 - Regime 156W.
 
-Il Radar continua a ricostruire lo snapshot precedente senza utilizzare dati futuri del prezzo.
+Lo snapshot precedente continua a essere ricostruito senza utilizzare dati futuri del prezzo.
 
-L'Excel dedicato continua a essere **completo e indipendente dai filtri a video** e comprende:
+L'Excel dedicato resta **completo e indipendente dai filtri a video** e comprende il foglio generale e i nove fogli settoriali. I JPG continuano invece a rappresentare la vista filtrata.
 
-- `Weekly Change Radar`;
-- `Radar Indici`;
-- `Radar Valute`;
-- `Radar Metalli`;
-- `Radar Energetici`;
-- `Radar Tassi`;
-- `Radar Crypto`;
-- `Radar Agricoli`;
-- `Radar Soft`;
-- `Radar Bestiame`.
+## Prompt AI V6.26
 
-I JPG continuano invece a rappresentare la vista filtrata.
+Entrambi i prompt sono stati aggiornati alla V1.5.48. In particolare obbligano l'AI a:
 
-## Prompt AI
-
-Entrambi i prompt sono stati aggiornati alla V1.5.47. In particolare obbligano l'AI a:
-
-- non usare l'OI per definire l'origine del Flow;
-- distinguere aumento Long, aumento Short, chiusura Short e riduzione Long;
-- rispettare la soglia di dominanza 1,25;
-- spiegare quale conferma manca;
-- trattare Dealer/Intermediary come normale controparte FX;
-- riconoscere i warning di primo miglioramento/peggioramento;
-- confrontare nel Weekly Change Radar l'Origine Flow dei due report;
+- riconoscere `DIVERGENZA RIALZISTA/RIBASSISTA PREZZO/COT IN ATTO`;
+- non trasformarla in Long/Short confermato;
+- spiegare che il prezzo anticipa il COT e quale conferma manca;
+- applicare la classificazione dominante Long liquidation / Short covering soltanto quando Long e Short stanno entrambi diminuendo;
+- mantenere Origine Flow 1W e OI 1W separati;
+- rispettare le conferme specifiche della controparte;
 - non inventare supporti, resistenze, POC o altri livelli non calcolati dall'app Python.
 
 ## Salvaguardie Python mantenute
 
-Restano intenzionalmente le correzioni già introdotte nelle versioni precedenti:
+Restano intenzionalmente:
 
 - un semplice Alignment 2/3 non crea una direzione;
-- un 3/3 grezzo resta separato dalla view principale finché non passa almeno a `IN SVILUPPO`;
+- un 3/3 grezzo resta separato dalla view principale;
+- anche `PREZZO ANTICIPA COT` resta separato dalla view principale finché il COT non conferma;
 - dati COT troppo vecchi non producono una view operativa;
-- se un quadro è già Long confermato ma l'ultimo impulso è soprattutto Short Covering, la frase non finge che il prezzo debba ancora confermare;
-- caso speculare per Short confermato + Liquidazione Long;
-- nessun riferimento operativo a supporti, resistenze o POC che la dashboard Python non calcola.
+- Top 8 è fragilità, non direzione;
+- OI Index 52W è partecipazione, non direzione;
+- nessun riferimento operativo a supporti, resistenze o POC che Python non calcola.
 
 ## Verifiche eseguite
 
+- diff completo Pine V1.5.47 → V1.5.48;
 - compilazione Python con `py_compile`;
-- test di tutte le combinazioni principali di Origine Flow 1W;
-- test separazione Origine Flow / OI 1W;
-- test conferma mancante FX Dealer/Intermediary;
-- test warning di primo miglioramento;
-- confronto casuale su 1.000 casi per verificare che Stato e Score Screener non siano stati alterati accidentalmente;
-- test Weekly Change Radar sull'origine del Flow e sul contesto OI;
-- verifica export Excel del Radar e dei nove fogli settoriali;
+- test sintetici divergenza rialzista Prezzo/COT;
+- test sintetici divergenza ribassista Prezzo/COT;
+- test priorità della divergenza rispetto ai sottocasi 3/3 in costruzione;
+- test correzione Long liquidation dominante;
+- test correzione Short covering dominante;
+- verifica che `screener_status()` e lo Score non vengano promossi automaticamente dalla sola divergenza;
+- test maturità del regime nel Weekly Change Radar;
+- test priorità `⚠️ PREZZO ANTICIPA IL COT`;
+- verifica colonne/export e foglio Excel dedicato;
 - controllo placeholder dei prompt;
 - controllo integrità ZIP.
 

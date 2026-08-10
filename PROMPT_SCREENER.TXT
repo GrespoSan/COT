@@ -1,5 +1,5 @@
 PROMPT SCREENER — COT SMART MONEY
-ALLINEATO A G. COT SMART MONEY ENGINE V1.5.47 E SCREENER PYTHON V6.25
+ALLINEATO A G. COT SMART MONEY ENGINE V1.5.48 E SCREENER PYTHON V6.26
 
 Analizza esclusivamente i dati dello screener forniti nella sezione DATI SCREENER in fondo al prompt.
 Non modificare Score, Stato, Direzione o Classificazione AI.
@@ -27,24 +27,24 @@ Mappatura obbligatoria:
 Usa esclusivamente le formule pubbliche “LONG/SHORT CONFERMATO — NON INSEGUIRE” ed evita etichette tecniche da addetti ai lavori.
 
 ==================================================
-COME LEGGERE LO SCREENER V6.25
+COME LEGGERE LO SCREENER V6.26
 ==================================================
 
 1. STATO E SCORE
 
 Lo Stato è deterministico e prevale sulla tua interpretazione.
 Lo Score ordina la qualità complessiva; non è un segnale automatico di ingresso.
-Nella V6.25 lo Score resta direzionale: premia un flusso soltanto se è coerente con la Direzione dello Stato e penalizza un flusso opposto.
+Nella V6.26 lo Score resta direzionale: premia un flusso soltanto se è coerente con la Direzione dello Stato e penalizza un flusso opposto.
 Lo Score OI usa la partecipazione 3-6W; la variazione OI 1W non riceve un secondo bonus perché è già usata per riconoscere NUOVI LONG/NUOVI SHORT.
 Un mercato NEUTRALE / POCO CHIARO non riceve bonus direzionali solo perché l’ultimo report mostra un flusso forte.
 Non trasformare un punteggio alto in “confermato” se lo Stato è “in costruzione”.
 Se lo Stato è “DATI COT DATATI — NON UTILIZZARE”, non ricavare alcuna view operativa: il dato è escluso dalla graduatoria utile e deve essere descritto soltanto come non utilizzabile finché non arriva un report aggiornato.
-Nella V6.25 lo Stato “IN COSTRUZIONE” resta rigoroso. Deriva da una configurazione COT istituzionale prevista dal motore (confirmed senza conferma prezzo, partial_long/partial_short), da un regime contrarian 156W già IN SVILUPPO oppure, come livello più debole, da una persistenza direzionale completa: Flow 1W, 3W e 6W tutti concordi e prezzo Weekly confermato nella stessa direzione. Quest’ultimo caso resta IN COSTRUZIONE perché manca la conferma istituzionale completa della controparte e riceve uno Score motore inferiore. Un semplice Flow 1W concorde con il prezzo o con una sola finestra 3W NON basta. Un Alignment 2/3 e un semplice 3/3 grezzo NON cambiano da soli la Direzione principale dello screener: restano warning/setup separati nella colonna Regime 156W.
+Nella V6.26 lo Stato “IN COSTRUZIONE” resta rigoroso. Deriva da una configurazione COT istituzionale prevista dal motore (confirmed senza conferma prezzo, partial_long/partial_short), da un regime contrarian 156W già IN SVILUPPO oppure, come livello più debole, da una persistenza direzionale completa: Flow 1W, 3W e 6W tutti concordi e prezzo Weekly confermato nella stessa direzione. Quest’ultimo caso resta IN COSTRUZIONE perché manca la conferma istituzionale completa della controparte e riceve uno Score motore inferiore. Un semplice Flow 1W concorde con il prezzo o con una sola finestra 3W NON basta. Un Alignment 2/3 e un semplice 3/3 grezzo NON cambiano da soli la Direzione principale dello screener: restano warning/setup separati nella colonna Regime 156W.
 
 2. POSIZIONE ATTUALE E ORIGINE FLOW 1W
 
 “Posizione attuale” e “Esposizione Long/Short %” descrivono il lato attuale dei Fondi.
-“Origine Flow 1W” è la lettura pubblica V1.5.47 del cambiamento dell’ultimo report e deriva ESCLUSIVAMENTE da:
+“Origine Flow 1W” è la lettura pubblica V1.5.48 del cambiamento dell’ultimo report e deriva ESCLUSIVAMENTE da:
 - Δ Long 1W;
 - Δ Short 1W;
 - variazione della Net Position 1W.
@@ -90,7 +90,7 @@ Un estremo non è da solo un segnale di inversione.
 L’OI Index 52W indica quanto la partecipazione è alta o bassa rispetto all’ultimo anno e non indica da solo Long o Short.
 L’OI Index 52W resta informativo e non modifica il punteggio Smart Money del riferimento TradingView.
 
-6. ALIGNMENT CONTRARIAN 156W — V1.5.47
+6. ALIGNMENT CONTRARIAN 156W — V1.5.48
 
 L’Alignment rialzista/ribassista è fisso a 156W e usa la stessa regola per tutte le famiglie:
 
@@ -113,6 +113,7 @@ Interpretazione obbligatoria:
 - 0/3 o 1/3 = nessun setup completo
 - 2/3 = segnali parziali; NON basta per definire una direzione nello screener
 - 3/3 = setup contrarian in costruzione; NON è ancora confermato e NON cambia da solo la Direzione principale dello screener
+- 3/3 + prezzo Weekly coerente con il possibile cambio, ma senza nuovi Long/Short + Net Position coerente = PREZZO ANTICIPA IL COT; è più avanzato di un 3/3 grezzo ma NON cambia da solo la Direzione principale
 
 7. REGIME 156W
 
@@ -122,6 +123,8 @@ Usala esattamente come fornita:
 - CAMBIO DI REGIME RIBASSISTA CONFERMATO
 - LONG CONTRARIAN IN SVILUPPO
 - SHORT CONTRARIAN IN SVILUPPO
+- DIVERGENZA RIALZISTA PREZZO/COT IN ATTO
+- DIVERGENZA RIBASSISTA PREZZO/COT IN ATTO
 - POSSIBILE LONG CONTRARIAN IN COSTRUZIONE
 - POSSIBILE SHORT CONTRARIAN IN COSTRUZIONE
 - SEGNALI LONG CONTRARIAN PARZIALI 2/3
@@ -132,17 +135,24 @@ Usala esattamente come fornita:
 Gerarchia:
 - 2/3 = parziale;
 - 3/3 = possibile regime in costruzione;
+- 3/3 + prezzo Weekly rialzista ma senza la combinazione nuovi Long + Net Position in miglioramento = DIVERGENZA RIALZISTA PREZZO/COT IN ATTO;
+- 3/3 + prezzo Weekly ribassista ma senza la combinazione nuovi Short + Net Position in peggioramento = DIVERGENZA RIBASSISTA PREZZO/COT IN ATTO;
 - 3/3 + nuovi Long e Net Position che migliora = Long contrarian in sviluppo;
 - 3/3 + nuovi Short e Net Position che peggiora = Short contrarian in sviluppo;
 - confermato = servono inoltre prezzo Weekly e struttura macro coerenti.
 
+I due stati DIVERGENZA PREZZO/COT indicano che il prezzo sta anticipando il COT. Sono più informativi di un semplice 3/3, ma non sono un Long/Short confermato e non promuovono automaticamente lo Stato principale dello screener. La colonna “Prezzo anticipa COT” può essere RIALZISTA, RIBASSISTA o NO.
+
 Non promuovere mai 2/3 o un 3/3 grezzo a “cambio di regime confermato”.
 Se il dettaglio dice short covering o long liquidation, mantieni questa distinzione: non chiamarla nuova accumulazione Long/Short.
+Nella V1.5.48 la classificazione dominante è stata resa più rigorosa:
+- “domina la LONG LIQUIDATION” in un setup rialzista 3/3 richiede Long e Short entrambi in diminuzione e Net Position in peggioramento;
+- “domina lo SHORT COVERING” in un setup ribassista 3/3 richiede Long e Short entrambi in diminuzione e Net Position in miglioramento.
 Se uno strumento è LONG CONFERMATO ma il Tipo flusso è SHORT COVERING, mantieni LONG CONFERMATO e specifica che l’ultimo impulso è meno robusto perché deriva dalla chiusura degli Short, non da nuovi Long.
 Se uno strumento è SHORT CONFERMATO ma il Tipo flusso è LIQUIDAZIONE LONG, mantieni SHORT CONFERMATO e specifica che l’ultimo impulso è meno robusto perché deriva dalla chiusura dei Long, non da nuovi Short.
 Non scrivere in questi due casi che il prezzo deve ancora confermare: la colonna Stato indica già che la conferma complessiva è presente.
 
-REGOLA V1.5.47 SULLE CONFERME MANCANTI:
+REGOLA V1.5.48 SULLE CONFERME MANCANTI:
 Quando uno Stato è IN COSTRUZIONE o il prezzo è già confermato ma la view COT è incompleta, non usare spiegazioni generiche se i dati indicano quale componente manca. Segui l’ordine deterministico:
 1. prezzo;
 2. struttura 3–6W della categoria principale;
@@ -157,7 +167,7 @@ Relazione della controparte:
 
 Se manca il Dealer FX nell’ultimo report, esplicita che deve ancora confermare il normale ruolo di controparte.
 
-La V1.5.47 introduce inoltre due warning prioritari:
+La V1.5.48 introduce inoltre due warning prioritari:
 - PRIMO MIGLIORAMENTO COT, MA VIEW RIALZISTA NON ANCORA FORMATA;
 - PRIMO PEGGIORAMENTO COT, MA VIEW RIBASSISTA NON ANCORA FORMATA.
 Si applicano quando il Flow 1W cambia direzione ma la struttura 3–6W non è ancora coerente: non presentarli come setup già maturo.
@@ -185,18 +195,21 @@ Quando cita un possibile cambio di regime, conserva la distinzione tra:
 
 11. WEEKLY CHANGE RADAR — CONFRONTO TRA DUE REPORT
 
-Se i dati dello screener includono colonne “precedente” e “attuale”, applica le stesse regole V1.5.47 a entrambi gli snapshot.
+Se i dati dello screener includono colonne “precedente” e “attuale”, applica le stesse regole V1.5.48 a entrambi gli snapshot.
 Nel confronto settimanale dai priorità a:
 - cambi di Stato;
 - variazione Score;
 - cambiamento dell’Origine Flow 1W;
 - cambiamento del Contesto OI 1W;
 - prezzo Weekly;
+- passaggio “Prezzo anticipa COT” da NO a RIALZISTA/RIBASSISTA o viceversa;
 - avanzamento o deterioramento del Regime 156W.
 
 Non descrivere il cambiamento settimanale usando soltanto il vecchio “Tipo flusso”. Se disponibile, confronta “Origine Flow 1W precedente” con “Origine Flow 1W”.
 Il “Segnale flusso motore” può restare un dato interno per la logica deterministica del Radar, ma non deve sostituire la lettura pubblica più precisa.
 Un passaggio da una Origine Flow rialzista a ribassista o viceversa è informativo, ma non modifica da solo lo Stato: Stato, Score, struttura 3–6W, prezzo e regime restano separati.
+Se compare per la prima volta “Prezzo anticipa COT = RIALZISTA/RIBASSISTA”, classificalo come cambiamento da MONITORARE: il prezzo Weekly sta anticipando un possibile regime 3/3, ma il COT deve ancora confermare con nuovi Long/Short e Net Position coerente. Non trasformarlo automaticamente in DA APPROFONDIRE o in Stato confermato.
+Nel Radar la maturità del regime è: 2/3 < 3/3 grezzo < PREZZO ANTICIPA COT < IN SVILUPPO < CONFERMATO.
 Il Weekly Change Radar serve a decidere dove concentrare il tempo, non crea un nuovo Score.
 
 ==================================================
@@ -283,9 +296,11 @@ Questa sezione è informativa e NON modifica le sezioni 3–7.
 Mostra soltanto gli strumenti con:
 - CAMBIO DI REGIME ... CONFERMATO;
 - ... CONTRARIAN IN SVILUPPO;
+- DIVERGENZA RIALZISTA/RIBASSISTA PREZZO/COT IN ATTO;
 - POSSIBILE ... CONTRARIAN IN COSTRUZIONE.
 
-Ordina prima i confermati, poi quelli in sviluppo, poi quelli in costruzione.
+Ordina prima i confermati, poi quelli in sviluppo, poi le divergenze in cui il prezzo anticipa il COT, quindi quelli in costruzione.
+Per le divergenze PREZZO/COT specifica sempre che il prezzo è già coerente con il possibile cambio, ma il COT non ha ancora fornito nuovi Long/Short + variazione coerente della Net Position.
 Per i semplici 2/3 scrivi al massimo una nota finale aggregata; non presentarli come cambio di regime.
 Se non ci sono casi 3/3 o superiori, scrivi: “Nessun possibile cambio di regime 156W avanzato tra i risultati analizzati.”
 
@@ -298,6 +313,8 @@ Prima di terminare verifica internamente che:
 - nessun “in costruzione” sia presentato come confermato;
 - nessun 2/3 sia presentato come regime confermato;
 - nessun 3/3 grezzo sia presentato come regime confermato o usato da solo per ribaltare la Direzione principale;
+- nessuna DIVERGENZA PREZZO/COT sia presentata come Long/Short confermato o usata da sola per ribaltare la Direzione principale;
+- una classificazione dominante LONG LIQUIDATION / SHORT COVERING 3/3 sia usata soltanto quando Long e Short sono entrambi in diminuzione;
 - nessun dato COT datato sia presentato come view operativa Long o Short;
 - l’Origine Flow 1W sia descritta da Δ Long, Δ Short e Net Position, senza usare l’OI per definirla;
 - il Contesto OI 1W resti separato dall’Origine Flow;
