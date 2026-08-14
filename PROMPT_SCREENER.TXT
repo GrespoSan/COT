@@ -1,5 +1,5 @@
 PROMPT SCREENER — COT SMART MONEY
-ALLINEATO A G. COT SMART MONEY ENGINE V1.5.48 E SCREENER PYTHON V6.26
+ALLINEATO A G. COT SMART MONEY ENGINE V1.5.48 E SCREENER PYTHON V6.27
 
 Analizza esclusivamente i dati dello screener forniti nella sezione DATI SCREENER in fondo al prompt.
 Non modificare Score, Stato, Direzione o Classificazione AI.
@@ -27,19 +27,19 @@ Mappatura obbligatoria:
 Usa esclusivamente le formule pubbliche “LONG/SHORT CONFERMATO — NON INSEGUIRE” ed evita etichette tecniche da addetti ai lavori.
 
 ==================================================
-COME LEGGERE LO SCREENER V6.26
+COME LEGGERE LO SCREENER V6.27
 ==================================================
 
 1. STATO E SCORE
 
 Lo Stato è deterministico e prevale sulla tua interpretazione.
 Lo Score ordina la qualità complessiva; non è un segnale automatico di ingresso.
-Nella V6.26 lo Score resta direzionale: premia un flusso soltanto se è coerente con la Direzione dello Stato e penalizza un flusso opposto.
+Nella V6.27 lo Score resta direzionale: premia un flusso soltanto se è coerente con la Direzione dello Stato e penalizza un flusso opposto.
 Lo Score OI usa la partecipazione 3-6W; la variazione OI 1W non riceve un secondo bonus perché è già usata per riconoscere NUOVI LONG/NUOVI SHORT.
 Un mercato NEUTRALE / POCO CHIARO non riceve bonus direzionali solo perché l’ultimo report mostra un flusso forte.
 Non trasformare un punteggio alto in “confermato” se lo Stato è “in costruzione”.
 Se lo Stato è “DATI COT DATATI — NON UTILIZZARE”, non ricavare alcuna view operativa: il dato è escluso dalla graduatoria utile e deve essere descritto soltanto come non utilizzabile finché non arriva un report aggiornato.
-Nella V6.26 lo Stato “IN COSTRUZIONE” resta rigoroso. Deriva da una configurazione COT istituzionale prevista dal motore (confirmed senza conferma prezzo, partial_long/partial_short), da un regime contrarian 156W già IN SVILUPPO oppure, come livello più debole, da una persistenza direzionale completa: Flow 1W, 3W e 6W tutti concordi e prezzo Weekly confermato nella stessa direzione. Quest’ultimo caso resta IN COSTRUZIONE perché manca la conferma istituzionale completa della controparte e riceve uno Score motore inferiore. Un semplice Flow 1W concorde con il prezzo o con una sola finestra 3W NON basta. Un Alignment 2/3 e un semplice 3/3 grezzo NON cambiano da soli la Direzione principale dello screener: restano warning/setup separati nella colonna Regime 156W.
+Nella V6.27 lo Stato “IN COSTRUZIONE” resta rigoroso. Deriva da una configurazione COT istituzionale prevista dal motore (confirmed senza conferma prezzo, partial_long/partial_short), da un regime contrarian 156W già IN SVILUPPO oppure, come livello più debole, da una persistenza direzionale completa: Flow 1W, 3W e 6W tutti concordi e prezzo Weekly confermato nella stessa direzione. Quest’ultimo caso resta IN COSTRUZIONE perché manca la conferma istituzionale completa della controparte e riceve uno Score motore inferiore. Un semplice Flow 1W concorde con il prezzo o con una sola finestra 3W NON basta. Un Alignment 2/3 e un semplice 3/3 grezzo NON cambiano da soli la Direzione principale dello screener: restano warning/setup separati nella colonna Regime 156W.
 
 2. POSIZIONE ATTUALE E ORIGINE FLOW 1W
 
@@ -211,6 +211,14 @@ Un passaggio da una Origine Flow rialzista a ribassista o viceversa è informati
 Se compare per la prima volta “Prezzo anticipa COT = RIALZISTA/RIBASSISTA”, classificalo come cambiamento da MONITORARE: il prezzo Weekly sta anticipando un possibile regime 3/3, ma il COT deve ancora confermare con nuovi Long/Short e Net Position coerente. Non trasformarlo automaticamente in DA APPROFONDIRE o in Stato confermato.
 Nel Radar la maturità del regime è: 2/3 < 3/3 grezzo < PREZZO ANTICIPA COT < IN SVILUPPO < CONFERMATO.
 Il Weekly Change Radar serve a decidere dove concentrare il tempo, non crea un nuovo Score.
+
+FOCUS OPERATIVO SETTIMANALE — REGOLA DETERMINISTICA PYTHON V6.27
+Il Focus Operativo è una shortlist separata e NON deve essere reinterpretata dall'AI.
+- FOCUS: soltanto setup LONG/SHORT CONFERMATO, non NON INSEGUIRE, Score >= 65, prezzo Weekly confermato, struttura 3-6W coerente e Flow 1W non contrario.
+- MONITORARE: prezzo che anticipa il COT su 3/3, regime contrarian IN SVILUPPO oppure setup IN COSTRUZIONE sufficientemente coerente ma non ancora completo.
+- Il sistema non forza un numero minimo di mercati e mostra al massimo 8 candidati FOCUS.
+- La verifica della settimana precedente usa la shortlist ricostruita con lo snapshot precedente; non modificare retroattivamente la selezione in base al risultato del prezzo.
+- MFE e MAE sono metriche di verifica della shortlist, non target o stop consigliati.
 
 ==================================================
 STRUTTURA OBBLIGATORIA DELLA RISPOSTA

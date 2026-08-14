@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 # CONFIGURAZIONE PAGINA
 # =============================================================================
 st.set_page_config(
-    page_title="COT Smart Money V6.26 — Python",
+    page_title="COT Smart Money V6.27 — Python",
     page_icon="🛡️",
     layout="wide",
 )
@@ -48,9 +48,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🛡️ COT Smart Money — Python V6.26")
+st.title("🛡️ COT Smart Money — Python V6.27")
 st.caption(
-    "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale con Weekly Change Radar. "
+    "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale con Weekly Change Radar e Focus Operativo. "
     "Il motore è allineato a TradingView G. COT Smart Money Engine V1.5.48 e seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
 )
 
@@ -82,6 +82,9 @@ RADAR_ACTIONABLE_SCORE = 50
 RADAR_CONFIRMED_STRENGTH_DELTA = 10
 RADAR_ACCELERATION_DELTA = 15
 RADAR_DETERIORATION_DELTA = -15
+FOCUS_MIN_SCORE = 65
+FOCUS_MAX_MARKETS = 8
+FOCUS_WATCH_MIN_SCORE = 50
 
 
 @dataclass(frozen=True)
@@ -690,6 +693,59 @@ def fetch_weekly_price(ticker: str) -> tuple[pd.DataFrame, str | None]:
     weekly = weekly.loc[weekly.index <= cutoff].copy()
     weekly["ema21"] = weekly["close"].ewm(span=21, adjust=False).mean()
     return weekly.tail(180), None
+
+
+@st.cache_data(ttl=21600, show_spinner=False)
+def fetch_daily_ohlc(ticker: str) -> tuple[pd.DataFrame, str | None]:
+    """OHLC giornaliero usato soltanto per verificare il Focus della settimana precedente.
+
+    Il giorno corrente viene sempre escluso quando potrebbe essere ancora aperto; in questo
+    modo la verifica non usa barre giornaliere incomplete.
+    """
+    if not str(ticker or "").strip():
+        return pd.DataFrame(), "Ticker Yahoo non impostato."
+    try:
+        daily = yf.download(
+            str(ticker).strip(),
+            period="1y",
+            interval="1d",
+            auto_adjust=False,
+            progress=False,
+            threads=False,
+        )
+    except Exception as exc:
+        return pd.DataFrame(), f"Errore Yahoo Finance: {exc}"
+    if daily is None or daily.empty:
+        return pd.DataFrame(), "Yahoo Finance non ha restituito dati giornalieri."
+
+    wanted = ["Open", "High", "Low", "Close"]
+    out = pd.DataFrame(index=pd.to_datetime(daily.index).tz_localize(None))
+    if isinstance(daily.columns, pd.MultiIndex):
+        for name in wanted:
+            candidates = [col for col in daily.columns if col[0] == name]
+            if not candidates:
+                return pd.DataFrame(), f"Colonna {name} non trovata nei dati Yahoo."
+            out[name.lower()] = pd.to_numeric(daily[candidates[0]], errors="coerce").to_numpy()
+    else:
+        for name in wanted:
+            if name not in daily.columns:
+                return pd.DataFrame(), f"Colonna {name} non trovata nei dati Yahoo."
+            out[name.lower()] = pd.to_numeric(daily[name], errors="coerce").to_numpy()
+    out = out.dropna(subset=["open", "high", "low", "close"]).sort_index()
+    return out, None
+
+
+def last_complete_daily_date(today: date | None = None) -> date:
+    """Ultima seduta che possiamo trattare prudentemente come completata."""
+    day = today or date.today()
+    if day.weekday() >= 5:  # sab/dom -> venerdì
+        back = day.weekday() - 4
+        return day - timedelta(days=back)
+    # lun-ven: non usiamo la barra del giorno corrente, che può essere ancora aperta.
+    candidate = day - timedelta(days=1)
+    while candidate.weekday() >= 5:
+        candidate -= timedelta(days=1)
+    return candidate
 
 
 def analyze_price(weekly: pd.DataFrame) -> dict[str, Any]:
@@ -2766,7 +2822,7 @@ def calculate_screener_score(
 ) -> dict[str, Any]:
     """Score di qualità 0-100, separato dallo Stato e coerente con la direzione.
 
-    V6.26 conserva la logica di Score validata nelle versioni precedenti e la separa dalla nuova lettura pubblica Flow Origin V1.5.48:
+    V6.27 conserva la logica di Score validata nelle versioni precedenti e la separa dalla nuova lettura pubblica Flow Origin V1.5.48:
     1) un flusso opposto alla Direzione non viene premiato;
     2) i mercati davvero NEUTRALI non ricevono punti solo perché l'ultimo report è forte;
     3) l'Open Interest 1W non viene contato due volte: NUOVI LONG/SHORT lo incorpora
@@ -3495,6 +3551,349 @@ def build_weekly_change_radar(results: pd.DataFrame) -> pd.DataFrame:
 
 
 
+def _focus_directional_structure(row: pd.Series, direction: str, prefix: str = "") -> bool:
+    f3 = pd.to_numeric(pd.Series([row.get(f"Flow 3W{prefix}", math.nan)]), errors="coerce").iloc[0]
+    f6 = pd.to_numeric(pd.Series([row.get(f"Flow 6W{prefix}", math.nan)]), errors="coerce").iloc[0]
+    if pd.isna(f3) or pd.isna(f6):
+        return False
+    return (direction == "LONG" and f3 > 0 and f6 > 0) or (direction == "SHORT" and f3 < 0 and f6 < 0)
+
+
+def _focus_flow_coherent(direction: str, motor_flow: str) -> bool:
+    value = str(motor_flow or "")
+    if direction == "LONG":
+        return value in ("NUOVI LONG", "MIGLIORAMENTO MISTO", "FLUSSO NEUTRALE")
+    if direction == "SHORT":
+        return value in ("NUOVI SHORT", "PEGGIORAMENTO MISTO", "FLUSSO NEUTRALE")
+    return False
+
+
+def _focus_price_confirmed(direction: str, price_text: str) -> bool:
+    return (direction == "LONG" and str(price_text) == "CONFERMA RIALZISTA") or (direction == "SHORT" and str(price_text) == "CONFERMA RIBASSISTA")
+
+
+def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARKETS) -> pd.DataFrame:
+    """Shortlist settimanale deterministica.
+
+    Non crea un nuovo punteggio: usa Stato, Score, prezzo, struttura 3-6W, Flow e Regime già
+    calcolati dallo screener. I setup non confermati restano in MONITORARE e non vengono
+    presentati come candidati operativi.
+    """
+    columns = [
+        "Ordine Focus", "Priorità", "Strumento", "Categoria", "Direzione", "Tipo opportunità",
+        "Stato", "Score", "Δ Score", "Origine Flow 1W", "Segnale flusso motore",
+        "Regime 156W", "Prezzo Weekly", "Decisione", "Perché è qui", "Data COT", "Ticker Yahoo",
+    ]
+    if results.empty:
+        return pd.DataFrame(columns=columns)
+
+    rows: list[dict[str, Any]] = []
+    for _, row in results.iterrows():
+        status = str(row.get("Stato", ""))
+        direction = str(row.get("Direzione", "NEUTRALE"))
+        score = float(row.get("Score", 0) or 0)
+        price_text = str(row.get("Prezzo Weekly", ""))
+        motor_flow = str(row.get("Segnale flusso motore", row.get("Tipo flusso", "")))
+        regime = str(row.get("Regime 156W", ""))
+        price_leads = str(row.get("Prezzo anticipa COT", "NO"))
+        previous_status = str(row.get("Stato precedente", ""))
+        previous_direction = str(row.get("Direzione precedente", "NEUTRALE"))
+        previous_score = pd.to_numeric(pd.Series([row.get("Score precedente", math.nan)]), errors="coerce").iloc[0]
+        delta_score = score - float(previous_score) if not pd.isna(previous_score) else math.nan
+        has_previous_context = bool(row.get("Snapshot precedente disponibile", row.get("Confronto precedente disponibile", True)))
+
+        stale = "DATI COT DATATI" in status
+        non_inseguire = "NON INSEGUIRE" in status
+        confirmed = "CONFERMATO" in status and not non_inseguire
+        construction = "IN COSTRUZIONE" in status
+        focus_direction = direction
+        if focus_direction not in ("LONG", "SHORT") and price_leads == "RIALZISTA":
+            focus_direction = "LONG"
+        elif focus_direction not in ("LONG", "SHORT") and price_leads == "RIBASSISTA":
+            focus_direction = "SHORT"
+        price_ok = _focus_price_confirmed(focus_direction, price_text)
+        structure_ok = _focus_directional_structure(row, focus_direction)
+        flow_ok = _focus_flow_coherent(focus_direction, motor_flow)
+        same_previous_confirmed = (
+            previous_direction == focus_direction
+            and "CONFERMATO" in previous_status
+            and "NON INSEGUIRE" not in previous_status
+        )
+
+        decision = ""
+        opportunity = ""
+        priority = ""
+        why = ""
+        order = 99
+
+        if stale or focus_direction not in ("LONG", "SHORT"):
+            continue
+        if non_inseguire:
+            # Utile da vedere nel Radar, ma non nel Focus operativo: il criterio serve
+            # proprio a evitare di concentrare tempo su movimenti già troppo estesi.
+            continue
+
+        if confirmed and score >= FOCUS_MIN_SCORE and price_ok and structure_ok and flow_ok:
+            decision = "FOCUS"
+            if has_previous_context and not same_previous_confirmed:
+                opportunity = "PUNTO DI SVOLTA — NUOVA CONFERMA"
+                priority = "🔥 NUOVA CONFERMA"
+                order = 1
+                why = (
+                    f"Il quadro è diventato {focus_direction} confermato rispetto al report precedente. "
+                    "Prezzo Weekly e struttura 3-6W sono coerenti e l'ultimo Flow non è contrario alla direzione."
+                )
+            elif has_previous_context and same_previous_confirmed:
+                opportunity = "CONTINUAZIONE FORTE"
+                priority = "➡️ CONTINUAZIONE"
+                order = 2
+                why = (
+                    f"Setup {focus_direction} già confermato con Score {score:.0f}, prezzo Weekly confermato, "
+                    "struttura 3-6W coerente e ultimo Flow non contrario."
+                )
+            else:
+                opportunity = "SETUP CONFERMATO"
+                priority = "✅ CONFERMATO"
+                order = 2
+                why = (
+                    f"Setup {focus_direction} confermato con Score {score:.0f}, prezzo Weekly confermato, "
+                    "struttura 3-6W coerente e ultimo Flow non contrario. Il confronto con una settimana ancora precedente non è disponibile."
+                )
+        elif price_leads in ("RIALZISTA", "RIBASSISTA"):
+            decision = "MONITORARE"
+            opportunity = "PUNTO DI SVOLTA — PREZZO ANTICIPA COT"
+            priority = "⚠️ PREZZO ANTICIPA COT"
+            order = 3
+            why = (
+                "Alignment 156W 3/3 e prezzo Weekly stanno anticipando il possibile cambio di regime, "
+                "ma il COT non ha ancora completato la conferma richiesta dal motore."
+            )
+        elif "IN SVILUPPO" in regime and score >= FOCUS_WATCH_MIN_SCORE:
+            decision = "MONITORARE"
+            opportunity = "PUNTO DI SVOLTA — REGIME IN SVILUPPO"
+            priority = "🟡 REGIME IN SVILUPPO"
+            order = 4
+            why = (
+                "Il regime contrarian 156W ha già superato il semplice 3/3, ma manca ancora almeno una "
+                "delle conferme necessarie per trattarlo come setup operativo completo."
+            )
+        elif construction and score >= FOCUS_WATCH_MIN_SCORE and (price_ok or structure_ok) and flow_ok:
+            decision = "MONITORARE"
+            opportunity = "SETUP IN MATURAZIONE"
+            priority = "🟡 IN MATURAZIONE"
+            order = 5
+            why = (
+                f"Il setup {focus_direction} è ancora in costruzione, ma Score {score:.0f} e parte della struttura sono coerenti. "
+                "Resta in watchlist finché non arriva la conferma completa."
+            )
+        else:
+            continue
+
+        rows.append({
+            "Ordine Focus": order,
+            "Priorità": priority,
+            "Strumento": row.get("Strumento", ""),
+            "Categoria": radar_market_bucket(row.get("Gruppo", "")),
+            "Direzione": focus_direction,
+            "Tipo opportunità": opportunity,
+            "Stato": status,
+            "Score": score,
+            "Δ Score": round(delta_score, 0) if not pd.isna(delta_score) else math.nan,
+            "Origine Flow 1W": row.get("Origine Flow 1W", ""),
+            "Segnale flusso motore": motor_flow,
+            "Regime 156W": regime,
+            "Prezzo Weekly": price_text,
+            "Decisione": decision,
+            "Perché è qui": why,
+            "Data COT": row.get("Data COT", ""),
+            "Ticker Yahoo": row.get("Ticker Yahoo", ""),
+        })
+
+    focus = pd.DataFrame(rows, columns=columns)
+    if focus.empty:
+        return focus
+    focus = focus.sort_values(
+        ["Decisione", "Ordine Focus", "Score", "Δ Score", "Strumento"],
+        ascending=[True, True, False, False, True],
+        na_position="last",
+    ).reset_index(drop=True)
+    # Limite soltanto sui candidati FOCUS; i monitor vengono mantenuti separatamente.
+    candidates = focus[focus["Decisione"] == "FOCUS"].head(int(max_focus))
+    watch = focus[focus["Decisione"] == "MONITORARE"].head(int(max_focus))
+    return pd.concat([candidates, watch], ignore_index=True)
+
+
+def previous_snapshot_as_results(results: pd.DataFrame) -> pd.DataFrame:
+    """Ricostruisce il punto-in-tempo del report precedente con i dati già salvati nello screener."""
+    if results.empty:
+        return pd.DataFrame()
+    rows: list[dict[str, Any]] = []
+    for _, row in results.iterrows():
+        if not bool(row.get("Snapshot precedente disponibile", False)):
+            continue
+        direction = str(row.get("Direzione precedente", "NEUTRALE"))
+        rows.append({
+            "Strumento": row.get("Strumento", ""),
+            "Gruppo": row.get("Gruppo", ""),
+            "Stato": row.get("Stato precedente", "NON DISPONIBILE"),
+            "Direzione": direction,
+            "Score": row.get("Score precedente", math.nan),
+            "Score precedente": math.nan,
+            "Stato precedente": "NON DISPONIBILE",
+            "Direzione precedente": "NEUTRALE",
+            "Origine Flow 1W": row.get("Origine Flow 1W precedente", ""),
+            "Segnale flusso motore": row.get("Segnale flusso motore precedente", ""),
+            "Flow 3W": row.get("Flow 3W precedente", math.nan),
+            "Flow 6W": row.get("Flow 6W precedente", math.nan),
+            "Regime 156W": row.get("Regime 156W precedente", ""),
+            "Prezzo anticipa COT": row.get("Prezzo anticipa COT precedente", "NO"),
+            "Prezzo Weekly": row.get("Prezzo Weekly precedente", ""),
+            "Data COT": row.get("Data COT precedente", ""),
+            "Ticker Yahoo": row.get("Ticker Yahoo", ""),
+            "Snapshot precedente disponibile": False,
+        })
+    return pd.DataFrame(rows)
+
+
+def _evaluate_focus_with_daily(direction: str, daily: pd.DataFrame, start_after: date, end_on: date) -> dict[str, Any]:
+    if daily.empty:
+        return {"available": False, "error": "Dati prezzo giornalieri non disponibili."}
+    window = daily[(daily.index.date > start_after) & (daily.index.date <= end_on)].copy()
+    if window.empty:
+        return {"available": False, "error": "Nessuna seduta disponibile nel periodo di verifica."}
+    entry = float(window.iloc[0]["open"])
+    exit_price = float(window.iloc[-1]["close"])
+    if entry == 0 or pd.isna(entry) or pd.isna(exit_price):
+        return {"available": False, "error": "Prezzi di riferimento non validi."}
+    if direction == "LONG":
+        directional_return = 100.0 * (exit_price - entry) / entry
+        mfe = 100.0 * (float(window["high"].max()) - entry) / entry
+        mae = 100.0 * (float(window["low"].min()) - entry) / entry
+    elif direction == "SHORT":
+        directional_return = 100.0 * (entry - exit_price) / entry
+        mfe = 100.0 * (entry - float(window["low"].min())) / entry
+        mae = 100.0 * (entry - float(window["high"].max())) / entry
+    else:
+        return {"available": False, "error": "Direzione precedente non valida."}
+    outcome = "✅ FAVOREVOLE" if directional_return > 0 else "❌ SFAVOREVOLE" if directional_return < 0 else "➖ NEUTRO"
+    return {
+        "available": True,
+        "entry_date": window.index[0].date(),
+        "exit_date": window.index[-1].date(),
+        "entry": entry,
+        "exit": exit_price,
+        "return": directional_return,
+        "mfe": mfe,
+        "mae": mae,
+        "outcome": outcome,
+    }
+
+
+def evaluate_previous_focus(results: pd.DataFrame) -> pd.DataFrame:
+    """Valuta i candidati FOCUS che il modello avrebbe selezionato sul report precedente."""
+    columns = [
+        "Strumento", "Direzione", "Tipo", "Report Focus", "Ingresso riferimento", "Data ingresso",
+        "Uscita riferimento", "Data uscita", "Rendimento direzionale %", "MFE %", "MAE %", "Esito",
+        "Stato attuale", "Score attuale", "Nota",
+    ]
+    previous_results = previous_snapshot_as_results(results)
+    previous_focus = build_focus_operativo(previous_results)
+    previous_focus = previous_focus[previous_focus["Decisione"] == "FOCUS"].copy()
+    if previous_focus.empty:
+        return pd.DataFrame(columns=columns)
+
+    current_by_name = results.set_index("Strumento", drop=False) if "Strumento" in results.columns else pd.DataFrame()
+    evaluation_end = last_complete_daily_date()
+    out: list[dict[str, Any]] = []
+    for _, focus_row in previous_focus.iterrows():
+        name = str(focus_row.get("Strumento", ""))
+        report_raw = focus_row.get("Data COT", "")
+        try:
+            report_day = pd.Timestamp(report_raw).date()
+        except Exception:
+            continue
+        start_after = cot_snapshot_reference_date(report_day)
+        # Non andiamo oltre il venerdì di riferimento del report corrente, ma escludiamo
+        # sempre una seduta giornaliera ancora aperta.
+        current_report_day = None
+        current_row = None
+        if not current_by_name.empty and name in current_by_name.index:
+            current_row = current_by_name.loc[name]
+            if isinstance(current_row, pd.DataFrame):
+                current_row = current_row.iloc[0]
+            try:
+                current_report_day = pd.Timestamp(current_row.get("Data COT", "")).date()
+            except Exception:
+                current_report_day = None
+        report_end = cot_snapshot_reference_date(current_report_day) if current_report_day else evaluation_end
+        end_on = min(report_end, evaluation_end)
+
+        ticker = str(focus_row.get("Ticker Yahoo", ""))
+        daily, err = fetch_daily_ohlc(ticker)
+        perf = _evaluate_focus_with_daily(str(focus_row.get("Direzione", "")), daily, start_after, end_on)
+        if not perf.get("available"):
+            out.append({
+                "Strumento": name,
+                "Direzione": focus_row.get("Direzione", ""),
+                "Tipo": focus_row.get("Tipo opportunità", ""),
+                "Report Focus": report_day.isoformat(),
+                "Ingresso riferimento": math.nan,
+                "Data ingresso": "",
+                "Uscita riferimento": math.nan,
+                "Data uscita": "",
+                "Rendimento direzionale %": math.nan,
+                "MFE %": math.nan,
+                "MAE %": math.nan,
+                "Esito": "NON VALUTABILE",
+                "Stato attuale": current_row.get("Stato", "") if current_row is not None else "",
+                "Score attuale": current_row.get("Score", math.nan) if current_row is not None else math.nan,
+                "Nota": perf.get("error") or err or "Dati non disponibili.",
+            })
+            continue
+        out.append({
+            "Strumento": name,
+            "Direzione": focus_row.get("Direzione", ""),
+            "Tipo": focus_row.get("Tipo opportunità", ""),
+            "Report Focus": report_day.isoformat(),
+            "Ingresso riferimento": perf["entry"],
+            "Data ingresso": perf["entry_date"].isoformat(),
+            "Uscita riferimento": perf["exit"],
+            "Data uscita": perf["exit_date"].isoformat(),
+            "Rendimento direzionale %": perf["return"],
+            "MFE %": perf["mfe"],
+            "MAE %": perf["mae"],
+            "Esito": perf["outcome"],
+            "Stato attuale": current_row.get("Stato", "") if current_row is not None else "",
+            "Score attuale": current_row.get("Score", math.nan) if current_row is not None else math.nan,
+            "Nota": "Riferimento: apertura della prima seduta successiva al report disponibile e ultima seduta giornaliera completata prima del nuovo ciclo.",
+        })
+    return pd.DataFrame(out, columns=columns)
+
+
+def build_focus_excel(focus_frame: pd.DataFrame, verification_frame: pd.DataFrame) -> bytes:
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        focus_frame[focus_frame["Decisione"] == "FOCUS"].to_excel(writer, sheet_name="Focus settimana", index=False)
+        focus_frame[focus_frame["Decisione"] == "MONITORARE"].to_excel(writer, sheet_name="Da monitorare", index=False)
+        verification_frame.to_excel(writer, sheet_name="Verifica precedente", index=False)
+        from openpyxl.styles import Alignment, Font, PatternFill
+        from openpyxl.utils import get_column_letter
+        header_fill = PatternFill("solid", fgColor="1F4E78")
+        header_font = Font(color="FFFFFF", bold=True)
+        for ws in writer.book.worksheets:
+            ws.freeze_panes = "A2"
+            ws.auto_filter.ref = ws.dimensions
+            for cell in ws[1]:
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            for column_cells in ws.columns:
+                letter = get_column_letter(column_cells[0].column)
+                max_len = max([len(str(c.value or "")) for c in column_cells[:150]] + [10])
+                ws.column_dimensions[letter].width = max(10, min(max_len + 2, 46))
+    return output.getvalue()
+
+
 RADAR_SECTOR_SHEETS: tuple[tuple[str, str], ...] = (
     ("Indici", "Radar Indici"),
     ("Valute", "Radar Valute"),
@@ -3522,6 +3921,9 @@ def build_screener_excel(results: pd.DataFrame, errors: pd.DataFrame) -> bytes:
     output = io.BytesIO()
     ordered = results.sort_values(["Score", "Strumento"], ascending=[False, True]).reset_index(drop=True)
     radar = build_weekly_change_radar(results)
+    focus = build_focus_operativo(results)
+    # La verifica prezzi richiede Yahoo giornaliero e viene calcolata nella scheda dedicata;
+    # l'Excel generale include comunque la shortlist Focus corrente.
     display_columns = [
         "Strumento", "Stato", "Direzione", "Qualità", "Score", "Origine Flow 1W", "Segnale flusso motore",
         "COT Index", "COT Index 26W", "COT Index 156W", "Posizione attuale", "Posizionamento", "Esposizione Long %", "Esposizione Short %",
@@ -3531,6 +3933,9 @@ def build_screener_excel(results: pd.DataFrame, errors: pd.DataFrame) -> bytes:
 
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         ordered[display_columns].to_excel(writer, sheet_name="Classifica generale", index=False)
+        if not focus.empty:
+            focus[focus["Decisione"] == "FOCUS"].to_excel(writer, sheet_name="Focus settimana", index=False)
+            focus[focus["Decisione"] == "MONITORARE"].to_excel(writer, sheet_name="Focus monitorare", index=False)
         if not radar.empty:
             radar_export_columns = [
                 "Priorità", "Strumento", "Categoria Radar", "Report precedente", "Report attuale",
@@ -4349,6 +4754,128 @@ def render_weekly_change_radar_tab(results_df: pd.DataFrame) -> None:
     ]
     st.dataframe(radar_filtered[details_columns], width="stretch", hide_index=True)
 
+def _focus_direction_style(value: Any) -> str:
+    text = str(value or "")
+    if text == "SHORT":
+        return "color: #ff4b4b; font-weight: 700;"
+    if text == "LONG":
+        return "color: #21c55d; font-weight: 700;"
+    return ""
+
+
+def render_focus_operativo_tab(results_df: pd.DataFrame) -> None:
+    st.subheader("Focus Operativo Settimanale")
+    st.caption(
+        "Questa sezione restringe lo screener ai mercati su cui vale davvero la pena concentrare il tempo. "
+        "Non crea un nuovo Score e non forza un numero minimo di strumenti: se i criteri non sono soddisfatti, il Focus può essere vuoto."
+    )
+    focus = build_focus_operativo(results_df)
+    candidates = focus[focus["Decisione"] == "FOCUS"].copy() if not focus.empty else pd.DataFrame()
+    watch = focus[focus["Decisione"] == "MONITORARE"].copy() if not focus.empty else pd.DataFrame()
+
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Candidati operativi", len(candidates))
+    m2.metric("Punti da monitorare", len(watch))
+    m3.metric("Massimo Focus", FOCUS_MAX_MARKETS)
+
+    st.markdown("#### Strumenti su cui concentrare il lavoro questa settimana")
+    if candidates.empty:
+        st.info("Nessun mercato soddisfa questa settimana tutti i criteri del Focus operativo. Non viene forzata una shortlist artificiale.")
+    else:
+        show_cols = [
+            "Priorità", "Strumento", "Categoria", "Direzione", "Tipo opportunità", "Stato", "Score", "Δ Score",
+            "Origine Flow 1W", "Regime 156W", "Prezzo Weekly", "Perché è qui",
+        ]
+        styled = candidates[show_cols].style.map(_focus_direction_style, subset=["Direzione"])
+        st.dataframe(
+            styled,
+            width="stretch",
+            hide_index=True,
+            column_config={
+                "Score": st.column_config.ProgressColumn("Score", min_value=0, max_value=100, format="%d"),
+                "Δ Score": st.column_config.NumberColumn("Δ Score", format="%+.0f"),
+                "Perché è qui": st.column_config.TextColumn("Perché è qui", width="large"),
+                "Tipo opportunità": st.column_config.TextColumn("Tipo opportunità", width="large"),
+            },
+        )
+        st.caption(
+            "FOCUS non significa ingresso automatico: significa che questo mercato ha superato il filtro COT settimanale e merita l'analisi singola e il controllo del grafico."
+        )
+
+    st.markdown("#### Punti di svolta interessanti, ma non ancora maturi")
+    if watch.empty:
+        st.caption("Nessun punto di svolta aggiuntivo da monitorare.")
+    else:
+        watch_cols = ["Priorità", "Strumento", "Categoria", "Direzione", "Tipo opportunità", "Stato", "Score", "Regime 156W", "Prezzo Weekly", "Perché è qui"]
+        st.dataframe(watch[watch_cols].style.map(_focus_direction_style, subset=["Direzione"]), width="stretch", hide_index=True)
+
+    with st.expander("Criteri del Focus operativo", expanded=False):
+        st.write(
+            f"Un candidato FOCUS deve essere LONG/SHORT CONFERMATO, non deve essere NON INSEGUIRE, deve avere Score almeno {FOCUS_MIN_SCORE}, "
+            "prezzo Weekly confermato, struttura 3-6W coerente e un Flow 1W non contrario. I setup in sviluppo, il prezzo che anticipa il COT e "
+            f"i setup in costruzione con Score almeno {FOCUS_WATCH_MIN_SCORE} restano invece in MONITORARE. Il sistema non riempie la tabella per forza e mostra al massimo {FOCUS_MAX_MARKETS} candidati."
+        )
+
+    # La verifica viene calcolata qui anche per consentire un unico export Focus completo.
+    verification = evaluate_previous_focus(results_df)
+    focus_excel = build_focus_excel(focus, verification)
+    st.download_button(
+        "Scarica Focus Excel",
+        data=focus_excel,
+        file_name=f"cot_focus_operativo_{date.today().isoformat()}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        width="stretch",
+        key="focus_export_excel",
+    )
+
+
+def render_focus_verification_tab(results_df: pd.DataFrame) -> None:
+    st.subheader("Verifica Focus della settimana precedente")
+    st.caption(
+        "Ricostruisce con i dati dello snapshot precedente quali mercati avrebbero superato il Focus e misura come si sono mossi dopo. "
+        "La verifica non modifica retroattivamente i criteri e non usa dati futuri per selezionare i candidati."
+    )
+    verification = evaluate_previous_focus(results_df)
+    if verification.empty:
+        st.info("Non ci sono ancora candidati FOCUS precedenti sufficienti da verificare. Dopo almeno un ciclo completo questa tabella si popolerà automaticamente.")
+        return
+
+    valid = verification[pd.to_numeric(verification["Rendimento direzionale %"], errors="coerce").notna()].copy()
+    if not valid.empty:
+        favorable = int(valid["Esito"].eq("✅ FAVOREVOLE").sum())
+        win_rate = 100.0 * favorable / len(valid)
+        median_return = float(pd.to_numeric(valid["Rendimento direzionale %"], errors="coerce").median())
+        avg_mfe = float(pd.to_numeric(valid["MFE %"], errors="coerce").mean())
+        avg_mae = float(pd.to_numeric(valid["MAE %"], errors="coerce").mean())
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Focus verificati", len(valid))
+        c2.metric("Favorevoli", f"{win_rate:.0f}%")
+        c3.metric("Rendimento mediano", f"{median_return:+.2f}%")
+        c4.metric("MFE / MAE medi", f"{avg_mfe:+.2f}% / {avg_mae:+.2f}%")
+
+    display_cols = [
+        "Strumento", "Direzione", "Tipo", "Report Focus", "Data ingresso", "Ingresso riferimento",
+        "Data uscita", "Uscita riferimento", "Rendimento direzionale %", "MFE %", "MAE %", "Esito",
+        "Stato attuale", "Score attuale",
+    ]
+    st.dataframe(
+        verification[display_cols].style.map(_focus_direction_style, subset=["Direzione"]),
+        width="stretch",
+        hide_index=True,
+        column_config={
+            "Rendimento direzionale %": st.column_config.NumberColumn("Rendimento dir. %", format="%+.2f"),
+            "MFE %": st.column_config.NumberColumn("MFE %", format="%+.2f"),
+            "MAE %": st.column_config.NumberColumn("MAE %", format="%+.2f"),
+            "Ingresso riferimento": st.column_config.NumberColumn("Apertura riferimento", format="%.4f"),
+            "Uscita riferimento": st.column_config.NumberColumn("Chiusura riferimento", format="%.4f"),
+        },
+    )
+    st.caption(
+        "Regola fissa di verifica: apertura della prima seduta successiva al venerdì associato al report COT precedente, fino all'ultima seduta giornaliera completamente chiusa prima del nuovo ciclo. "
+        "MFE = massimo movimento favorevole; MAE = massimo movimento contrario. È una misura del comportamento della shortlist, non un backtest di entry/stop/target."
+    )
+
+
 def render_screener() -> None:
     st.header("COT Screener — tutti i mercati")
     st.caption(
@@ -4431,11 +4958,17 @@ def render_screener() -> None:
     metric4.metric("Short", int((results_df["Direzione"] == "SHORT").sum()))
     metric5.metric("Regime 156W confermato", int(results_df["Regime 156W"].str.contains("CONFERMATO", na=False).sum()))
 
-    tab_classifica, tab_radar = st.tabs(["Classifica attuale", "Cambiamenti settimanali"])
+    tab_classifica, tab_radar, tab_focus, tab_verifica = st.tabs([
+        "Classifica attuale", "Cambiamenti settimanali", "Focus operativo", "Verifica Focus precedente"
+    ])
     with tab_classifica:
         render_screener_current_tab(results_df, errors_df)
     with tab_radar:
         render_weekly_change_radar_tab(results_df)
+    with tab_focus:
+        render_focus_operativo_tab(results_df)
+    with tab_verifica:
+        render_focus_verification_tab(results_df)
 
 
 
