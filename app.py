@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 # CONFIGURAZIONE PAGINA
 # =============================================================================
 st.set_page_config(
-    page_title="COT Smart Money V6.27 — Python",
+    page_title="COT Smart Money V6.28 — Python",
     page_icon="🛡️",
     layout="wide",
 )
@@ -48,7 +48,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🛡️ COT Smart Money — Python V6.27")
+st.title("🛡️ COT Smart Money — Python V6.28")
 st.caption(
     "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale con Weekly Change Radar e Focus Operativo. "
     "Il motore è allineato a TradingView G. COT Smart Money Engine V1.5.48 e seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
@@ -3572,16 +3572,71 @@ def _focus_price_confirmed(direction: str, price_text: str) -> bool:
     return (direction == "LONG" and str(price_text) == "CONFERMA RIALZISTA") or (direction == "SHORT" and str(price_text) == "CONFERMA RIBASSISTA")
 
 
+def _focus_score_quality_rank(score: float) -> int:
+    """Ordina per la stessa fascia qualitativa già usata dallo Screener, senza creare un nuovo Score."""
+    if score >= 80:
+        return 0
+    if score >= 65:
+        return 1
+    if score >= 50:
+        return 2
+    return 3
+
+
+def _focus_origin_rank(direction: str, origin_flow: str, motor_flow: str) -> int:
+    """Qualità relativa dell'origine del Flow, usata solo come spareggio deterministico del Focus.
+
+    Non modifica Score/Stato. Premia nuova partecipazione nella direzione del Focus, poi i movimenti
+    misti/bilanciati, e lascia più indietro covering/liquidation quando il miglioramento/peggioramento
+    deriva soprattutto dalla chiusura del lato opposto.
+    """
+    origin = str(origin_flow or "").upper()
+    motor = str(motor_flow or "").upper()
+
+    if direction == "LONG":
+        if motor == "NUOVI LONG":
+            return 0
+        if "AUMENTO DEI LONG" in origin and "SOPRATTUTTO" in origin:
+            return 0
+        if "AUMENTATO SIA I LONG SIA GLI SHORT" in origin and "AUMENTO DEI LONG È STATO MAGGIORE" in origin:
+            return 0
+        if "SIA DALL'AUMENTO DEI LONG" in origin:
+            return 1
+        if "POSIZIONAMENTO PIÙ RIALZISTA" in origin and "CHIUSURA DEGLI SHORT" not in origin:
+            return 1
+        if "CHIUSURA DEGLI SHORT" in origin:
+            return 2
+        return 3
+
+    if direction == "SHORT":
+        if motor == "NUOVI SHORT":
+            return 0
+        if "AUMENTO DEGLI SHORT" in origin and "SOPRATTUTTO" in origin:
+            return 0
+        if "AUMENTATO SIA I LONG SIA GLI SHORT" in origin and "AUMENTO DEGLI SHORT È STATO MAGGIORE" in origin:
+            return 0
+        if "SIA DALL'AUMENTO DEGLI SHORT" in origin:
+            return 1
+        if "POSIZIONAMENTO PIÙ RIBASSISTA" in origin and "RIDUZIONE DEI LONG" not in origin:
+            return 1
+        if "RIDUZIONE DEI LONG" in origin:
+            return 2
+        return 3
+
+    return 3
+
+
 def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARKETS) -> pd.DataFrame:
-    """Shortlist settimanale deterministica.
+    """Shortlist settimanale deterministica con priorità settoriale.
 
     Non crea un nuovo punteggio: usa Stato, Score, prezzo, struttura 3-6W, Flow e Regime già
-    calcolati dallo screener. I setup non confermati restano in MONITORARE e non vengono
-    presentati come candidati operativi.
+    calcolati dallo screener. Prima ordina i candidati con criteri già esistenti, poi mette in cima
+    il miglior candidato di ogni settore. Gli altri setup validi dello stesso settore restano
+    visibili come ALTERNATIVA SETTORE e non vengono eliminati.
     """
     columns = [
-        "Ordine Focus", "Priorità", "Strumento", "Categoria", "Direzione", "Tipo opportunità",
-        "Stato", "Score", "Δ Score", "Origine Flow 1W", "Segnale flusso motore",
+        "Ordine Focus", "Ruolo settore", "Ordine settore", "Priorità", "Strumento", "Categoria", "Direzione", "Tipo opportunità",
+        "Stato", "Qualità", "Score", "Δ Score", "Origine Flow 1W", "Segnale flusso motore",
         "Regime 156W", "Prezzo Weekly", "Decisione", "Perché è qui", "Data COT", "Ticker Yahoo",
     ]
     if results.empty:
@@ -3594,6 +3649,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
         score = float(row.get("Score", 0) or 0)
         price_text = str(row.get("Prezzo Weekly", ""))
         motor_flow = str(row.get("Segnale flusso motore", row.get("Tipo flusso", "")))
+        origin_flow = str(row.get("Origine Flow 1W", ""))
         regime = str(row.get("Regime 156W", ""))
         price_leads = str(row.get("Prezzo anticipa COT", "NO"))
         previous_status = str(row.get("Stato precedente", ""))
@@ -3624,13 +3680,11 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
         opportunity = ""
         priority = ""
         why = ""
-        order = 99
+        type_order = 99
 
         if stale or focus_direction not in ("LONG", "SHORT"):
             continue
         if non_inseguire:
-            # Utile da vedere nel Radar, ma non nel Focus operativo: il criterio serve
-            # proprio a evitare di concentrare tempo su movimenti già troppo estesi.
             continue
 
         if confirmed and score >= FOCUS_MIN_SCORE and price_ok and structure_ok and flow_ok:
@@ -3638,7 +3692,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
             if has_previous_context and not same_previous_confirmed:
                 opportunity = "PUNTO DI SVOLTA — NUOVA CONFERMA"
                 priority = "🔥 NUOVA CONFERMA"
-                order = 1
+                type_order = 1
                 why = (
                     f"Il quadro è diventato {focus_direction} confermato rispetto al report precedente. "
                     "Prezzo Weekly e struttura 3-6W sono coerenti e l'ultimo Flow non è contrario alla direzione."
@@ -3646,7 +3700,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
             elif has_previous_context and same_previous_confirmed:
                 opportunity = "CONTINUAZIONE FORTE"
                 priority = "➡️ CONTINUAZIONE"
-                order = 2
+                type_order = 2
                 why = (
                     f"Setup {focus_direction} già confermato con Score {score:.0f}, prezzo Weekly confermato, "
                     "struttura 3-6W coerente e ultimo Flow non contrario."
@@ -3654,7 +3708,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
             else:
                 opportunity = "SETUP CONFERMATO"
                 priority = "✅ CONFERMATO"
-                order = 2
+                type_order = 2
                 why = (
                     f"Setup {focus_direction} confermato con Score {score:.0f}, prezzo Weekly confermato, "
                     "struttura 3-6W coerente e ultimo Flow non contrario. Il confronto con una settimana ancora precedente non è disponibile."
@@ -3663,7 +3717,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
             decision = "MONITORARE"
             opportunity = "PUNTO DI SVOLTA — PREZZO ANTICIPA COT"
             priority = "⚠️ PREZZO ANTICIPA COT"
-            order = 3
+            type_order = 3
             why = (
                 "Alignment 156W 3/3 e prezzo Weekly stanno anticipando il possibile cambio di regime, "
                 "ma il COT non ha ancora completato la conferma richiesta dal motore."
@@ -3672,7 +3726,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
             decision = "MONITORARE"
             opportunity = "PUNTO DI SVOLTA — REGIME IN SVILUPPO"
             priority = "🟡 REGIME IN SVILUPPO"
-            order = 4
+            type_order = 4
             why = (
                 "Il regime contrarian 156W ha già superato il semplice 3/3, ma manca ancora almeno una "
                 "delle conferme necessarie per trattarlo come setup operativo completo."
@@ -3681,7 +3735,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
             decision = "MONITORARE"
             opportunity = "SETUP IN MATURAZIONE"
             priority = "🟡 IN MATURAZIONE"
-            order = 5
+            type_order = 5
             why = (
                 f"Il setup {focus_direction} è ancora in costruzione, ma Score {score:.0f} e parte della struttura sono coerenti. "
                 "Resta in watchlist finché non arriva la conferma completa."
@@ -3689,17 +3743,21 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
         else:
             continue
 
+        quality = str(row.get("Qualità", "")) or ("MOLTO ALTA" if score >= 80 else "ALTA" if score >= 65 else "MEDIA" if score >= 50 else "BASSA")
         rows.append({
-            "Ordine Focus": order,
+            "Ordine Focus": math.nan,
+            "Ruolo settore": "",
+            "Ordine settore": math.nan,
             "Priorità": priority,
             "Strumento": row.get("Strumento", ""),
             "Categoria": radar_market_bucket(row.get("Gruppo", "")),
             "Direzione": focus_direction,
             "Tipo opportunità": opportunity,
             "Stato": status,
+            "Qualità": quality,
             "Score": score,
             "Δ Score": round(delta_score, 0) if not pd.isna(delta_score) else math.nan,
-            "Origine Flow 1W": row.get("Origine Flow 1W", ""),
+            "Origine Flow 1W": origin_flow,
             "Segnale flusso motore": motor_flow,
             "Regime 156W": regime,
             "Prezzo Weekly": price_text,
@@ -3707,21 +3765,45 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
             "Perché è qui": why,
             "Data COT": row.get("Data COT", ""),
             "Ticker Yahoo": row.get("Ticker Yahoo", ""),
+            "_TipoOrdine": type_order,
+            "_QualitaOrdine": _focus_score_quality_rank(score),
+            "_OrigineOrdine": _focus_origin_rank(focus_direction, origin_flow, motor_flow),
         })
 
-    focus = pd.DataFrame(rows, columns=columns)
+    focus = pd.DataFrame(rows)
     if focus.empty:
-        return focus
-    focus = focus.sort_values(
-        ["Decisione", "Ordine Focus", "Score", "Δ Score", "Strumento"],
-        ascending=[True, True, False, False, True],
-        na_position="last",
-    ).reset_index(drop=True)
-    # Limite soltanto sui candidati FOCUS; i monitor vengono mantenuti separatamente.
-    candidates = focus[focus["Decisione"] == "FOCUS"].head(int(max_focus))
-    watch = focus[focus["Decisione"] == "MONITORARE"].head(int(max_focus))
-    return pd.concat([candidates, watch], ignore_index=True)
+        return pd.DataFrame(columns=columns)
 
+    candidates = focus[focus["Decisione"] == "FOCUS"].copy()
+    watch = focus[focus["Decisione"] == "MONITORARE"].copy()
+
+    base_sort = ["_TipoOrdine", "_QualitaOrdine", "_OrigineOrdine", "Score", "Δ Score", "Strumento"]
+    base_ascending = [True, True, True, False, False, True]
+
+    if not candidates.empty:
+        candidates = candidates.sort_values(base_sort, ascending=base_ascending, na_position="last").reset_index(drop=True)
+        candidates["Ordine settore"] = candidates.groupby("Categoria", sort=False).cumcount() + 1
+        candidates["Ruolo settore"] = candidates["Ordine settore"].map(lambda x: "PRINCIPALE" if int(x) == 1 else "ALTERNATIVA SETTORE")
+
+        principali = candidates[candidates["Ruolo settore"] == "PRINCIPALE"].copy()
+        alternative = candidates[candidates["Ruolo settore"] == "ALTERNATIVA SETTORE"].copy()
+        # Diversificazione del tempo di analisi: prima una sola prima scelta per ciascun settore,
+        # poi gli altri setup validi come alternative dello stesso comparto.
+        candidates = pd.concat([principali, alternative], ignore_index=True).head(int(max_focus)).copy()
+        candidates["Ordine Focus"] = range(1, len(candidates) + 1)
+
+    if not watch.empty:
+        watch = watch.sort_values(base_sort, ascending=base_ascending, na_position="last").head(int(max_focus)).reset_index(drop=True)
+        watch["Ordine settore"] = watch.groupby("Categoria", sort=False).cumcount() + 1
+        watch["Ruolo settore"] = "MONITORARE"
+
+    combined = pd.concat([candidates, watch], ignore_index=True)
+    if combined.empty:
+        return pd.DataFrame(columns=columns)
+    for col in columns:
+        if col not in combined.columns:
+            combined[col] = math.nan if col in ("Ordine Focus", "Ordine settore") else ""
+    return combined[columns]
 
 def previous_snapshot_as_results(results: pd.DataFrame) -> pd.DataFrame:
     """Ricostruisce il punto-in-tempo del report precedente con i dati già salvati nello screener."""
@@ -3792,7 +3874,7 @@ def _evaluate_focus_with_daily(direction: str, daily: pd.DataFrame, start_after:
 def evaluate_previous_focus(results: pd.DataFrame) -> pd.DataFrame:
     """Valuta i candidati FOCUS che il modello avrebbe selezionato sul report precedente."""
     columns = [
-        "Strumento", "Direzione", "Tipo", "Report Focus", "Ingresso riferimento", "Data ingresso",
+        "Ordine Focus", "Ruolo settore", "Categoria", "Strumento", "Direzione", "Tipo", "Report Focus", "Ingresso riferimento", "Data ingresso",
         "Uscita riferimento", "Data uscita", "Rendimento direzionale %", "MFE %", "MAE %", "Esito",
         "Stato attuale", "Score attuale", "Nota",
     ]
@@ -3833,6 +3915,9 @@ def evaluate_previous_focus(results: pd.DataFrame) -> pd.DataFrame:
         perf = _evaluate_focus_with_daily(str(focus_row.get("Direzione", "")), daily, start_after, end_on)
         if not perf.get("available"):
             out.append({
+                "Ordine Focus": focus_row.get("Ordine Focus", math.nan),
+                "Ruolo settore": focus_row.get("Ruolo settore", ""),
+                "Categoria": focus_row.get("Categoria", ""),
                 "Strumento": name,
                 "Direzione": focus_row.get("Direzione", ""),
                 "Tipo": focus_row.get("Tipo opportunità", ""),
@@ -3851,6 +3936,9 @@ def evaluate_previous_focus(results: pd.DataFrame) -> pd.DataFrame:
             })
             continue
         out.append({
+            "Ordine Focus": focus_row.get("Ordine Focus", math.nan),
+            "Ruolo settore": focus_row.get("Ruolo settore", ""),
+            "Categoria": focus_row.get("Categoria", ""),
             "Strumento": name,
             "Direzione": focus_row.get("Direzione", ""),
             "Tipo": focus_row.get("Tipo opportunità", ""),
@@ -3873,7 +3961,10 @@ def evaluate_previous_focus(results: pd.DataFrame) -> pd.DataFrame:
 def build_focus_excel(focus_frame: pd.DataFrame, verification_frame: pd.DataFrame) -> bytes:
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        focus_frame[focus_frame["Decisione"] == "FOCUS"].to_excel(writer, sheet_name="Focus settimana", index=False)
+        focus_all = focus_frame[focus_frame["Decisione"] == "FOCUS"].copy()
+        focus_all.to_excel(writer, sheet_name="Focus settimana", index=False)
+        focus_all[focus_all["Ruolo settore"] == "PRINCIPALE"].to_excel(writer, sheet_name="Focus principali", index=False)
+        focus_all[focus_all["Ruolo settore"] == "ALTERNATIVA SETTORE"].to_excel(writer, sheet_name="Alternative settore", index=False)
         focus_frame[focus_frame["Decisione"] == "MONITORARE"].to_excel(writer, sheet_name="Da monitorare", index=False)
         verification_frame.to_excel(writer, sheet_name="Verifica precedente", index=False)
         from openpyxl.styles import Alignment, Font, PatternFill
@@ -3934,7 +4025,10 @@ def build_screener_excel(results: pd.DataFrame, errors: pd.DataFrame) -> bytes:
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         ordered[display_columns].to_excel(writer, sheet_name="Classifica generale", index=False)
         if not focus.empty:
-            focus[focus["Decisione"] == "FOCUS"].to_excel(writer, sheet_name="Focus settimana", index=False)
+            focus_all = focus[focus["Decisione"] == "FOCUS"].copy()
+            focus_all.to_excel(writer, sheet_name="Focus settimana", index=False)
+            focus_all[focus_all["Ruolo settore"] == "PRINCIPALE"].to_excel(writer, sheet_name="Focus principali", index=False)
+            focus_all[focus_all["Ruolo settore"] == "ALTERNATIVA SETTORE"].to_excel(writer, sheet_name="Alternative settore", index=False)
             focus[focus["Decisione"] == "MONITORARE"].to_excel(writer, sheet_name="Focus monitorare", index=False)
         if not radar.empty:
             radar_export_columns = [
@@ -4767,31 +4861,35 @@ def render_focus_operativo_tab(results_df: pd.DataFrame) -> None:
     st.subheader("Focus Operativo Settimanale")
     st.caption(
         "Questa sezione restringe lo screener ai mercati su cui vale davvero la pena concentrare il tempo. "
-        "Non crea un nuovo Score e non forza un numero minimo di strumenti: se i criteri non sono soddisfatti, il Focus può essere vuoto."
+        "Non crea un nuovo Score: prima ordina i candidati con i criteri già esistenti, poi mette in cima la migliore scelta di ogni settore."
     )
     focus = build_focus_operativo(results_df)
     candidates = focus[focus["Decisione"] == "FOCUS"].copy() if not focus.empty else pd.DataFrame()
+    principali = candidates[candidates["Ruolo settore"] == "PRINCIPALE"].copy() if not candidates.empty else pd.DataFrame()
+    alternative = candidates[candidates["Ruolo settore"] == "ALTERNATIVA SETTORE"].copy() if not candidates.empty else pd.DataFrame()
     watch = focus[focus["Decisione"] == "MONITORARE"].copy() if not focus.empty else pd.DataFrame()
 
-    m1, m2, m3 = st.columns(3)
-    m1.metric("Candidati operativi", len(candidates))
-    m2.metric("Punti da monitorare", len(watch))
-    m3.metric("Massimo Focus", FOCUS_MAX_MARKETS)
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Focus principali", len(principali))
+    m2.metric("Alternative settore", len(alternative))
+    m3.metric("Da monitorare", len(watch))
+    m4.metric("Massimo Focus", FOCUS_MAX_MARKETS)
 
-    st.markdown("#### Strumenti su cui concentrare il lavoro questa settimana")
-    if candidates.empty:
+    st.markdown("#### Focus principali — prima scelta per settore")
+    if principali.empty:
         st.info("Nessun mercato soddisfa questa settimana tutti i criteri del Focus operativo. Non viene forzata una shortlist artificiale.")
     else:
         show_cols = [
-            "Priorità", "Strumento", "Categoria", "Direzione", "Tipo opportunità", "Stato", "Score", "Δ Score",
+            "Ordine Focus", "Strumento", "Categoria", "Direzione", "Tipo opportunità", "Stato", "Qualità", "Score", "Δ Score",
             "Origine Flow 1W", "Regime 156W", "Prezzo Weekly", "Perché è qui",
         ]
-        styled = candidates[show_cols].style.map(_focus_direction_style, subset=["Direzione"])
+        styled = principali[show_cols].style.map(_focus_direction_style, subset=["Direzione"])
         st.dataframe(
             styled,
             width="stretch",
             hide_index=True,
             column_config={
+                "Ordine Focus": st.column_config.NumberColumn("Ordine Focus", format="%d"),
                 "Score": st.column_config.ProgressColumn("Score", min_value=0, max_value=100, format="%d"),
                 "Δ Score": st.column_config.NumberColumn("Δ Score", format="%+.0f"),
                 "Perché è qui": st.column_config.TextColumn("Perché è qui", width="large"),
@@ -4799,24 +4897,49 @@ def render_focus_operativo_tab(results_df: pd.DataFrame) -> None:
             },
         )
         st.caption(
-            "FOCUS non significa ingresso automatico: significa che questo mercato ha superato il filtro COT settimanale e merita l'analisi singola e il controllo del grafico."
+            "Questi sono i mercati da controllare per primi: il Focus mostra una sola prima scelta per ciascun settore, così tre setup validi dello stesso comparto non occupano automaticamente le prime tre posizioni."
+        )
+
+    st.markdown("#### Alternative valide dello stesso settore")
+    if alternative.empty:
+        st.caption("Nessuna alternativa settoriale aggiuntiva tra i candidati FOCUS di questa settimana.")
+    else:
+        alt_cols = [
+            "Ordine Focus", "Ordine settore", "Strumento", "Categoria", "Direzione", "Tipo opportunità", "Qualità", "Score", "Δ Score",
+            "Origine Flow 1W", "Prezzo Weekly", "Perché è qui",
+        ]
+        st.dataframe(
+            alternative[alt_cols].style.map(_focus_direction_style, subset=["Direzione"]),
+            width="stretch",
+            hide_index=True,
+            column_config={
+                "Ordine Focus": st.column_config.NumberColumn("Ordine Focus", format="%d"),
+                "Ordine settore": st.column_config.NumberColumn("Scelta nel settore", format="%d"),
+                "Score": st.column_config.ProgressColumn("Score", min_value=0, max_value=100, format="%d"),
+                "Δ Score": st.column_config.NumberColumn("Δ Score", format="%+.0f"),
+                "Perché è qui": st.column_config.TextColumn("Perché è qui", width="large"),
+            },
+        )
+        st.caption(
+            "Sono setup COT validi, non scarti. Vengono però dopo la prima scelta del loro comparto: se il Focus principale del settore non offre un buon setup tecnico, queste sono le alternative da controllare."
         )
 
     st.markdown("#### Punti di svolta interessanti, ma non ancora maturi")
     if watch.empty:
         st.caption("Nessun punto di svolta aggiuntivo da monitorare.")
     else:
-        watch_cols = ["Priorità", "Strumento", "Categoria", "Direzione", "Tipo opportunità", "Stato", "Score", "Regime 156W", "Prezzo Weekly", "Perché è qui"]
+        watch_cols = ["Priorità", "Strumento", "Categoria", "Direzione", "Tipo opportunità", "Stato", "Qualità", "Score", "Regime 156W", "Prezzo Weekly", "Perché è qui"]
         st.dataframe(watch[watch_cols].style.map(_focus_direction_style, subset=["Direzione"]), width="stretch", hide_index=True)
 
-    with st.expander("Criteri del Focus operativo", expanded=False):
+    with st.expander("Criteri e ordine del Focus operativo", expanded=False):
         st.write(
             f"Un candidato FOCUS deve essere LONG/SHORT CONFERMATO, non deve essere NON INSEGUIRE, deve avere Score almeno {FOCUS_MIN_SCORE}, "
-            "prezzo Weekly confermato, struttura 3-6W coerente e un Flow 1W non contrario. I setup in sviluppo, il prezzo che anticipa il COT e "
-            f"i setup in costruzione con Score almeno {FOCUS_WATCH_MIN_SCORE} restano invece in MONITORARE. Il sistema non riempie la tabella per forza e mostra al massimo {FOCUS_MAX_MARKETS} candidati."
+            "prezzo Weekly confermato, struttura 3-6W coerente e un Flow 1W non contrario. I candidati vengono ordinati senza creare un nuovo punteggio: "
+            "prima nuova conferma/continuazione, poi fascia qualitativa dello Score, qualità dell'origine reale del Flow, Score numerico e Δ Score. "
+            "Dopo questo ordinamento, il migliore di ogni settore viene mostrato tra i Focus principali e gli altri come alternative settoriali. "
+            f"I setup non completi con Score almeno {FOCUS_WATCH_MIN_SCORE} restano in MONITORARE. Il sistema non riempie la tabella per forza e mostra al massimo {FOCUS_MAX_MARKETS} candidati FOCUS complessivi."
         )
 
-    # La verifica viene calcolata qui anche per consentire un unico export Focus completo.
     verification = evaluate_previous_focus(results_df)
     focus_excel = build_focus_excel(focus, verification)
     st.download_button(
@@ -4827,7 +4950,6 @@ def render_focus_operativo_tab(results_df: pd.DataFrame) -> None:
         width="stretch",
         key="focus_export_excel",
     )
-
 
 def render_focus_verification_tab(results_df: pd.DataFrame) -> None:
     st.subheader("Verifica Focus della settimana precedente")

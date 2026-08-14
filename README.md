@@ -1,91 +1,102 @@
-# COT Smart Money Python V6.27
+# COT Smart Money Python V6.28
 
-Versione Python allineata a **G. COT Smart Money Engine V1.5.48** e basata sulla V6.26.
+Versione Python allineata a **G. COT Smart Money Engine V1.5.48** e basata sulla V6.27.
 
-La V6.27 non modifica il motore COT, lo Stato dello Screener, lo Score o il Weekly Change Radar. Aggiunge un livello successivo di selezione operativa e una verifica causale della shortlist della settimana precedente.
+La V6.28 **non modifica il motore COT, lo Stato dello Screener, lo Score, l'analisi singola o il Weekly Change Radar**. Interviene soltanto sull'ordinamento del **Focus Operativo Settimanale** per evitare che più mercati dello stesso comparto occupino automaticamente tutte le prime posizioni.
 
-## Novità: Focus Operativo Settimanale
+## Novità: Focus finale per settore
 
-Nella pagina Screener sono presenti quattro schede:
+I requisiti per entrare in `FOCUS` restano identici alla V6.27:
 
-1. `Classifica attuale`
-2. `Cambiamenti settimanali`
-3. `Focus operativo`
-4. `Verifica Focus precedente`
-
-### Candidati FOCUS
-
-Un mercato entra nella shortlist FOCUS soltanto se:
-
-- è `LONG CONFERMATO` o `SHORT CONFERMATO`;
-- non è `CONFERMATO — NON INSEGUIRE`;
+- `LONG CONFERMATO` o `SHORT CONFERMATO`;
+- esclusi i casi `CONFERMATO — NON INSEGUIRE`;
 - Score >= 65;
-- il prezzo Weekly conferma la stessa direzione;
-- Flow 3W e 6W sono entrambi coerenti con la direzione;
-- il Flow 1W non è contrario alla direzione.
+- prezzo Weekly confermato nella stessa direzione;
+- Flow 3W e 6W coerenti;
+- Flow 1W non contrario.
 
-Non viene forzato un numero minimo di mercati. Il massimo è 8.
+La V6.28 **non crea un nuovo mega-score**. I candidati già validi vengono ordinati in modo deterministico usando, nell'ordine:
 
-La tipologia distingue:
+1. nuova conferma / continuazione;
+2. fascia qualitativa dello Score già esistente;
+3. qualità dell'`Origine Flow 1W` rispetto alla direzione;
+4. Score numerico;
+5. Δ Score;
+6. diversificazione del tempo di analisi per settore.
 
-- `PUNTO DI SVOLTA — NUOVA CONFERMA`: la direzione è appena passata a confermata rispetto al report precedente;
-- `CONTINUAZIONE FORTE`: il setup era già confermato e continua a rispettare i criteri;
-- `SETUP CONFERMATO`: usato quando non è disponibile un confronto ancora precedente.
+## PRINCIPALE e ALTERNATIVA SETTORE
 
-### Da monitorare
+Dopo l'ordinamento di base:
 
-Restano separati dai candidati operativi:
+- il candidato migliore di ogni categoria diventa `PRINCIPALE`;
+- gli altri candidati FOCUS dello stesso comparto diventano `ALTERNATIVA SETTORE`;
+- tutte le prime scelte settoriali vengono mostrate prima delle alternative;
+- le alternative **non vengono scartate** e conservano la loro piena validità COT.
 
-- `PUNTO DI SVOLTA — PREZZO ANTICIPA COT`;
-- `PUNTO DI SVOLTA — REGIME IN SVILUPPO`;
-- `SETUP IN MATURAZIONE`.
+La logica serve a decidere **quale grafico guardare per primo**, non a modificare la view di mercato.
 
-Questi casi possono essere interessanti, ma non vengono presentati come FOCUS finché manca la conferma completa.
+Sono ora disponibili due campi distinti:
 
-## Verifica Focus precedente
+- `Ordine Focus`: graduatoria operativa vera 1, 2, 3... dopo la priorità settoriale;
+- `Ordine settore`: posizione del mercato all'interno del proprio comparto.
 
-La V6.27 ricostruisce il Focus che sarebbe stato selezionato sullo snapshot COT precedente e misura il movimento successivo senza hindsight.
+Il massimo resta 8 candidati FOCUS complessivi e non viene mai forzato un numero minimo.
 
-Regola fissa:
+## Interfaccia Focus
 
-- data di selezione: venerdì associato al report COT precedente;
-- prezzo di riferimento iniziale: apertura della prima seduta successiva;
-- prezzo finale: chiusura dell'ultima seduta giornaliera completamente conclusa prima del nuovo ciclo;
-- il giorno corrente viene escluso quando può essere ancora aperto.
+La scheda `Focus operativo` è divisa in:
 
-Metriche:
+1. **Focus principali — prima scelta per settore**;
+2. **Alternative valide dello stesso settore**;
+3. **Punti di svolta interessanti, ma non ancora maturi**.
 
-- `Rendimento direzionale %`: positivo se il mercato si è mosso nella direzione del Focus;
-- `MFE %`: massimo movimento favorevole durante la settimana;
-- `MAE %`: massimo movimento contrario;
-- `Esito`: FAVOREVOLE / SFAVOREVOLE / NEUTRO.
+Questo rende esplicito che, per esempio, tre Soft commodity contemporaneamente valide non devono necessariamente essere i primi tre grafici da analizzare.
 
-Queste misure verificano la qualità della shortlist. Non rappresentano un backtest di entry, stop loss o target.
+## Verifica della settimana precedente
 
-## Export
+La verifica causale resta identica nei prezzi e nelle metriche, ma ora conserva anche:
 
-L'Excel completo dello Screener aggiunge:
+- `Ordine Focus`;
+- `Ruolo settore`;
+- `Categoria`.
 
-- `Focus settimana`;
-- `Focus monitorare`.
+In questo modo, dopo un numero sufficiente di settimane, sarà possibile confrontare separatamente la performance delle **prime scelte settoriali** e delle **alternative**, senza modificare retroattivamente la selezione.
 
-La scheda Focus dispone inoltre di un export dedicato `cot_focus_operativo_YYYY-MM-DD.xlsx` con:
+Restano invariati:
 
-- `Focus settimana`;
+- prezzo di riferimento = apertura della prima seduta successiva al report;
+- uscita di verifica = ultima seduta giornaliera completata prima del ciclo successivo;
+- `Rendimento direzionale %`;
+- `MFE %`;
+- `MAE %`;
+- `Esito`.
+
+Queste metriche non sono target o stop loss.
+
+## Export Excel
+
+L'Excel dedicato del Focus contiene ora:
+
+- `Focus settimana` — tutti i candidati FOCUS;
+- `Focus principali` — una prima scelta per settore;
+- `Alternative settore` — gli altri setup validi dello stesso comparto;
 - `Da monitorare`;
 - `Verifica precedente`.
 
-## Invariato rispetto alla V6.26
+Anche l'Excel generale dello Screener aggiunge `Focus principali` e `Alternative settore`, mantenendo i fogli già esistenti.
 
-Sono rimasti identici:
+## Funzioni del motore verificate come invariate
 
+Rispetto alla V6.27 risultano identiche a livello AST:
+
+- `analyze_smart_money()`;
 - `screener_status()`;
 - `calculate_screener_score()`;
 - `build_weekly_change_radar()`;
 - `analyze_alignment_map()`.
 
-Rimangono inoltre tutte le regole V1.5.48: Origine Flow 1W separata dall'OI, prezzo che anticipa il COT su Alignment 3/3, correzione Long liquidation/Short covering, OI Index 52W informativo e distinzione fra 2/3, 3/3, prezzo anticipa COT, in sviluppo e confermato.
+La V6.28 modifica esclusivamente il modulo Focus, i relativi export e la descrizione nei prompt.
 
-## Nota sui dati prezzo
+## Nota sui dati
 
-Il COT proviene dalla CFTC; il controllo prezzo e la verifica settimanale usano Yahoo Finance. Differenze di calendario, ticker o feed possono produrre valori non perfettamente identici a TradingView. La logica evita deliberatamente di usare barre giornaliere ancora aperte.
+COT: CFTC. Prezzi e verifica settimanale: Yahoo Finance. Feed e calendari possono non coincidere perfettamente con TradingView; la procedura continua a escludere le barre giornaliere non ancora completate.
