@@ -1,101 +1,80 @@
-# COT Smart Money Python V6.28
+# COT Smart Money Python V6.29
 
-Versione Python allineata a **G. COT Smart Money Engine V1.5.48** e basata sulla V6.27.
+Versione Python allineata a **G. COT Smart Money Engine V1.5.48** e basata sulla V6.28.
 
-La V6.28 **non modifica il motore COT, lo Stato dello Screener, lo Score, l'analisi singola o il Weekly Change Radar**. Interviene soltanto sull'ordinamento del **Focus Operativo Settimanale** per evitare che più mercati dello stesso comparto occupino automaticamente tutte le prime posizioni.
+La V6.29 **non modifica il motore COT, lo Stato dello Screener, lo Score, l'analisi singola o il Weekly Change Radar**. Corregge esclusivamente la gerarchia usata per ordinare i candidati del **Focus Operativo Settimanale**.
 
-## Novità: Focus finale per settore
+## Correzione: Origine Flow 1W prima dello Score
 
-I requisiti per entrare in `FOCUS` restano identici alla V6.27:
+Nel primo Focus reale della V6.28 era emerso un caso utile:
 
-- `LONG CONFERMATO` o `SHORT CONFERMATO`;
-- esclusi i casi `CONFERMATO — NON INSEGUIRE`;
-- Score >= 65;
-- prezzo Weekly confermato nella stessa direzione;
-- Flow 3W e 6W coerenti;
-- Flow 1W non contrario.
+- **CC — Cocoa**: Score 83, miglioramento derivante soprattutto dall'**aumento dei Long**;
+- **SB — Sugar**: Score 93, miglioramento derivante soprattutto dalla **chiusura degli Short**, pur con Long in aumento.
 
-La V6.28 **non crea un nuovo mega-score**. I candidati già validi vengono ordinati in modo deterministico usando, nell'ordine:
+La V6.28 lasciava prevalere il segnale sintetico `NUOVI LONG` e poi lo Score, quindi SB poteva essere ordinato davanti a CC. Questo non era coerente con la lettura più precisa dell'`Origine Flow 1W`.
 
-1. nuova conferma / continuazione;
-2. fascia qualitativa dello Score già esistente;
-3. qualità dell'`Origine Flow 1W` rispetto alla direzione;
-4. Score numerico;
-5. Δ Score;
-6. diversificazione del tempo di analisi per settore.
+La V6.29 corregge il problema senza creare un nuovo Score.
 
-## PRINCIPALE e ALTERNATIVA SETTORE
+### Nuova gerarchia del Focus
 
-Dopo l'ordinamento di base:
+Per ordinare candidati già validi, la qualità dell'origine del movimento viene classificata così:
 
-- il candidato migliore di ogni categoria diventa `PRINCIPALE`;
-- gli altri candidati FOCUS dello stesso comparto diventano `ALTERNATIVA SETTORE`;
-- tutte le prime scelte settoriali vengono mostrate prima delle alternative;
-- le alternative **non vengono scartate** e conservano la loro piena validità COT.
+1. **nuova partecipazione reale** nella direzione del Focus;
+2. **movimento misto / bilanciato**;
+3. **Short covering / Long liquidation dominante**;
+4. origine non classificabile.
 
-La logica serve a decidere **quale grafico guardare per primo**, non a modificare la view di mercato.
+Solo dopo vengono considerati:
 
-Sono ora disponibili due campi distinti:
+- nuova conferma / continuazione;
+- Score numerico;
+- Δ Score;
+- ordinamento alfabetico come ultimo spareggio.
 
-- `Ordine Focus`: graduatoria operativa vera 1, 2, 3... dopo la priorità settoriale;
-- `Ordine settore`: posizione del mercato all'interno del proprio comparto.
+La priorità settoriale resta invariata: prima viene mostrato il migliore di ogni settore (`PRINCIPALE`), poi le altre opportunità valide dello stesso comparto (`ALTERNATIVA SETTORE`).
 
-Il massimo resta 8 candidati FOCUS complessivi e non viene mai forzato un numero minimo.
+## Segnale flusso motore: ora solo fallback
 
-## Interfaccia Focus
+Il campo `Segnale flusso motore` resta invariato e continua a essere usato dal motore. Nel solo ordinamento Focus, però, non può più sovrascrivere una `Origine Flow 1W` esplicita.
 
-La scheda `Focus operativo` è divisa in:
+Esempio: se il motore sintetico indica `NUOVI LONG`, ma l'Origine Flow dice che il miglioramento deriva **soprattutto dalla chiusura degli Short**, il candidato viene classificato come **covering dominante**, non come nuova partecipazione Long di massima qualità.
 
-1. **Focus principali — prima scelta per settore**;
-2. **Alternative valide dello stesso settore**;
-3. **Punti di svolta interessanti, ma non ancora maturi**.
+La logica è simmetrica sul lato Short: una **riduzione dei Long dominante** non viene promossa a nuova partecipazione Short soltanto perché il segnale motore è `NUOVI SHORT`.
 
-Questo rende esplicito che, per esempio, tre Soft commodity contemporaneamente valide non devono necessariamente essere i primi tre grafici da analizzare.
+## Comportamento atteso sul caso reale
 
-## Verifica della settimana precedente
+Con i dati del Focus del 14/08/2026, l'ordine atteso diventa:
 
-La verifica causale resta identica nei prezzi e nelle metriche, ma ora conserva anche:
+1. CT — Cotton — PRINCIPALE Soft;
+2. 6A — Australian Dollar — PRINCIPALE Valute;
+3. CC — Cocoa — ALTERNATIVA Soft;
+4. SB — Sugar — ALTERNATIVA Soft.
 
-- `Ordine Focus`;
-- `Ruolo settore`;
-- `Categoria`.
+CC precede SB perché la nuova partecipazione Long è più genuina, anche se SB ha Score numerico superiore.
 
-In questo modo, dopo un numero sufficiente di settimane, sarà possibile confrontare separatamente la performance delle **prime scelte settoriali** e delle **alternative**, senza modificare retroattivamente la selezione.
+## Cosa non cambia
 
-Restano invariati:
+Restano identici alla V6.28:
 
-- prezzo di riferimento = apertura della prima seduta successiva al report;
-- uscita di verifica = ultima seduta giornaliera completata prima del ciclo successivo;
-- `Rendimento direzionale %`;
-- `MFE %`;
-- `MAE %`;
-- `Esito`.
+- requisiti per entrare in `FOCUS`;
+- `LONG/SHORT CONFERMATO` e `NON INSEGUIRE`;
+- soglia Score >= 65;
+- conferma prezzo Weekly;
+- struttura 3W/6W;
+- logica `MONITORARE`;
+- Focus principale per settore e alternative;
+- verifica causale della settimana precedente;
+- MFE, MAE e rendimento direzionale;
+- Weekly Change Radar;
+- export Excel e JPG.
 
-Queste metriche non sono target o stop loss.
+## Verifiche effettuate
 
-## Export Excel
-
-L'Excel dedicato del Focus contiene ora:
-
-- `Focus settimana` — tutti i candidati FOCUS;
-- `Focus principali` — una prima scelta per settore;
-- `Alternative settore` — gli altri setup validi dello stesso comparto;
-- `Da monitorare`;
-- `Verifica precedente`.
-
-Anche l'Excel generale dello Screener aggiunge `Focus principali` e `Alternative settore`, mantenendo i fogli già esistenti.
-
-## Funzioni del motore verificate come invariate
-
-Rispetto alla V6.27 risultano identiche a livello AST:
-
-- `analyze_smart_money()`;
-- `screener_status()`;
-- `calculate_screener_score()`;
-- `build_weekly_change_radar()`;
-- `analyze_alignment_map()`.
-
-La V6.28 modifica esclusivamente il modulo Focus, i relativi export e la descrizione nei prompt.
+- compilazione Python (`py_compile`);
+- test simmetrici Long/Short della nuova gerarchia Origine Flow: nuova partecipazione = 0, misto = 1, covering/liquidation dominante = 2;
+- test sintetico del caso reale CT / 6A / CC / SB con ordine finale 1 / 2 / 3 / 4;
+- confronto AST delle funzioni core per verificare che motore COT, Stato, Score e Weekly Change Radar non siano stati modificati;
+- integrità del pacchetto ZIP.
 
 ## Nota sui dati
 

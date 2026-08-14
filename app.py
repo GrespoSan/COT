@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 # CONFIGURAZIONE PAGINA
 # =============================================================================
 st.set_page_config(
-    page_title="COT Smart Money V6.28 — Python",
+    page_title="COT Smart Money V6.29 — Python",
     page_icon="🛡️",
     layout="wide",
 )
@@ -48,7 +48,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🛡️ COT Smart Money — Python V6.28")
+st.title("🛡️ COT Smart Money — Python V6.29")
 st.caption(
     "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale con Weekly Change Radar e Focus Operativo. "
     "Il motore è allineato a TradingView G. COT Smart Money Engine V1.5.48 e seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
@@ -3584,40 +3584,70 @@ def _focus_score_quality_rank(score: float) -> int:
 
 
 def _focus_origin_rank(direction: str, origin_flow: str, motor_flow: str) -> int:
-    """Qualità relativa dell'origine del Flow, usata solo come spareggio deterministico del Focus.
+    """Qualità relativa dell'origine del Flow, usata solo per ordinare il Focus.
 
-    Non modifica Score/Stato. Premia nuova partecipazione nella direzione del Focus, poi i movimenti
-    misti/bilanciati, e lascia più indietro covering/liquidation quando il miglioramento/peggioramento
-    deriva soprattutto dalla chiusura del lato opposto.
+    Non modifica Score/Stato. L'Origine Flow 1W prevale sul segnale sintetico del motore:
+    0 = nuova partecipazione reale nella direzione del Focus;
+    1 = movimento misto/bilanciato;
+    2 = covering/liquidation dominante;
+    3 = origine non classificabile.
+
+    Il Segnale flusso motore viene usato soltanto come fallback se l'Origine Flow non contiene
+    abbastanza dettaglio. In particolare, NUOVI LONG/SHORT non può più promuovere a rango 0 un
+    movimento che l'Origine Flow descrive esplicitamente come soprattutto covering/liquidation.
     """
     origin = str(origin_flow or "").upper()
     motor = str(motor_flow or "").upper()
 
     if direction == "LONG":
-        if motor == "NUOVI LONG":
-            return 0
+        # 1) Covering dominante: deve prevalere anche se il motore sintetico segnala NUOVI LONG.
+        if "CHIUSURA DEGLI SHORT" in origin and "SOPRATTUTTO" in origin:
+            return 2
+        if "MIGLIORAMENTO DERIVA DALLA CHIUSURA DEGLI SHORT" in origin:
+            return 2
+        # 2) Nuova partecipazione Long realmente dominante.
         if "AUMENTO DEI LONG" in origin and "SOPRATTUTTO" in origin:
             return 0
         if "AUMENTATO SIA I LONG SIA GLI SHORT" in origin and "AUMENTO DEI LONG È STATO MAGGIORE" in origin:
             return 0
-        if "SIA DALL'AUMENTO DEI LONG" in origin:
+        if "MIGLIORAMENTO DERIVA DALL'AUMENTO DEI LONG" in origin:
+            return 0
+        # 3) Movimento misto/bilanciato: nuovi Long + chiusura Short senza predominanza netta.
+        if "SIA DALL'AUMENTO DEI LONG" in origin and "CHIUSURA DEGLI SHORT" in origin:
             return 1
         if "POSIZIONAMENTO PIÙ RIALZISTA" in origin and "CHIUSURA DEGLI SHORT" not in origin:
+            return 1
+        # 4) Fallback al segnale motore solo quando l'origine non è abbastanza esplicita.
+        if motor == "NUOVI LONG":
+            return 0
+        if motor in ("MIGLIORAMENTO MISTO", "FLUSSO NEUTRALE"):
             return 1
         if "CHIUSURA DEGLI SHORT" in origin:
             return 2
         return 3
 
     if direction == "SHORT":
-        if motor == "NUOVI SHORT":
-            return 0
+        # 1) Liquidation dominante: deve prevalere anche se il motore sintetico segnala NUOVI SHORT.
+        if "RIDUZIONE DEI LONG" in origin and "SOPRATTUTTO" in origin:
+            return 2
+        if "PEGGIORAMENTO DERIVA DALLA RIDUZIONE DEI LONG" in origin:
+            return 2
+        # 2) Nuova partecipazione Short realmente dominante.
         if "AUMENTO DEGLI SHORT" in origin and "SOPRATTUTTO" in origin:
             return 0
         if "AUMENTATO SIA I LONG SIA GLI SHORT" in origin and "AUMENTO DEGLI SHORT È STATO MAGGIORE" in origin:
             return 0
-        if "SIA DALL'AUMENTO DEGLI SHORT" in origin:
+        if "PEGGIORAMENTO DERIVA DALL'AUMENTO DEGLI SHORT" in origin:
+            return 0
+        # 3) Movimento misto/bilanciato: riduzione Long + nuovi Short senza predominanza netta.
+        if "SIA DALL'AUMENTO DEGLI SHORT" in origin and "RIDUZIONE DEI LONG" in origin:
             return 1
         if "POSIZIONAMENTO PIÙ RIBASSISTA" in origin and "RIDUZIONE DEI LONG" not in origin:
+            return 1
+        # 4) Fallback al segnale motore solo quando l'origine non è abbastanza esplicita.
+        if motor == "NUOVI SHORT":
+            return 0
+        if motor in ("PEGGIORAMENTO MISTO", "FLUSSO NEUTRALE"):
             return 1
         if "RIDUZIONE DEI LONG" in origin:
             return 2
@@ -3777,8 +3807,12 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
     candidates = focus[focus["Decisione"] == "FOCUS"].copy()
     watch = focus[focus["Decisione"] == "MONITORARE"].copy()
 
-    base_sort = ["_TipoOrdine", "_QualitaOrdine", "_OrigineOrdine", "Score", "Δ Score", "Strumento"]
-    base_ascending = [True, True, True, False, False, True]
+    # V6.29: nel Focus la qualità dell'origine del Flow prevale sullo Score.
+    # Gerarchia: nuova partecipazione reale -> movimento misto -> covering/liquidation dominante
+    # -> nuova conferma/continuazione -> Score -> Δ Score. La diversificazione settoriale viene
+    # applicata subito dopo, mantenendo tutte le prime scelte di settore davanti alle alternative.
+    base_sort = ["_OrigineOrdine", "_TipoOrdine", "Score", "Δ Score", "Strumento"]
+    base_ascending = [True, True, False, False, True]
 
     if not candidates.empty:
         candidates = candidates.sort_values(base_sort, ascending=base_ascending, na_position="last").reset_index(drop=True)
