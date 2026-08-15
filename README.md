@@ -1,23 +1,22 @@
-# COT Smart Money Python V6.29
+# COT Smart Money Python V6.30
 
-Versione Python allineata a **G. COT Smart Money Engine V1.5.48** e basata sulla V6.28.
+## Novità V6.30 — aggiornamento CFTC realmente forzato a ogni nuova scansione
 
-La V6.29 **non modifica il motore COT, lo Stato dello Screener, lo Score, l'analisi singola o il Weekly Change Radar**. Corregge esclusivamente la gerarchia usata per ordinare i candidati del **Focus Operativo Settimanale**.
+La V6.30 nasce da un controllo su un export effettuato subito dopo l'uscita di un nuovo COT: il file conteneva correttamente il foglio **Verifica precedente**, ma lo Screener stava ancora usando la **Data COT 04/08/2026**. Di conseguenza anche Focus e verifica appartenevano ancora al ciclo precedente.
 
-## Correzione: Origine Flow 1W prima dello Score
+La causa possibile era la cache oraria dei dati CFTC: una scansione eseguita poco prima della nuova pubblicazione poteva mantenere temporaneamente il report precedente anche premendo di nuovo il pulsante di analisi.
 
-Nel primo Focus reale della V6.28 era emerso un caso utile:
+La V6.30 corregge questo comportamento senza cambiare il motore quantitativo:
 
-- **CC — Cocoa**: Score 83, miglioramento derivante soprattutto dall'**aumento dei Long**;
-- **SB — Sugar**: Score 93, miglioramento derivante soprattutto dalla **chiusura degli Short**, pur con Long in aumento.
+- ogni pressione di **Avvia analisi di tutti i mercati selezionati** svuota esclusivamente le cache dei dati CFTC che possono rendere vecchio il report;
+- la nuova scansione interroga quindi nuovamente il dataset CFTC;
+- dopo lo Screener viene mostrata chiaramente la **Data COT effettivamente usata**;
+- se i mercati hanno date COT diverse viene mostrato un avviso;
+- se la data più recente ha 10 o più giorni viene mostrato un avviso specifico: dopo una nuova uscita del venerdì non bisogna considerare Focus/Radar come nuovo ciclo finché la Data COT non cambia;
+- il foglio **Verifica precedente** continua a ricostruire il Focus del report immediatamente precedente. Quindi, quando il report corrente passa da 04/08 a 11/08, la verifica passa automaticamente dal Focus 28/07 al Focus 04/08.
 
-La V6.28 lasciava prevalere il segnale sintetico `NUOVI LONG` e poi lo Score, quindi SB poteva essere ordinato davanti a CC. Questo non era coerente con la lettura più precisa dell'`Origine Flow 1W`.
+La V6.30 **non modifica** analisi singola, Stato Screener, Score, Alignment, Weekly Change Radar, logica Focus V6.29 o regole dei prompt. I prompt vengono solo riallineati al numero di versione.
 
-La V6.29 corregge il problema senza creare un nuovo Score.
-
-### Nuova gerarchia del Focus
-
-Per ordinare candidati già validi, la qualità dell'origine del movimento viene classificata così:
 
 1. **nuova partecipazione reale** nella direzione del Focus;
 2. **movimento misto / bilanciato**;

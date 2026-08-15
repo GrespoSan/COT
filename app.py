@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 # CONFIGURAZIONE PAGINA
 # =============================================================================
 st.set_page_config(
-    page_title="COT Smart Money V6.29 — Python",
+    page_title="COT Smart Money V6.30 — Python",
     page_icon="🛡️",
     layout="wide",
 )
@@ -48,7 +48,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🛡️ COT Smart Money — Python V6.29")
+st.title("🛡️ COT Smart Money — Python V6.30")
 st.caption(
     "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale con Weekly Change Radar e Focus Operativo. "
     "Il motore è allineato a TradingView G. COT Smart Money Engine V1.5.48 e seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
@@ -5066,9 +5066,20 @@ def render_screener() -> None:
             key="screener_oi_threshold",
         )
         run_scan = st.button("Avvia analisi di tutti i mercati selezionati", type="primary", width="stretch")
-        st.caption("La prima scansione completa può richiedere alcuni minuti. I dati vengono poi memorizzati nella cache.")
+        st.caption(
+            "Ogni nuova scansione forza un nuovo controllo dei report CFTC, così un report appena pubblicato non resta bloccato dalla cache della scansione precedente. "
+            "Le altre risorse non critiche continuano a beneficiare della cache."
+        )
 
     if run_scan:
+        # V6.30 — correttezza prima della velocità: quando l'utente chiede una nuova scansione,
+        # i dati CFTC vengono richiesti nuovamente. Questo evita che una scansione effettuata
+        # poco prima dell'uscita del report del venerdì mantenga per un'ora il report precedente.
+        try:
+            fetch_market_history.clear()
+            cftc_request.clear()
+        except Exception:
+            pass
         selected_specs = [MARKET_BY_LABEL[label] for label in selected_labels]
         if not selected_specs:
             st.warning("Seleziona almeno un mercato.")
@@ -5106,6 +5117,29 @@ def render_screener() -> None:
         return
 
     st.success(f"Screener completato: {len(results_df)} mercati analizzati; {len(errors_df)} errori o dati mancanti.")
+
+    # V6.30 — rendi evidente quale report COT è realmente entrato nello Screener.
+    # Questo è particolarmente importante il venerdì sera, quando il nuovo report può
+    # essere stato appena pubblicato ma il dataset/API può non essere ancora propagato.
+    cot_dates = pd.to_datetime(results_df.get("Data COT", pd.Series(dtype=str)), errors="coerce").dropna()
+    if not cot_dates.empty:
+        latest_cot_date = cot_dates.max().date()
+        unique_cot_dates = sorted({d.date() for d in cot_dates})
+        if len(unique_cot_dates) == 1:
+            st.info(f"📅 Report COT effettivamente usato dallo Screener: {latest_cot_date.strftime('%d/%m/%Y')}.")
+        else:
+            st.warning(
+                "⚠️ I mercati non stanno usando tutti la stessa data COT. "
+                f"Date rilevate: {', '.join(d.strftime('%d/%m/%Y') for d in unique_cot_dates)}. "
+                "Prima di usare Focus e Radar verifica i mercati con data più vecchia."
+            )
+        cot_age = max((date.today() - latest_cot_date).days, 0)
+        if cot_age >= 10:
+            st.warning(
+                f"⚠️ Il report COT più recente caricato ha data {latest_cot_date.strftime('%d/%m/%Y')} ({cot_age} giorni fa). "
+                "Se stai eseguendo lo Screener dopo una nuova uscita del venerdì, il dataset CFTC potrebbe non essersi ancora aggiornato. "
+                "In questo caso non considerare Focus e Verifica come appartenenti al nuovo ciclo finché la data COT non cambia."
+            )
 
     metric1, metric2, metric3, metric4, metric5 = st.columns(5)
     metric1.metric("Mercati analizzati", len(results_df))
