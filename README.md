@@ -1,4 +1,26 @@
-# COT Smart Money Python V6.32
+# COT Smart Money Python V6.33
+
+## Novità V6.33 — unico Excel settimanale Focus + Radar
+
+La V6.33 sostituisce i due export Excel dedicati **Focus Operativo** e **Weekly Change Radar** con un solo file settimanale:
+
+`cot_weekly_report_YYYY-MM-DD.xlsx`
+
+Il file contiene soltanto i fogli utili al controllo settimanale, nell'ordine:
+
+1. **Focus settimana** — tutti i candidati FOCUS ordinati;
+2. **Focus principali** — prima scelta per ciascun settore;
+3. **Alternative settore** — setup validi dello stesso comparto;
+4. **Da monitorare** — punti di svolta / setup non ancora maturi;
+5. **Verifica precedente** — rendimento direzionale, MFE, MAE ed esito del Focus precedente;
+6. **Radar completo** — intero universo analizzato, compresi i mercati senza novità.
+
+Il foglio **Radar completo** non rispetta i filtri applicati a video: serve come archivio completo della scansione. I nove fogli Radar settoriali non vengono duplicati nel report settimanale, perché la colonna **Categoria Radar** consente di filtrare direttamente il foglio completo.
+
+I **JPG del Radar** restano separati e continuano a rispettare la vista filtrata corrente. L'export **Screener Excel** resta disponibile come export tecnico completo della classifica e non sostituisce il report settimanale.
+
+Questa versione **non modifica** motore COT, Stato Screener, Score, Alignment 156W, logica Weekly Change Radar, criteri Focus, ordinamento Focus V6.29 o Verifica Focus precedente. Cambia soltanto l'organizzazione degli export e viene corretta nella spiegazione a video la gerarchia già usata dal Focus: origine reale del Flow → nuova conferma/continuazione → Score → Δ Score.
+
 
 ## Novità V6.32 — rimosso Oats (ZO)
 

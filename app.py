@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 # CONFIGURAZIONE PAGINA
 # =============================================================================
 st.set_page_config(
-    page_title="COT Smart Money V6.32 — Python",
+    page_title="COT Smart Money V6.33 — Python",
     page_icon="🛡️",
     layout="wide",
 )
@@ -48,7 +48,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🛡️ COT Smart Money — Python V6.32")
+st.title("🛡️ COT Smart Money — Python V6.33")
 st.caption(
     "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale con Weekly Change Radar e Focus Operativo. "
     "Il motore è allineato a TradingView G. COT Smart Money Engine V1.5.48 e seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
@@ -3990,17 +3990,50 @@ def evaluate_previous_focus(results: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(out, columns=columns)
 
 
-def build_focus_excel(focus_frame: pd.DataFrame, verification_frame: pd.DataFrame) -> bytes:
+def build_weekly_report_excel(
+    focus_frame: pd.DataFrame,
+    verification_frame: pd.DataFrame,
+    radar_frame: pd.DataFrame,
+) -> bytes:
+    """Esporta un unico report settimanale con Focus operativo e Radar completo.
+
+    Il Radar esportato e' sempre l'intero universo della scansione e non dipende
+    dai filtri applicati a video. Non vengono creati fogli Radar settoriali: la
+    colonna Categoria Radar permette di filtrare direttamente il foglio completo.
+    """
     output = io.BytesIO()
+    focus_all = focus_frame[focus_frame["Decisione"] == "FOCUS"].copy() if not focus_frame.empty else focus_frame.copy()
+    focus_main = focus_all[focus_all["Ruolo settore"] == "PRINCIPALE"].copy() if not focus_all.empty else focus_all.copy()
+    focus_alt = focus_all[focus_all["Ruolo settore"] == "ALTERNATIVA SETTORE"].copy() if not focus_all.empty else focus_all.copy()
+    focus_watch = focus_frame[focus_frame["Decisione"] == "MONITORARE"].copy() if not focus_frame.empty else focus_frame.copy()
+
+    radar_export_columns = [
+        "Priorità", "Strumento", "Categoria Radar", "Report precedente", "Report attuale",
+        "Settimana precedente", "Oggi", "Δ Score", "Cosa è cambiato", "Verdetto", "Lettura operativa",
+        "Stato precedente", "Stato", "Score precedente", "Score",
+        "Origine Flow 1W precedente", "Origine Flow 1W",
+        "Δ Long 1W precedente", "Δ Long 1W", "Δ Short 1W precedente", "Δ Short 1W",
+        "Contesto OI 1W precedente", "Contesto OI 1W",
+        "Segnale flusso motore precedente", "Segnale flusso motore",
+        "Prezzo anticipa COT precedente", "Prezzo anticipa COT",
+        "Prezzo Weekly precedente", "Prezzo Weekly", "Regime 156W precedente", "Regime 156W",
+    ]
+    radar = radar_frame.copy()
+    for column in radar_export_columns:
+        if column not in radar.columns:
+            radar[column] = ""
+
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        focus_all = focus_frame[focus_frame["Decisione"] == "FOCUS"].copy()
         focus_all.to_excel(writer, sheet_name="Focus settimana", index=False)
-        focus_all[focus_all["Ruolo settore"] == "PRINCIPALE"].to_excel(writer, sheet_name="Focus principali", index=False)
-        focus_all[focus_all["Ruolo settore"] == "ALTERNATIVA SETTORE"].to_excel(writer, sheet_name="Alternative settore", index=False)
-        focus_frame[focus_frame["Decisione"] == "MONITORARE"].to_excel(writer, sheet_name="Da monitorare", index=False)
+        focus_main.to_excel(writer, sheet_name="Focus principali", index=False)
+        focus_alt.to_excel(writer, sheet_name="Alternative settore", index=False)
+        focus_watch.to_excel(writer, sheet_name="Da monitorare", index=False)
         verification_frame.to_excel(writer, sheet_name="Verifica precedente", index=False)
+        radar[radar_export_columns].to_excel(writer, sheet_name="Radar completo", index=False)
+
         from openpyxl.styles import Alignment, Font, PatternFill
         from openpyxl.utils import get_column_letter
+
         header_fill = PatternFill("solid", fgColor="1F4E78")
         header_font = Font(color="FFFFFF", bold=True)
         for ws in writer.book.worksheets:
@@ -4010,10 +4043,49 @@ def build_focus_excel(focus_frame: pd.DataFrame, verification_frame: pd.DataFram
                 cell.fill = header_fill
                 cell.font = header_font
                 cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            headers = {cell.value: cell.column for cell in ws[1]}
             for column_cells in ws.columns:
-                letter = get_column_letter(column_cells[0].column)
-                max_len = max([len(str(c.value or "")) for c in column_cells[:150]] + [10])
-                ws.column_dimensions[letter].width = max(10, min(max_len + 2, 46))
+                column_letter = get_column_letter(column_cells[0].column)
+                max_length = 0
+                for cell in column_cells[:200]:
+                    value = "" if cell.value is None else str(cell.value)
+                    max_length = max(max_length, min(len(value), 55))
+                    cell.alignment = Alignment(vertical="top", wrap_text=False)
+                ws.column_dimensions[column_letter].width = max(10, min(max_length + 2, 48))
+
+            if "Direzione" in headers:
+                direction_col = get_column_letter(headers["Direzione"])
+                for cell in ws[direction_col][1:]:
+                    value = str(cell.value or "")
+                    if value == "SHORT":
+                        cell.font = Font(color="C00000", bold=True)
+                    elif value == "LONG":
+                        cell.font = Font(color="008000", bold=True)
+            if "Oggi" in headers:
+                oggi_col = get_column_letter(headers["Oggi"])
+                for cell in ws[oggi_col][1:]:
+                    value = str(cell.value or "")
+                    if "SHORT" in value:
+                        cell.font = Font(color="C00000", bold=True)
+                    elif "LONG" in value:
+                        cell.font = Font(color="008000", bold=True)
+            if "Esito" in headers:
+                esito_col = get_column_letter(headers["Esito"])
+                for cell in ws[esito_col][1:]:
+                    value = str(cell.value or "")
+                    if "FAVOREVOLE" in value and "SFAVOREVOLE" not in value:
+                        cell.font = Font(color="008000", bold=True)
+                    elif "SFAVOREVOLE" in value:
+                        cell.font = Font(color="C00000", bold=True)
+            if "Δ Score" in headers:
+                delta_col = get_column_letter(headers["Δ Score"])
+                for cell in ws[delta_col][1:]:
+                    cell.number_format = '+0;-0;0'
+            for pct_header in ("Rendimento direzionale %", "MFE %", "MAE %"):
+                if pct_header in headers:
+                    pct_col = get_column_letter(headers[pct_header])
+                    for cell in ws[pct_col][1:]:
+                        cell.number_format = '+0.00;-0.00;0.00'
     return output.getvalue()
 
 
@@ -4126,63 +4198,6 @@ def build_screener_excel(results: pd.DataFrame, errors: pd.DataFrame) -> bytes:
 
     return output.getvalue()
 
-
-
-def build_weekly_radar_excel(radar_frame: pd.DataFrame) -> bytes:
-    """Esporta il Weekly Change Radar completo in un file Excel dedicato."""
-    output = io.BytesIO()
-    export_columns = [
-        "Priorità", "Strumento", "Categoria Radar", "Report precedente", "Report attuale",
-        "Settimana precedente", "Oggi", "Δ Score", "Cosa è cambiato", "Verdetto", "Lettura operativa",
-        "Stato precedente", "Stato", "Score precedente", "Score",
-        "Origine Flow 1W precedente", "Origine Flow 1W",
-        "Δ Long 1W precedente", "Δ Long 1W", "Δ Short 1W precedente", "Δ Short 1W",
-        "Contesto OI 1W precedente", "Contesto OI 1W",
-        "Segnale flusso motore precedente", "Segnale flusso motore",
-        "Prezzo anticipa COT precedente", "Prezzo anticipa COT",
-        "Prezzo Weekly precedente", "Prezzo Weekly", "Regime 156W precedente", "Regime 156W",
-    ]
-    frame = radar_frame.copy()
-    for column in export_columns:
-        if column not in frame.columns:
-            frame[column] = ""
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        frame[export_columns].to_excel(writer, sheet_name="Weekly Change Radar", index=False)
-        write_weekly_radar_sector_sheets(writer, frame, export_columns)
-        from openpyxl.styles import Alignment, Font, PatternFill
-        from openpyxl.utils import get_column_letter
-
-        header_fill = PatternFill("solid", fgColor="1F4E78")
-        header_font = Font(color="FFFFFF", bold=True)
-        for ws in writer.book.worksheets:
-            ws.freeze_panes = "A2"
-            ws.auto_filter.ref = ws.dimensions
-            for cell in ws[1]:
-                cell.fill = header_fill
-                cell.font = header_font
-                cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-            headers = {cell.value: cell.column for cell in ws[1]}
-            for column_cells in ws.columns:
-                max_length = 0
-                column_letter = get_column_letter(column_cells[0].column)
-                for cell in column_cells[:200]:
-                    value = "" if cell.value is None else str(cell.value)
-                    max_length = max(max_length, min(len(value), 55))
-                    cell.alignment = Alignment(vertical="top", wrap_text=False)
-                ws.column_dimensions[column_letter].width = max(10, min(max_length + 2, 48))
-            if "Oggi" in headers:
-                oggi_col = get_column_letter(headers["Oggi"])
-                for cell in ws[oggi_col][1:]:
-                    value = str(cell.value or "")
-                    if "SHORT" in value:
-                        cell.font = Font(color="C00000", bold=True)
-                    elif "LONG" in value:
-                        cell.font = Font(color="008000", bold=True)
-            if "Δ Score" in headers:
-                delta_col = get_column_letter(headers["Δ Score"])
-                for cell in ws[delta_col][1:]:
-                    cell.number_format = '+0;-0;0'
-    return output.getvalue()
 
 
 
@@ -4712,7 +4727,7 @@ def _radar_today_style(value: Any) -> str:
     return ""
 
 
-def render_weekly_change_radar_tab(results_df: pd.DataFrame) -> None:
+def render_weekly_change_radar_tab(results_df: pd.DataFrame, radar_frame: pd.DataFrame | None = None) -> None:
     st.subheader("COT Weekly Change Radar")
     st.caption(
         "Confronta automaticamente l'ultimo report COT con quello precedente usando lo stesso motore dello screener. "
@@ -4720,7 +4735,7 @@ def render_weekly_change_radar_tab(results_df: pd.DataFrame) -> None:
         "Il Radar non crea un nuovo Score: confronta Stato, Score e struttura dei due snapshot."
     )
 
-    radar = build_weekly_change_radar(results_df)
+    radar = radar_frame.copy() if radar_frame is not None else build_weekly_change_radar(results_df)
     if radar.empty:
         st.info("Il confronto settimanale non è disponibile per i mercati selezionati.")
         return
@@ -4796,12 +4811,11 @@ def render_weekly_change_radar_tab(results_df: pd.DataFrame) -> None:
         "PERDE INTERESSE segnala un deterioramento; NESSUNA NOVITÀ — IGNORA serve a ridurre il rumore settimanale."
     )
 
-    # Excel dedicato: NON rispetta i filtri a video. Deve contenere l'intero Radar
-    # della scansione, comprese tutte le categorie e anche i mercati senza novità.
-    # I JPG, invece, continuano a rappresentare la vista filtrata corrente.
-    radar_excel_bytes = build_weekly_radar_excel(radar)
+    # Il Radar Excel dedicato non viene più generato: l'intero Radar della scansione
+    # è incluso nel Report Settimanale Excel unico disponibile sopra le schede.
+    # I JPG continuano invece a rappresentare la vista filtrata corrente.
     st.caption(
-        "L'Excel del Radar include tutti i mercati della scansione e tutte le categorie, indipendentemente dai filtri a video. "
+        "Il Radar completo è incluso nel Report Settimanale Excel unico, indipendentemente dai filtri a video. "
         "I JPG continuano invece a rispettare la vista filtrata."
     )
     radar_jpg_top5 = build_screener_jpg(
@@ -4822,17 +4836,8 @@ def render_weekly_change_radar_tab(results_df: pd.DataFrame) -> None:
         title_prefix="COT Weekly Change Radar",
         footer_text="Il Radar confronta due snapshot settimanali e serve a decidere dove concentrare il tempo di analisi.",
     )
-    ex1, ex2, ex3, ex4 = st.columns(4)
+    ex1, ex2, ex3 = st.columns(3)
     with ex1:
-        st.download_button(
-            "Scarica Radar Excel completo",
-            data=radar_excel_bytes,
-            file_name=f"cot_weekly_change_radar_{date.today().isoformat()}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            width="stretch",
-            key="radar_export_excel",
-        )
-    with ex2:
         st.download_button(
             "Scarica JPG Top 5",
             data=radar_jpg_top5,
@@ -4841,7 +4846,7 @@ def render_weekly_change_radar_tab(results_df: pd.DataFrame) -> None:
             width="stretch",
             key="radar_export_jpg_top5",
         )
-    with ex3:
+    with ex2:
         st.download_button(
             "Scarica JPG Top 10",
             data=radar_jpg_top10,
@@ -4850,7 +4855,7 @@ def render_weekly_change_radar_tab(results_df: pd.DataFrame) -> None:
             width="stretch",
             key="radar_export_jpg_top10",
         )
-    with ex4:
+    with ex3:
         st.download_button(
             "Scarica JPG Totale",
             data=radar_jpg_total,
@@ -4889,13 +4894,13 @@ def _focus_direction_style(value: Any) -> str:
     return ""
 
 
-def render_focus_operativo_tab(results_df: pd.DataFrame) -> None:
+def render_focus_operativo_tab(results_df: pd.DataFrame, focus_frame: pd.DataFrame | None = None) -> None:
     st.subheader("Focus Operativo Settimanale")
     st.caption(
         "Questa sezione restringe lo screener ai mercati su cui vale davvero la pena concentrare il tempo. "
         "Non crea un nuovo Score: prima ordina i candidati con i criteri già esistenti, poi mette in cima la migliore scelta di ogni settore."
     )
-    focus = build_focus_operativo(results_df)
+    focus = focus_frame.copy() if focus_frame is not None else build_focus_operativo(results_df)
     candidates = focus[focus["Decisione"] == "FOCUS"].copy() if not focus.empty else pd.DataFrame()
     principali = candidates[candidates["Ruolo settore"] == "PRINCIPALE"].copy() if not candidates.empty else pd.DataFrame()
     alternative = candidates[candidates["Ruolo settore"] == "ALTERNATIVA SETTORE"].copy() if not candidates.empty else pd.DataFrame()
@@ -4967,29 +4972,22 @@ def render_focus_operativo_tab(results_df: pd.DataFrame) -> None:
         st.write(
             f"Un candidato FOCUS deve essere LONG/SHORT CONFERMATO, non deve essere NON INSEGUIRE, deve avere Score almeno {FOCUS_MIN_SCORE}, "
             "prezzo Weekly confermato, struttura 3-6W coerente e un Flow 1W non contrario. I candidati vengono ordinati senza creare un nuovo punteggio: "
-            "prima nuova conferma/continuazione, poi fascia qualitativa dello Score, qualità dell'origine reale del Flow, Score numerico e Δ Score. "
+            "prima qualità dell'origine reale del Flow (nuova partecipazione → misto → covering/liquidation dominante), poi nuova conferma/continuazione, Score numerico e Δ Score. "
             "Dopo questo ordinamento, il migliore di ogni settore viene mostrato tra i Focus principali e gli altri come alternative settoriali. "
             f"I setup non completi con Score almeno {FOCUS_WATCH_MIN_SCORE} restano in MONITORARE. Il sistema non riempie la tabella per forza e mostra al massimo {FOCUS_MAX_MARKETS} candidati FOCUS complessivi."
         )
 
-    verification = evaluate_previous_focus(results_df)
-    focus_excel = build_focus_excel(focus, verification)
-    st.download_button(
-        "Scarica Focus Excel",
-        data=focus_excel,
-        file_name=f"cot_focus_operativo_{date.today().isoformat()}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        width="stretch",
-        key="focus_export_excel",
+    st.caption(
+        "Focus, alternative, punti da monitorare e verifica precedente sono inclusi nel Report Settimanale Excel unico disponibile sopra le schede."
     )
 
-def render_focus_verification_tab(results_df: pd.DataFrame) -> None:
+def render_focus_verification_tab(results_df: pd.DataFrame, verification_frame: pd.DataFrame | None = None) -> None:
     st.subheader("Verifica Focus della settimana precedente")
     st.caption(
         "Ricostruisce con i dati dello snapshot precedente quali mercati avrebbero superato il Focus e misura come si sono mossi dopo. "
         "La verifica non modifica retroattivamente i criteri e non usa dati futuri per selezionare i candidati."
     )
-    verification = evaluate_previous_focus(results_df)
+    verification = verification_frame.copy() if verification_frame is not None else evaluate_previous_focus(results_df)
     if verification.empty:
         st.info("Non ci sono ancora candidati FOCUS precedenti sufficienti da verificare. Dopo almeno un ciclo completo questa tabella si popolerà automaticamente.")
         return
@@ -5146,17 +5144,37 @@ def render_screener() -> None:
     metric4.metric("Short", int((results_df["Direzione"] == "SHORT").sum()))
     metric5.metric("Regime 156W confermato", int(results_df["Regime 156W"].str.contains("CONFERMATO", na=False).sum()))
 
+    # Unico Excel settimanale: Focus operativo + verifica precedente + Radar completo.
+    # Il Radar esportato è sempre l'intero universo della scansione e non rispetta
+    # i filtri della scheda Radar; i fogli settoriali ridondanti non vengono creati.
+    weekly_focus = build_focus_operativo(results_df)
+    weekly_verification = evaluate_previous_focus(results_df)
+    weekly_radar = build_weekly_change_radar(results_df)
+    weekly_report_excel = build_weekly_report_excel(weekly_focus, weekly_verification, weekly_radar)
+    st.download_button(
+        "📘 Scarica Report Settimanale Excel — Focus + Radar",
+        data=weekly_report_excel,
+        file_name=f"cot_weekly_report_{date.today().isoformat()}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        width="stretch",
+        key="weekly_report_export_excel",
+    )
+    st.caption(
+        "Un solo file con: Focus settimana, Focus principali, Alternative settore, Da monitorare, Verifica precedente e Radar completo. "
+        "Il foglio Radar completo contiene tutti i mercati analizzati, anche quelli senza novità."
+    )
+
     tab_classifica, tab_radar, tab_focus, tab_verifica = st.tabs([
         "Classifica attuale", "Cambiamenti settimanali", "Focus operativo", "Verifica Focus precedente"
     ])
     with tab_classifica:
         render_screener_current_tab(results_df, errors_df)
     with tab_radar:
-        render_weekly_change_radar_tab(results_df)
+        render_weekly_change_radar_tab(results_df, weekly_radar)
     with tab_focus:
-        render_focus_operativo_tab(results_df)
+        render_focus_operativo_tab(results_df, weekly_focus)
     with tab_verifica:
-        render_focus_verification_tab(results_df)
+        render_focus_verification_tab(results_df, weekly_verification)
 
 
 
