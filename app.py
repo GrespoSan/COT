@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 # CONFIGURAZIONE PAGINA
 # =============================================================================
 st.set_page_config(
-    page_title="COT Smart Money V6.31 — Python",
+    page_title="COT Smart Money V6.32 — Python",
     page_icon="🛡️",
     layout="wide",
 )
@@ -48,7 +48,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🛡️ COT Smart Money — Python V6.31")
+st.title("🛡️ COT Smart Money — Python V6.32")
 st.caption(
     "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale con Weekly Change Radar e Focus Operativo. "
     "Il motore è allineato a TradingView G. COT Smart Money Engine V1.5.48 e seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
@@ -174,7 +174,6 @@ MARKETS: tuple[MarketSpec, ...] = (
     MarketSpec("ZM — Soybean Meal", "ZM", "Agricoli", "commodity", False, "SOYBEAN MEAL - CHICAGO BOARD OF TRADE", ("SOYBEAN MEAL",), "ZM=F"),
     MarketSpec("ZW — Wheat SRW", "ZW", "Agricoli", "commodity", False, "WHEAT-SRW - CHICAGO BOARD OF TRADE", ("WHEAT-SRW",), "ZW=F"),
     MarketSpec("KE — Wheat HRW", "KE", "Agricoli", "commodity", False, "WHEAT-HRW - CHICAGO BOARD OF TRADE", ("WHEAT-HRW",), "KE=F"),
-    MarketSpec("ZO — Oats", "ZO", "Agricoli", "commodity", False, "OATS - CHICAGO BOARD OF TRADE", ("OATS",), "ZO=F"),
     MarketSpec("ZR — Rough Rice", "ZR", "Agricoli", "commodity", False, "ROUGH RICE - CHICAGO BOARD OF TRADE", ("ROUGH RICE",), "ZR=F"),
 
     # Soft commodity
