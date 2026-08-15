@@ -1,4 +1,11 @@
-# COT Smart Money Python V6.30
+# COT Smart Money Python V6.31
+
+## Novità V6.31 — rimosso Heating Oil (HO)
+
+Su richiesta, **HO — Heating Oil** è stato rimosso dall’universo dei mercati selezionabili e dallo screener. È stato eliminato anche dal file `term_structure.csv`, quindi non compare più tra le commodity energetiche gestite dall’app.
+
+La V6.31 **non modifica** motore COT, Stato Screener, Score, Alignment 156W, Weekly Change Radar, Focus Operativo o Verifica Focus precedente. Tutta la logica V6.30 resta invariata.
+
 
 ## Novità V6.30 — aggiornamento CFTC realmente forzato a ogni nuova scansione
 

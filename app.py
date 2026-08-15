@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 # CONFIGURAZIONE PAGINA
 # =============================================================================
 st.set_page_config(
-    page_title="COT Smart Money V6.30 — Python",
+    page_title="COT Smart Money V6.31 — Python",
     page_icon="🛡️",
     layout="wide",
 )
@@ -48,7 +48,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🛡️ COT Smart Money — Python V6.30")
+st.title("🛡️ COT Smart Money — Python V6.31")
 st.caption(
     "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale con Weekly Change Radar e Focus Operativo. "
     "Il motore è allineato a TradingView G. COT Smart Money Engine V1.5.48 e seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
@@ -158,7 +158,6 @@ MARKETS: tuple[MarketSpec, ...] = (
     MarketSpec("CL — WTI Crude Oil", "CL", "Energia", "commodity", False, "WTI-PHYSICAL - NEW YORK MERCANTILE EXCHANGE", ("WTI-PHYSICAL", "CRUDE OIL"), "CL=F"),
     MarketSpec("RB — Gasoline RBOB", "RB", "Energia", "commodity", False, "GASOLINE RBOB - NEW YORK MERCANTILE EXCHANGE", ("GASOLINE RBOB",), "RB=F"),
     MarketSpec("NG — Natural Gas", "NG", "Energia", "commodity", False, "NAT GAS NYME - NEW YORK MERCANTILE EXCHANGE", ("NAT GAS", "NATURAL GAS"), "NG=F"),
-    MarketSpec("HO — Heating Oil", "HO", "Energia", "commodity", False, "NO. 2 HEATING OIL, N.Y. HARBOR - NEW YORK MERCANTILE EXCHANGE", ("HEATING OIL",), "HO=F"),
     MarketSpec("BZ — Brent", "BZ", "Energia", "commodity", False, "BRENT LAST DAY - NEW YORK MERCANTILE EXCHANGE", ("BRENT",), "BZ=F"),
 
     # Metalli
