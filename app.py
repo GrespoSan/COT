@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 # CONFIGURAZIONE PAGINA
 # =============================================================================
 st.set_page_config(
-    page_title="COT Smart Money V6.33 — Python",
+    page_title="COT Smart Money V6.34 — Python",
     page_icon="🛡️",
     layout="wide",
 )
@@ -48,9 +48,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🛡️ COT Smart Money — Python V6.33")
+st.title("🛡️ COT Smart Money — Python V6.34")
 st.caption(
-    "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale con Weekly Change Radar e Focus Operativo. "
+    "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale con Weekly Change Radar, Focus Operativo e test Price Action Timing. "
     "Il motore è allineato a TradingView G. COT Smart Money Engine V1.5.48 e seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
 )
 
@@ -3903,6 +3903,163 @@ def _evaluate_focus_with_daily(direction: str, daily: pd.DataFrame, start_after:
     }
 
 
+
+def _evaluate_price_action_timing_with_daily(direction: str, daily: pd.DataFrame, start_after: date, end_on: date) -> dict[str, Any]:
+    """Esperimento causale di timing Daily, separato dal motore COT.
+
+    LONG:
+    - il pullback si arma solo dopo una seduta post-Focus con Close < Close precedente
+      oppure Low < Low precedente;
+    - da una seduta successiva, il segnale arriva solo con Close > High della seduta precedente;
+    - ingresso teorico all'Open della seduta successiva al segnale.
+
+    SHORT: regole speculari.
+
+    Il segnale usa quindi esclusivamente una chiusura Daily già completata e non può entrare
+    sulla stessa barra che lo genera. Se non arriva un segnale/ingresso entro il termine della
+    verifica, il sistema registra esplicitamente che il timing avrebbe lasciato il Focus senza trade.
+    """
+    direction = str(direction or '').upper().strip()
+    if direction not in ('LONG', 'SHORT'):
+        return {'available': False, 'status': 'NON VALUTABILE', 'error': 'Direzione precedente non valida.'}
+    if daily.empty:
+        return {'available': False, 'status': 'NON VALUTABILE', 'error': 'Dati prezzo giornalieri non disponibili.'}
+
+    series = daily.copy().sort_index()
+    series = series[series.index.date <= end_on].copy()
+    window = series[(series.index.date > start_after) & (series.index.date <= end_on)].copy()
+    if window.empty:
+        return {'available': False, 'status': 'NON VALUTABILE', 'error': 'Nessuna seduta disponibile nel periodo di verifica.'}
+
+    first_session = window.index[0]
+    pullback_armed = False
+    pullback_start = None
+    signal_date = None
+    signal_pos = None
+    had_comparable_bar = False
+
+    # Posizioni reali nella serie completa: ci consentono di confrontare anche la prima seduta
+    # post-Focus con l'ultima seduta precedente già conosciuta, senza usare dati futuri.
+    positions = [series.index.get_loc(idx) for idx in window.index]
+    for pos in positions:
+        if isinstance(pos, slice):
+            pos = pos.start
+        if pos is None or int(pos) <= 0:
+            continue
+        pos = int(pos)
+        had_comparable_bar = True
+        cur = series.iloc[pos]
+        prev = series.iloc[pos - 1]
+
+        if direction == 'LONG':
+            confirmation = float(cur['close']) > float(prev['high'])
+            pullback_today = (float(cur['close']) < float(prev['close'])) or (float(cur['low']) < float(prev['low']))
+        else:
+            confirmation = float(cur['close']) < float(prev['low'])
+            pullback_today = (float(cur['close']) > float(prev['close'])) or (float(cur['high']) > float(prev['high']))
+
+        # La conferma deve arrivare DOPO che il pullback/rimbalzo è stato armato da una seduta precedente.
+        if pullback_armed and confirmation:
+            signal_date = series.index[pos].date()
+            signal_pos = pos
+            break
+
+        if pullback_today and not pullback_armed:
+            pullback_armed = True
+            pullback_start = series.index[pos].date()
+
+    if not had_comparable_bar:
+        return {'available': False, 'status': 'NON VALUTABILE', 'error': 'Manca una seduta precedente per riconoscere il pullback.'}
+
+    rule = 'Pullback → Close > High T-1 → Open T+1' if direction == 'LONG' else 'Rimbalzo → Close < Low T-1 → Open T+1'
+    if signal_date is None or signal_pos is None:
+        status = '➖ NESSUN PULLBACK' if not pullback_armed else '⏳ PULLBACK SENZA CONFERMA'
+        note = (
+            'Il mercato non ha prodotto un pullback Daily secondo la regola sperimentale.'
+            if not pullback_armed else
+            'Il pullback/rimbalzo è comparso, ma non è arrivata una chiusura Daily di conferma entro il periodo disponibile.'
+        )
+        return {
+            'available': True,
+            'entered': False,
+            'status': status,
+            'rule': rule,
+            'pullback_date': pullback_start,
+            'signal_date': None,
+            'entry_date': None,
+            'entry': math.nan,
+            'exit_date': window.index[-1].date(),
+            'exit': float(window.iloc[-1]['close']),
+            'return': math.nan,
+            'mfe': math.nan,
+            'mae': math.nan,
+            'outcome': 'NESSUN INGRESSO',
+            'wait_sessions': math.nan,
+            'note': note,
+        }
+
+    # Il segnale nasce a chiusura: l'ingresso è necessariamente sulla seduta successiva.
+    next_pos = int(signal_pos) + 1
+    if next_pos >= len(series) or series.index[next_pos].date() > end_on:
+        return {
+            'available': True,
+            'entered': False,
+            'status': '⚠️ SEGNALE SENZA ENTRY',
+            'rule': rule,
+            'pullback_date': pullback_start,
+            'signal_date': signal_date,
+            'entry_date': None,
+            'entry': math.nan,
+            'exit_date': window.index[-1].date(),
+            'exit': float(window.iloc[-1]['close']),
+            'return': math.nan,
+            'mfe': math.nan,
+            'mae': math.nan,
+            'outcome': 'NESSUN INGRESSO',
+            'wait_sessions': math.nan,
+            'note': 'Il segnale è arrivato, ma non esiste una seduta successiva completata entro la finestra di verifica: nessun ingresso simulato.',
+        }
+
+    entry_date = series.index[next_pos].date()
+    entry = float(series.iloc[next_pos]['open'])
+    perf_window = series[(series.index.date >= entry_date) & (series.index.date <= end_on)].copy()
+    if perf_window.empty or entry == 0 or pd.isna(entry):
+        return {'available': False, 'status': 'NON VALUTABILE', 'error': 'Prezzo di ingresso PA non valido.'}
+    exit_price = float(perf_window.iloc[-1]['close'])
+    if pd.isna(exit_price):
+        return {'available': False, 'status': 'NON VALUTABILE', 'error': 'Prezzo di uscita PA non valido.'}
+
+    if direction == 'LONG':
+        directional_return = 100.0 * (exit_price - entry) / entry
+        mfe = 100.0 * (float(perf_window['high'].max()) - entry) / entry
+        mae = 100.0 * (float(perf_window['low'].min()) - entry) / entry
+    else:
+        directional_return = 100.0 * (entry - exit_price) / entry
+        mfe = 100.0 * (entry - float(perf_window['low'].min())) / entry
+        mae = 100.0 * (entry - float(perf_window['high'].max())) / entry
+
+    outcome = '✅ FAVOREVOLE' if directional_return > 0 else '❌ SFAVOREVOLE' if directional_return < 0 else '➖ NEUTRO'
+    first_pos = int(positions[0]) if positions else next_pos
+    wait_sessions = max(next_pos - first_pos, 0)
+    return {
+        'available': True,
+        'entered': True,
+        'status': '✅ TIMING ATTIVATO',
+        'rule': rule,
+        'pullback_date': pullback_start,
+        'signal_date': signal_date,
+        'entry_date': entry_date,
+        'entry': entry,
+        'exit_date': perf_window.index[-1].date(),
+        'exit': exit_price,
+        'return': directional_return,
+        'mfe': mfe,
+        'mae': mae,
+        'outcome': outcome,
+        'wait_sessions': wait_sessions,
+        'note': 'Segnale deciso sulla chiusura Daily; ingresso simulato soltanto all’Open della seduta successiva.',
+    }
+
 def evaluate_previous_focus(results: pd.DataFrame) -> pd.DataFrame:
     """Valuta i candidati FOCUS che il modello avrebbe selezionato sul report precedente."""
     columns = [
@@ -3990,12 +4147,110 @@ def evaluate_previous_focus(results: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(out, columns=columns)
 
 
+
+def evaluate_previous_focus_price_action(results: pd.DataFrame, verification_frame: pd.DataFrame | None = None) -> pd.DataFrame:
+    """Confronta il benchmark passivo del Focus precedente con un timing Daily sperimentale.
+
+    Il modulo è deliberatamente separato dal COT: non cambia Focus, Stato o Score e non viene
+    usato per riclassificare a posteriori i mercati. Serve solo ad accumulare evidenza su una
+    domanda: attendere un pullback/rimbalzo confermato migliora ingresso e MAE rispetto al lunedì Open?
+    """
+    columns = [
+        'Ordine Focus', 'Ruolo settore', 'Categoria', 'Strumento', 'Direzione', 'Tipo', 'Report Focus',
+        'Regola PA', 'Stato Timing PA', 'Data inizio pullback', 'Data segnale PA', 'Data ingresso PA', 'Ingresso PA',
+        'Data uscita', 'Uscita riferimento', 'Sedute attesa',
+        'Rendimento passivo %', 'MFE passivo %', 'MAE passivo %',
+        'Rendimento PA %', 'MFE PA %', 'MAE PA %', 'Δ rendimento PA vs passivo', 'Miglioramento MAE PA (p.p.)',
+        'Esito PA', 'Nota PA',
+    ]
+    previous_results = previous_snapshot_as_results(results)
+    previous_focus = build_focus_operativo(previous_results)
+    previous_focus = previous_focus[previous_focus['Decisione'] == 'FOCUS'].copy()
+    if previous_focus.empty:
+        return pd.DataFrame(columns=columns)
+
+    baseline = verification_frame.copy() if verification_frame is not None else evaluate_previous_focus(results)
+    baseline_by_name = baseline.set_index('Strumento', drop=False) if not baseline.empty and 'Strumento' in baseline.columns else pd.DataFrame()
+    current_by_name = results.set_index('Strumento', drop=False) if 'Strumento' in results.columns else pd.DataFrame()
+    evaluation_end = last_complete_daily_date()
+    out: list[dict[str, Any]] = []
+
+    for _, focus_row in previous_focus.iterrows():
+        name = str(focus_row.get('Strumento', ''))
+        try:
+            report_day = pd.Timestamp(focus_row.get('Data COT', '')).date()
+        except Exception:
+            continue
+        start_after = cot_snapshot_reference_date(report_day)
+
+        current_report_day = None
+        current_row = None
+        if not current_by_name.empty and name in current_by_name.index:
+            current_row = current_by_name.loc[name]
+            if isinstance(current_row, pd.DataFrame):
+                current_row = current_row.iloc[0]
+            try:
+                current_report_day = pd.Timestamp(current_row.get('Data COT', '')).date()
+            except Exception:
+                current_report_day = None
+        report_end = cot_snapshot_reference_date(current_report_day) if current_report_day else evaluation_end
+        end_on = min(report_end, evaluation_end)
+
+        baseline_row = None
+        if not baseline_by_name.empty and name in baseline_by_name.index:
+            baseline_row = baseline_by_name.loc[name]
+            if isinstance(baseline_row, pd.DataFrame):
+                baseline_row = baseline_row.iloc[0]
+
+        ticker = str(focus_row.get('Ticker Yahoo', ''))
+        daily, err = fetch_daily_ohlc(ticker)
+        pa = _evaluate_price_action_timing_with_daily(str(focus_row.get('Direzione', '')), daily, start_after, end_on)
+
+        passive_return = pd.to_numeric(pd.Series([baseline_row.get('Rendimento direzionale %', math.nan) if baseline_row is not None else math.nan]), errors='coerce').iloc[0]
+        passive_mfe = pd.to_numeric(pd.Series([baseline_row.get('MFE %', math.nan) if baseline_row is not None else math.nan]), errors='coerce').iloc[0]
+        passive_mae = pd.to_numeric(pd.Series([baseline_row.get('MAE %', math.nan) if baseline_row is not None else math.nan]), errors='coerce').iloc[0]
+        pa_return = pa.get('return', math.nan)
+        pa_mae = pa.get('mae', math.nan)
+        delta_return = float(pa_return) - float(passive_return) if pd.notna(pa_return) and pd.notna(passive_return) else math.nan
+        mae_improvement = float(pa_mae) - float(passive_mae) if pd.notna(pa_mae) and pd.notna(passive_mae) else math.nan
+
+        out.append({
+            'Ordine Focus': focus_row.get('Ordine Focus', math.nan),
+            'Ruolo settore': focus_row.get('Ruolo settore', ''),
+            'Categoria': focus_row.get('Categoria', ''),
+            'Strumento': name,
+            'Direzione': focus_row.get('Direzione', ''),
+            'Tipo': focus_row.get('Tipo opportunità', ''),
+            'Report Focus': report_day.isoformat(),
+            'Regola PA': pa.get('rule', ''),
+            'Stato Timing PA': pa.get('status', 'NON VALUTABILE'),
+            'Data inizio pullback': pa.get('pullback_date').isoformat() if pa.get('pullback_date') else '',
+            'Data segnale PA': pa.get('signal_date').isoformat() if pa.get('signal_date') else '',
+            'Data ingresso PA': pa.get('entry_date').isoformat() if pa.get('entry_date') else '',
+            'Ingresso PA': pa.get('entry', math.nan),
+            'Data uscita': pa.get('exit_date').isoformat() if pa.get('exit_date') else (baseline_row.get('Data uscita', '') if baseline_row is not None else ''),
+            'Uscita riferimento': pa.get('exit', baseline_row.get('Uscita riferimento', math.nan) if baseline_row is not None else math.nan),
+            'Sedute attesa': pa.get('wait_sessions', math.nan),
+            'Rendimento passivo %': passive_return,
+            'MFE passivo %': passive_mfe,
+            'MAE passivo %': passive_mae,
+            'Rendimento PA %': pa_return,
+            'MFE PA %': pa.get('mfe', math.nan),
+            'MAE PA %': pa_mae,
+            'Δ rendimento PA vs passivo': delta_return,
+            'Miglioramento MAE PA (p.p.)': mae_improvement,
+            'Esito PA': pa.get('outcome', 'NON VALUTABILE'),
+            'Nota PA': pa.get('note') or pa.get('error') or err or '',
+        })
+    return pd.DataFrame(out, columns=columns)
+
 def build_weekly_report_excel(
     focus_frame: pd.DataFrame,
     verification_frame: pd.DataFrame,
+    timing_frame: pd.DataFrame,
     radar_frame: pd.DataFrame,
 ) -> bytes:
-    """Esporta un unico report settimanale con Focus operativo e Radar completo.
+    """Esporta un unico report settimanale con Focus, verifica, Timing Price Action e Radar completo.
 
     Il Radar esportato e' sempre l'intero universo della scansione e non dipende
     dai filtri applicati a video. Non vengono creati fogli Radar settoriali: la
@@ -4029,6 +4284,7 @@ def build_weekly_report_excel(
         focus_alt.to_excel(writer, sheet_name="Alternative settore", index=False)
         focus_watch.to_excel(writer, sheet_name="Da monitorare", index=False)
         verification_frame.to_excel(writer, sheet_name="Verifica precedente", index=False)
+        timing_frame.to_excel(writer, sheet_name="Timing Price Action", index=False)
         radar[radar_export_columns].to_excel(writer, sheet_name="Radar completo", index=False)
 
         from openpyxl.styles import Alignment, Font, PatternFill
@@ -4069,19 +4325,20 @@ def build_weekly_report_excel(
                         cell.font = Font(color="C00000", bold=True)
                     elif "LONG" in value:
                         cell.font = Font(color="008000", bold=True)
-            if "Esito" in headers:
-                esito_col = get_column_letter(headers["Esito"])
-                for cell in ws[esito_col][1:]:
-                    value = str(cell.value or "")
-                    if "FAVOREVOLE" in value and "SFAVOREVOLE" not in value:
-                        cell.font = Font(color="008000", bold=True)
-                    elif "SFAVOREVOLE" in value:
-                        cell.font = Font(color="C00000", bold=True)
+            for outcome_header in ("Esito", "Esito PA"):
+                if outcome_header in headers:
+                    esito_col = get_column_letter(headers[outcome_header])
+                    for cell in ws[esito_col][1:]:
+                        value = str(cell.value or "")
+                        if "FAVOREVOLE" in value and "SFAVOREVOLE" not in value:
+                            cell.font = Font(color="008000", bold=True)
+                        elif "SFAVOREVOLE" in value:
+                            cell.font = Font(color="C00000", bold=True)
             if "Δ Score" in headers:
                 delta_col = get_column_letter(headers["Δ Score"])
                 for cell in ws[delta_col][1:]:
                     cell.number_format = '+0;-0;0'
-            for pct_header in ("Rendimento direzionale %", "MFE %", "MAE %"):
+            for pct_header in ("Rendimento direzionale %", "MFE %", "MAE %", "Rendimento passivo %", "MFE passivo %", "MAE passivo %", "Rendimento PA %", "MFE PA %", "MAE PA %", "Δ rendimento PA vs passivo", "Miglioramento MAE PA (p.p.)"):
                 if pct_header in headers:
                     pct_col = get_column_letter(headers[pct_header])
                     for cell in ws[pct_col][1:]:
@@ -4978,7 +5235,7 @@ def render_focus_operativo_tab(results_df: pd.DataFrame, focus_frame: pd.DataFra
         )
 
     st.caption(
-        "Focus, alternative, punti da monitorare e verifica precedente sono inclusi nel Report Settimanale Excel unico disponibile sopra le schede."
+        "Focus, alternative, punti da monitorare, verifica precedente e test Price Action Timing sono inclusi nel Report Settimanale Excel unico disponibile sopra le schede."
     )
 
 def render_focus_verification_tab(results_df: pd.DataFrame, verification_frame: pd.DataFrame | None = None) -> None:
@@ -5024,9 +5281,69 @@ def render_focus_verification_tab(results_df: pd.DataFrame, verification_frame: 
     )
     st.caption(
         "Regola fissa di verifica: apertura della prima seduta successiva al venerdì associato al report COT precedente, fino all'ultima seduta giornaliera completamente chiusa prima del nuovo ciclo. "
-        "MFE = massimo movimento favorevole; MAE = massimo movimento contrario. È una misura del comportamento della shortlist, non un backtest di entry/stop/target."
+        "MFE = massimo movimento favorevole; MAE = massimo movimento contrario. Questo resta il benchmark passivo e non viene sostituito dal Timing Price Action: serve proprio per confrontare le due modalità senza cambiare il passato."
     )
 
+
+
+def render_price_action_timing_tab(results_df: pd.DataFrame, timing_frame: pd.DataFrame | None = None, verification_frame: pd.DataFrame | None = None) -> None:
+    st.subheader('Price Action Timing — esperimento Daily')
+    st.caption(
+        'Modulo sperimentale e separato dal COT: il Focus decide mercato e direzione; questa sezione verifica soltanto se attendere un pullback/rimbalzo Daily confermato avrebbe migliorato il timing rispetto all’ingresso passivo alla prima apertura della settimana.'
+    )
+    timing = timing_frame.copy() if timing_frame is not None else evaluate_previous_focus_price_action(results_df, verification_frame)
+    if timing.empty:
+        st.info('Non ci sono ancora Focus precedenti sufficienti per testare il Timing Price Action.')
+        return
+
+    entered = timing[pd.to_numeric(timing['Rendimento PA %'], errors='coerce').notna()].copy()
+    total = len(timing)
+    if total:
+        activated = len(entered)
+        activation_rate = 100.0 * activated / total
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric('Focus osservati', total)
+        c2.metric('Timing attivati', f'{activated}/{total}')
+        c3.metric('Tasso attivazione', f'{activation_rate:.0f}%')
+        if not entered.empty:
+            median_delta = float(pd.to_numeric(entered['Δ rendimento PA vs passivo'], errors='coerce').median())
+            median_mae_improvement = float(pd.to_numeric(entered['Miglioramento MAE PA (p.p.)'], errors='coerce').median())
+            c4.metric('Δ rendimento mediano', f'{median_delta:+.2f} p.p.')
+            st.caption(f'Sui soli timing realmente attivati, miglioramento MAE mediano: {median_mae_improvement:+.2f} punti percentuali. Valori descrittivi, non ancora evidenza statistica.')
+        else:
+            c4.metric('Δ rendimento mediano', 'n/d')
+
+    display_cols = [
+        'Strumento', 'Direzione', 'Stato Timing PA', 'Data inizio pullback', 'Data segnale PA', 'Data ingresso PA', 'Ingresso PA',
+        'Sedute attesa', 'Rendimento passivo %', 'Rendimento PA %', 'Δ rendimento PA vs passivo',
+        'MAE passivo %', 'MAE PA %', 'Miglioramento MAE PA (p.p.)', 'MFE passivo %', 'MFE PA %', 'Esito PA',
+    ]
+    st.dataframe(
+        timing[display_cols].style.map(_focus_direction_style, subset=['Direzione']),
+        width='stretch',
+        hide_index=True,
+        column_config={
+            'Ingresso PA': st.column_config.NumberColumn('Ingresso PA', format='%.4f'),
+            'Sedute attesa': st.column_config.NumberColumn('Sedute attesa', format='%.0f'),
+            'Rendimento passivo %': st.column_config.NumberColumn('Rend. passivo %', format='%+.2f'),
+            'Rendimento PA %': st.column_config.NumberColumn('Rend. PA %', format='%+.2f'),
+            'Δ rendimento PA vs passivo': st.column_config.NumberColumn('Δ Rend. PA', format='%+.2f'),
+            'MAE passivo %': st.column_config.NumberColumn('MAE passivo %', format='%+.2f'),
+            'MAE PA %': st.column_config.NumberColumn('MAE PA %', format='%+.2f'),
+            'Miglioramento MAE PA (p.p.)': st.column_config.NumberColumn('Δ MAE PA', format='%+.2f'),
+            'MFE passivo %': st.column_config.NumberColumn('MFE passivo %', format='%+.2f'),
+            'MFE PA %': st.column_config.NumberColumn('MFE PA %', format='%+.2f'),
+        },
+    )
+
+    with st.expander('Regola sperimentale esatta — nessun hindsight', expanded=False):
+        st.write(
+            'LONG: dopo il Focus, il pullback si arma quando una seduta chiude sotto la chiusura precedente oppure fa un minimo inferiore. Solo da una seduta successiva, una chiusura sopra il massimo della seduta precedente genera il segnale. L’ingresso teorico è all’Open della seduta successiva. SHORT: regole speculari. '
+            'La stessa candela non può contemporaneamente creare il pullback e autorizzare l’ingresso. Se il segnale arriva sull’ultima seduta disponibile, viene registrato “SEGNALE SENZA ENTRY”. Se il mercato parte senza pullback, viene registrato “NESSUN PULLBACK”: il mancato trade è parte del test, non viene corretto a posteriori.'
+        )
+    st.warning(
+        'Questa è una ricerca sul timing, non una nuova regola del Focus e non un trading system completo: nessuno stop loss o target viene simulato. Prima di usarla operativamente servono molte più osservazioni.'
+    )
 
 def render_screener() -> None:
     st.header("COT Screener — tutti i mercati")
@@ -5144,15 +5461,16 @@ def render_screener() -> None:
     metric4.metric("Short", int((results_df["Direzione"] == "SHORT").sum()))
     metric5.metric("Regime 156W confermato", int(results_df["Regime 156W"].str.contains("CONFERMATO", na=False).sum()))
 
-    # Unico Excel settimanale: Focus operativo + verifica precedente + Radar completo.
+    # Unico Excel settimanale: Focus operativo + verifica precedente + Timing Price Action + Radar completo.
     # Il Radar esportato è sempre l'intero universo della scansione e non rispetta
     # i filtri della scheda Radar; i fogli settoriali ridondanti non vengono creati.
     weekly_focus = build_focus_operativo(results_df)
     weekly_verification = evaluate_previous_focus(results_df)
+    weekly_timing = evaluate_previous_focus_price_action(results_df, weekly_verification)
     weekly_radar = build_weekly_change_radar(results_df)
-    weekly_report_excel = build_weekly_report_excel(weekly_focus, weekly_verification, weekly_radar)
+    weekly_report_excel = build_weekly_report_excel(weekly_focus, weekly_verification, weekly_timing, weekly_radar)
     st.download_button(
-        "📘 Scarica Report Settimanale Excel — Focus + Radar",
+        "📘 Scarica Report Settimanale Excel — Focus + Radar + Timing",
         data=weekly_report_excel,
         file_name=f"cot_weekly_report_{date.today().isoformat()}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -5160,12 +5478,12 @@ def render_screener() -> None:
         key="weekly_report_export_excel",
     )
     st.caption(
-        "Un solo file con: Focus settimana, Focus principali, Alternative settore, Da monitorare, Verifica precedente e Radar completo. "
-        "Il foglio Radar completo contiene tutti i mercati analizzati, anche quelli senza novità."
+        "Un solo file con: Focus settimana, Focus principali, Alternative settore, Da monitorare, Verifica precedente, Timing Price Action e Radar completo. "
+        "Il Timing Price Action è un esperimento parallelo e non modifica il Focus; il foglio Radar completo contiene tutti i mercati analizzati, anche quelli senza novità."
     )
 
-    tab_classifica, tab_radar, tab_focus, tab_verifica = st.tabs([
-        "Classifica attuale", "Cambiamenti settimanali", "Focus operativo", "Verifica Focus precedente"
+    tab_classifica, tab_radar, tab_focus, tab_verifica, tab_timing = st.tabs([
+        "Classifica attuale", "Cambiamenti settimanali", "Focus operativo", "Verifica Focus precedente", "Timing Price Action — test"
     ])
     with tab_classifica:
         render_screener_current_tab(results_df, errors_df)
@@ -5175,6 +5493,8 @@ def render_screener() -> None:
         render_focus_operativo_tab(results_df, weekly_focus)
     with tab_verifica:
         render_focus_verification_tab(results_df, weekly_verification)
+    with tab_timing:
+        render_price_action_timing_tab(results_df, weekly_timing, weekly_verification)
 
 
 

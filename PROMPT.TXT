@@ -1,5 +1,5 @@
 PROMPT — LETTURA COT SEMPLICE, CHIARA E OPERATIVA
-ALLINEATO A G. COT SMART MONEY ENGINE V1.5.48 — DASHBOARD PYTHON V6.33
+ALLINEATO A G. COT SMART MONEY ENGINE V1.5.48 — DASHBOARD PYTHON V6.34
 
 Usa esclusivamente i dati strutturati forniti dalla dashboard Python.
 Non inventare prezzi di ingresso o livelli tecnici non presenti nei dati. Nelle indicazioni operative usa formule generiche come pullback, rimbalzo e nuova conferma, senza attribuire livelli che la dashboard non calcola.

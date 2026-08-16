@@ -1,108 +1,75 @@
-# COT Smart Money Python V6.33
+# COT Smart Money Python V6.34
 
-## Novità V6.33 — unico Excel settimanale Focus + Radar
+## Novità V6.34 — Price Action Timing sperimentale
 
-La V6.33 sostituisce i due export Excel dedicati **Focus Operativo** e **Weekly Change Radar** con un solo file settimanale:
+La V6.34 aggiunge un **esperimento parallelo di timing Daily** alla verifica del Focus precedente. Il modulo non entra nel motore COT e non modifica **Focus, Stato, Score, Direzione, Alignment 156W o Weekly Change Radar**.
 
-`cot_weekly_report_YYYY-MM-DD.xlsx`
+L'obiettivo è misurare in modo causale una domanda precisa: **dopo che il COT ha scelto mercato e direzione, attendere la fine di un pullback/rimbalzo migliora il timing rispetto all'ingresso passivo alla prima apertura della settimana?**
 
-Il file contiene soltanto i fogli utili al controllo settimanale, nell'ordine:
+### Regola deterministica
 
-1. **Focus settimana** — tutti i candidati FOCUS ordinati;
-2. **Focus principali** — prima scelta per ciascun settore;
-3. **Alternative settore** — setup validi dello stesso comparto;
-4. **Da monitorare** — punti di svolta / setup non ancora maturi;
-5. **Verifica precedente** — rendimento direzionale, MFE, MAE ed esito del Focus precedente;
-6. **Radar completo** — intero universo analizzato, compresi i mercati senza novità.
+Per un Focus **LONG**:
 
-Il foglio **Radar completo** non rispetta i filtri applicati a video: serve come archivio completo della scansione. I nove fogli Radar settoriali non vengono duplicati nel report settimanale, perché la colonna **Categoria Radar** consente di filtrare direttamente il foglio completo.
+1. dopo il venerdì associato al report, il pullback si arma solo quando una seduta Daily completata chiude sotto la chiusura precedente **oppure** fa un minimo inferiore al minimo precedente;
+2. da una seduta successiva, serve una chiusura **sopra il massimo della seduta precedente**;
+3. il segnale nasce quindi solo a fine giornata;
+4. l'ingresso teorico avviene all'**Open della seduta successiva**.
 
-I **JPG del Radar** restano separati e continuano a rispettare la vista filtrata corrente. L'export **Screener Excel** resta disponibile come export tecnico completo della classifica e non sostituisce il report settimanale.
+Per un Focus **SHORT** la logica è speculare: rimbalzo con Close > Close precedente oppure High > High precedente, poi una seduta successiva con Close < Low precedente e ingresso all'Open successivo.
 
-Questa versione **non modifica** motore COT, Stato Screener, Score, Alignment 156W, logica Weekly Change Radar, criteri Focus, ordinamento Focus V6.29 o Verifica Focus precedente. Cambia soltanto l'organizzazione degli export e viene corretta nella spiegazione a video la gerarchia già usata dal Focus: origine reale del Flow → nuova conferma/continuazione → Score → Δ Score.
+La stessa candela non può creare il pullback e contemporaneamente autorizzare l'ingresso. Se il segnale arriva sull'ultima seduta disponibile e manca una successiva apertura completata, viene registrato **SEGNALE SENZA ENTRY**. Se non compare un pullback o non arriva la conferma, il modulo registra **NESSUN INGRESSO**: non viene scelto retroattivamente un punto migliore sul grafico.
 
+### Confronto con il benchmark passivo
 
-## Novità V6.32 — rimosso Oats (ZO)
+Il foglio/tab **Verifica precedente** resta invariato e continua a usare il benchmark neutrale:
 
-ZO — Oats è stato rimosso dall’universo dei mercati dell’app perché il relativo flusso dati non si aggiorna in modo affidabile. È stato rimosso anche dal file `term_structure.csv`. Heating Oil (HO), già eliminato nella V6.31, resta escluso.
+- ingresso = Open della prima seduta disponibile dopo il venerdì associato al report Focus;
+- uscita = Close dell'ultima seduta giornaliera completamente chiusa prima del nuovo ciclo;
+- metriche = rendimento direzionale, MFE e MAE.
 
-La V6.32 **non modifica** motore COT, Stato Screener, Score, Alignment 156W, Weekly Change Radar, Focus Operativo o Verifica Focus precedente. Tutta la logica operativa V6.31 resta invariata.
+La nuova sezione **Timing Price Action — test** confronta, sugli stessi Focus precedenti:
 
-## Novità V6.30 — aggiornamento CFTC realmente forzato a ogni nuova scansione
+- rendimento passivo vs rendimento PA;
+- MFE passivo vs MFE PA;
+- MAE passivo vs MAE PA;
+- differenza di rendimento in punti percentuali;
+- miglioramento/peggioramento del MAE;
+- numero di sedute attese prima dell'ingresso;
+- casi in cui il timing non avrebbe generato alcun trade.
 
-La V6.30 nasce da un controllo su un export effettuato subito dopo l'uscita di un nuovo COT: il file conteneva correttamente il foglio **Verifica precedente**, ma lo Screener stava ancora usando la **Data COT 04/08/2026**. Di conseguenza anche Focus e verifica appartenevano ancora al ciclo precedente.
+Questo è intenzionale: un mercato che parte subito senza ritracciare deve risultare **NESSUN PULLBACK**, perché anche il mancato ingresso è parte del test.
 
-La causa possibile era la cache oraria dei dati CFTC: una scansione eseguita poco prima della nuova pubblicazione poteva mantenere temporaneamente il report precedente anche premendo di nuovo il pulsante di analisi.
+## Report settimanale Excel unico
 
-La V6.30 corregge questo comportamento senza cambiare il motore quantitativo:
+`cot_weekly_report_YYYY-MM-DD.xlsx` contiene ora 7 fogli, nell'ordine:
 
-- ogni pressione di **Avvia analisi di tutti i mercati selezionati** svuota esclusivamente le cache dei dati CFTC che possono rendere vecchio il report;
-- la nuova scansione interroga quindi nuovamente il dataset CFTC;
-- dopo lo Screener viene mostrata chiaramente la **Data COT effettivamente usata**;
-- se i mercati hanno date COT diverse viene mostrato un avviso;
-- se la data più recente ha 10 o più giorni viene mostrato un avviso specifico: dopo una nuova uscita del venerdì non bisogna considerare Focus/Radar come nuovo ciclo finché la Data COT non cambia;
-- il foglio **Verifica precedente** continua a ricostruire il Focus del report immediatamente precedente. Quindi, quando il report corrente passa da 04/08 a 11/08, la verifica passa automaticamente dal Focus 28/07 al Focus 04/08.
+1. **Focus settimana**
+2. **Focus principali**
+3. **Alternative settore**
+4. **Da monitorare**
+5. **Verifica precedente**
+6. **Timing Price Action**
+7. **Radar completo**
 
-La V6.30 **non modifica** analisi singola, Stato Screener, Score, Alignment, Weekly Change Radar, logica Focus V6.29 o regole dei prompt. I prompt vengono solo riallineati al numero di versione.
+Il foglio **Radar completo** continua a contenere l'intero universo analizzato e non dipende dai filtri della schermata Radar.
 
+## Stato del modulo
 
-1. **nuova partecipazione reale** nella direzione del Focus;
-2. **movimento misto / bilanciato**;
-3. **Short covering / Long liquidation dominante**;
-4. origine non classificabile.
+Il Price Action Timing è volutamente marcato **esperimento**. Non simula stop loss o target e non è ancora una condizione operativa del Focus. Prima di promuoverlo a regola di entrata servono molte osservazioni fuori campione; il suo scopo attuale è accumulare dati senza hindsight.
 
-Solo dopo vengono considerati:
+## Cosa resta invariato dalla V6.33
 
-- nuova conferma / continuazione;
-- Score numerico;
-- Δ Score;
-- ordinamento alfabetico come ultimo spareggio.
-
-La priorità settoriale resta invariata: prima viene mostrato il migliore di ogni settore (`PRINCIPALE`), poi le altre opportunità valide dello stesso comparto (`ALTERNATIVA SETTORE`).
-
-## Segnale flusso motore: ora solo fallback
-
-Il campo `Segnale flusso motore` resta invariato e continua a essere usato dal motore. Nel solo ordinamento Focus, però, non può più sovrascrivere una `Origine Flow 1W` esplicita.
-
-Esempio: se il motore sintetico indica `NUOVI LONG`, ma l'Origine Flow dice che il miglioramento deriva **soprattutto dalla chiusura degli Short**, il candidato viene classificato come **covering dominante**, non come nuova partecipazione Long di massima qualità.
-
-La logica è simmetrica sul lato Short: una **riduzione dei Long dominante** non viene promossa a nuova partecipazione Short soltanto perché il segnale motore è `NUOVI SHORT`.
-
-## Comportamento atteso sul caso reale
-
-Con i dati del Focus del 14/08/2026, l'ordine atteso diventa:
-
-1. CT — Cotton — PRINCIPALE Soft;
-2. 6A — Australian Dollar — PRINCIPALE Valute;
-3. CC — Cocoa — ALTERNATIVA Soft;
-4. SB — Sugar — ALTERNATIVA Soft.
-
-CC precede SB perché la nuova partecipazione Long è più genuina, anche se SB ha Score numerico superiore.
-
-## Cosa non cambia
-
-Restano identici alla V6.28:
-
-- requisiti per entrare in `FOCUS`;
-- `LONG/SHORT CONFERMATO` e `NON INSEGUIRE`;
-- soglia Score >= 65;
-- conferma prezzo Weekly;
-- struttura 3W/6W;
-- logica `MONITORARE`;
-- Focus principale per settore e alternative;
-- verifica causale della settimana precedente;
-- MFE, MAE e rendimento direzionale;
+- motore Smart Money allineato a TradingView G. COT Smart Money Engine V1.5.48;
+- Stato e Direzione Screener;
+- Score e Qualità;
+- Alignment / Regime 156W e `Prezzo anticipa COT`;
 - Weekly Change Radar;
-- export Excel e JPG.
+- criteri e ordinamento Focus V6.29;
+- priorità settoriale PRINCIPALE / ALTERNATIVA SETTORE;
+- benchmark della Verifica Focus precedente;
+- esclusione di HO — Heating Oil e ZO — Oats;
+- aggiornamento forzato della cache CFTC a ogni nuova scansione.
 
-## Verifiche effettuate
+## Dati
 
-- compilazione Python (`py_compile`);
-- test simmetrici Long/Short della nuova gerarchia Origine Flow: nuova partecipazione = 0, misto = 1, covering/liquidation dominante = 2;
-- test sintetico del caso reale CT / 6A / CC / SB con ordine finale 1 / 2 / 3 / 4;
-- confronto AST delle funzioni core per verificare che motore COT, Stato, Score e Weekly Change Radar non siano stati modificati;
-- integrità del pacchetto ZIP.
-
-## Nota sui dati
-
-COT: CFTC. Prezzi e verifica settimanale: Yahoo Finance. Feed e calendari possono non coincidere perfettamente con TradingView; la procedura continua a escludere le barre giornaliere non ancora completate.
+COT: CFTC. Prezzi Weekly e Daily: Yahoo Finance. Il giorno corrente viene escluso dalla verifica quando può essere ancora aperto. I ticker continui Yahoo possono avere differenze di roll rispetto a TradingView/broker; per questo il timing viene usato come ricerca comparativa, non come livello eseguibile.
