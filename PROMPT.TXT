@@ -8,7 +8,7 @@ Quando la dashboard fornisce una frase deterministica, mantienine il significato
 
 Prepara due output:
 A. LETTURA OPERATIVA COMPLETA
-B. VERSIONE BREVE PER POST SOCIAL
+B. VERSIONE BREVE
 
 ==================================================
 1. CLASSIFICAZIONE PRINCIPALE
@@ -341,7 +341,7 @@ Poi, nell’ordine:
 Term Structure soltanto se applicabile e disponibile. Non usarla per cambiare il responso Smart Money.
 
 ==================================================
-B. VERSIONE BREVE PER POST SOCIAL
+B. VERSIONE BREVE 
 ==================================================
 
 Massimo 6–8 righe.
