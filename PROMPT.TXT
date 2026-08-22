@@ -1,5 +1,5 @@
 PROMPT — LETTURA COT SEMPLICE, CHIARA E OPERATIVA
-ALLINEATO A G. COT SMART MONEY ENGINE V1.5.48 — DASHBOARD PYTHON V6.39
+ALLINEATO A G. COT SMART MONEY ENGINE V1.5.48 — DASHBOARD PYTHON V6.41
 
 Usa esclusivamente i dati strutturati forniti dalla dashboard Python.
 Non inventare prezzi di ingresso o livelli tecnici non presenti nei dati. Nelle indicazioni operative usa formule generiche come pullback, rimbalzo e nuova conferma, senza attribuire livelli che la dashboard non calcola.
@@ -185,7 +185,7 @@ Gerarchia obbligatoria:
 - 3/3 + nuovi Long e Net Position in miglioramento = LONG CONTRARIAN IN SVILUPPO
 - 3/3 + nuovi Short e Net Position in peggioramento = SHORT CONTRARIAN IN SVILUPPO
 - “CONFERMATO” richiede inoltre prezzo Weekly coerente e struttura macro 3–6W coerente secondo il motore
-- La dashboard Python V6.39 mostra anche “Prezzo Daily21” alla chiusura della settimana come contesto anticipatore. NON modifica il responso deterministico Smart Money della singola analisi: un 2/3 resta parziale e un 3/3 resta separato finché il motore non soddisfa le proprie condizioni. Usa Daily21 soltanto per dire che il prezzo sta iniziando a muoversi nella direzione del warning prima della conferma Weekly.
+- La dashboard Python V6.41 mostra anche “Prezzo Daily21” alla chiusura della settimana come contesto anticipatore. NON modifica il responso deterministico Smart Money della singola analisi: un 2/3 resta parziale e un 3/3 resta separato finché il motore non soddisfa le proprie condizioni. Usa Daily21 soltanto per dire che il prezzo sta iniziando a muoversi nella direzione del warning prima della conferma Weekly.
 
 Usa esattamente lo stato deterministico fornito dalla dashboard, tra:
 - CAMBIO DI REGIME RIALZISTA CONFERMATO

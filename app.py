@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 # CONFIGURAZIONE PAGINA
 # =============================================================================
 st.set_page_config(
-    page_title="COT Smart Money V6.39 — Python",
+    page_title="COT Smart Money V6.41 — Python",
     page_icon="🛡️",
     layout="wide",
 )
@@ -48,7 +48,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🛡️ COT Smart Money — Python V6.39")
+st.title("🛡️ COT Smart Money — Python V6.41")
 st.caption(
     "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale con Weekly Change Radar, Focus Operativo, test Price Action Timing e Replay storico causale. "
     "Il motore è allineato a TradingView G. COT Smart Money Engine V1.5.48 e seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
@@ -3793,8 +3793,8 @@ def build_weekly_change_radar(results: pd.DataFrame) -> pd.DataFrame:
     - prezzo precedente = Weekly disponibile alla settimana di quel report.
     """
     columns = [
-        "Ordine Radar", "Priorità", "Strumento", "Categoria Radar", "Report precedente", "Report attuale",
-        "Settimana precedente", "Oggi", "Δ Score", "Cosa è cambiato", "Verdetto", "Lettura operativa",
+        "Ordine Radar", "Priorità", "Strumento", "Categoria Radar", "Report attuale", "Report precedente",
+        "Oggi", "Settimana precedente", "Δ Score", "Cosa è cambiato", "Verdetto", "Lettura operativa",
         "Stato precedente", "Stato", "Score precedente", "Score",
         "Origine Flow 1W precedente", "Origine Flow 1W",
         "Δ Long 1W precedente", "Δ Long 1W", "Δ Short 1W precedente", "Δ Short 1W",
@@ -3898,12 +3898,12 @@ def build_weekly_change_radar(results: pd.DataFrame) -> pd.DataFrame:
                 order = 3
                 reading = "La direzione resta confermata, ma la qualità è peggiorata in modo sensibile rispetto alla settimana scorsa. Riduci la priorità."
             elif (not pd.isna(delta_score) and delta_score >= RADAR_CONFIRMED_STRENGTH_DELTA) or coherent_new_flow or price_newly_confirmed or daily_newly_aligned or regime_progressed:
-                priority = "⚡ SETUP CONFERMATO IN RAFFORZAMENTO"
+                priority = "⚡ DIREZIONE CONFERMATA IN RAFFORZAMENTO"
                 verdict = "DA APPROFONDIRE" if current_score >= RADAR_ACTIONABLE_SCORE else "DA MONITORARE"
                 order = 1
                 reading = "Il setup confermato si è rafforzato rispetto al report precedente. Merita un controllo operativo più approfondito."
             else:
-                priority = "✅ SETUP CONFERMATO STABILE"
+                priority = "✅ DIREZIONE CONFERMATA STABILE"
                 verdict = "DA APPROFONDIRE" if current_score >= RADAR_ACTIONABLE_SCORE else "DA MONITORARE"
                 order = 2
                 reading = "Il setup resta confermato. Anche senza una nuova accelerazione settimanale merita controllo operativo."
@@ -4173,7 +4173,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
         bear_alignment = pd.to_numeric(pd.Series([row.get("Alignment ribassista", 0)]), errors="coerce").fillna(0).iloc[0]
         flow_1w = pd.to_numeric(pd.Series([row.get("Flow 1W", math.nan)]), errors="coerce").iloc[0]
 
-        # V6.39: un 2/3 può entrare nella watchlist anche prima della Daily21, ma solo quando
+        # V6.41: un 2/3 può entrare nella watchlist anche prima della Daily21, ma solo quando
         # esiste un deterioramento/miglioramento COT significativo e causale rispetto allo snapshot
         # precedente. Non modifica Stato o Score: serve esclusivamente a non perdere un turning point
         # mentre il prezzo non ha ancora confermato. La Daily21 resta l'upgrade di priorità.
@@ -4230,7 +4230,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
             decision = "FOCUS"
             observation_phase = "FOCUS"
             if has_previous_context and not same_previous_confirmed:
-                opportunity = "PUNTO DI SVOLTA — NUOVA CONFERMA"
+                opportunity = "NUOVA DIREZIONE APPENA CONFERMATA - PUNTO DI SVOLTA"
                 priority = "🔥 NUOVA CONFERMA"
                 type_order = 1
                 why = (
@@ -4238,7 +4238,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
                     "Prezzo Weekly e struttura 3-6W sono coerenti e l'ultimo Flow non è contrario alla direzione."
                 )
             elif has_previous_context and same_previous_confirmed:
-                opportunity = "CONTINUAZIONE FORTE"
+                opportunity = "DIREZIONE CONFERMATA E ANCORA FORTE"
                 priority = "➡️ CONTINUAZIONE"
                 type_order = 2
                 why = (
@@ -4246,7 +4246,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
                     "struttura 3-6W coerente e ultimo Flow non contrario."
                 )
             else:
-                opportunity = "SETUP CONFERMATO"
+                opportunity = "DIREZIONE CONFERMATA"
                 priority = "✅ CONFERMATO"
                 type_order = 2
                 why = (
@@ -4256,7 +4256,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
         elif confirmed and FOCUS_WATCH_MIN_SCORE <= score < FOCUS_MIN_SCORE:
             decision = "MONITORARE"
             observation_phase = "CONFERMATO SOTTO SOGLIA"
-            opportunity = "SETUP CONFERMATO SOTTO SOGLIA FOCUS"
+            opportunity = "DIREZIONE CONFERMATA, MA ANCORA SOTTO SOGLIA"
             priority = "🟢 CONFERMATO SOTTO SOGLIA"
             type_order = 3
             why = (
@@ -4266,7 +4266,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
         elif "IN SVILUPPO" in regime and score >= FOCUS_WATCH_MIN_SCORE:
             decision = "MONITORARE"
             observation_phase = "REGIME IN SVILUPPO"
-            opportunity = "PUNTO DI SVOLTA — REGIME IN SVILUPPO"
+            opportunity = "POSSIBILE CAMBIO DI DIREZIONE — SEGNALI IN AUMENTO"
             priority = "🟡 REGIME IN SVILUPPO"
             type_order = 4
             why = (
@@ -4276,7 +4276,11 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
         elif reversal_watch in ("RIALZISTA", "RIBASSISTA"):
             decision = "MONITORARE"
             observation_phase = "REVERSAL WATCH"
-            opportunity = f"REVERSAL WATCH {focus_direction} — 3/3 RECENTE + DAILY21"
+            opportunity = (
+                "POSSIBILE RIALZO — IL PREZZO STA GIRANDO PRIMA DEL COT"
+                if focus_direction == "LONG"
+                else "POSSIBILE RIBASSO — IL PREZZO STA GIRANDO PRIMA DEL COT"
+            )
             priority = "⚠️ PREZZO ANTICIPA COT — REVERSAL WATCH"
             type_order = 5
             why = (
@@ -4287,7 +4291,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
         elif price_leads in ("RIALZISTA", "RIBASSISTA"):
             decision = "MONITORARE"
             observation_phase = "EARLY WARNING"
-            opportunity = "PUNTO DI SVOLTA — PREZZO WEEKLY ANTICIPA COT"
+            opportunity = "IL PREZZO STA GIRANDO PRIMA DEL COT"
             priority = "⚠️ PREZZO WEEKLY ANTICIPA COT"
             type_order = 6
             why = (
@@ -4297,7 +4301,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
         elif daily_alignment.endswith("3/3"):
             decision = "MONITORARE"
             observation_phase = "EARLY WARNING"
-            opportunity = "PUNTO DI SVOLTA — 3/3 + DAILY21"
+            opportunity = "POSSIBILE CAMBIO DI DIREZIONE — IL PREZZO INIZIA A CONFERMARE"
             priority = "🟠 3/3 + DAILY21"
             type_order = 7
             why = (
@@ -4307,7 +4311,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
         elif daily_alignment.endswith("2/3"):
             decision = "MONITORARE"
             observation_phase = "WARNING BASE"
-            opportunity = "WARNING 2/3 — DAILY21 CONFERMA INIZIALE"
+            opportunity = "PRIMO AVVISO — COT E PREZZO INIZIANO AD ALLINEARSI"
             priority = "⚠️ COT 2/3 + DAILY21"
             type_order = 9
             why = (
@@ -4317,7 +4321,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
         elif preprice_23_direction:
             decision = "MONITORARE"
             observation_phase = "EARLY WARNING"
-            opportunity = "WARNING 2/3 — CAMBIO COT PRE-PREZZO"
+            opportunity = "PRIMO AVVISO — IL COT STA CAMBIANDO PRIMA DEL PREZZO"
             priority = (
                 "⚠️ COT IN DETERIORAMENTO — PREZZO NON CONFERMA"
                 if preprice_23_direction == "SHORT"
@@ -4332,7 +4336,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
         elif construction and score >= FOCUS_WATCH_MIN_SCORE and (price_ok or structure_ok) and flow_ok:
             decision = "MONITORARE"
             observation_phase = "MATURAZIONE"
-            opportunity = "SETUP IN MATURAZIONE"
+            opportunity = "SEGNALE IN FORMAZIONE — NON ANCORA CONFERMATO"
             priority = "🟡 IN MATURAZIONE"
             type_order = 10
             why = (
@@ -4844,8 +4848,8 @@ def build_weekly_report_excel(
     focus_watch = focus_frame[focus_frame["Decisione"] == "MONITORARE"].copy() if not focus_frame.empty else focus_frame.copy()
 
     radar_export_columns = [
-        "Priorità", "Strumento", "Categoria Radar", "Report precedente", "Report attuale",
-        "Settimana precedente", "Oggi", "Δ Score", "Cosa è cambiato", "Verdetto", "Lettura operativa",
+        "Priorità", "Strumento", "Categoria Radar", "Report attuale", "Report precedente",
+        "Oggi", "Settimana precedente", "Δ Score", "Cosa è cambiato", "Verdetto", "Lettura operativa",
         "Stato precedente", "Stato", "Score precedente", "Score",
         "Origine Flow 1W precedente", "Origine Flow 1W",
         "Δ Long 1W precedente", "Δ Long 1W", "Δ Short 1W precedente", "Δ Short 1W",
@@ -5040,8 +5044,8 @@ def build_screener_excel(results: pd.DataFrame, errors: pd.DataFrame) -> bytes:
             focus[focus["Decisione"] == "MONITORARE"].to_excel(writer, sheet_name="Focus monitorare", index=False)
         if not radar.empty:
             radar_export_columns = [
-                "Priorità", "Strumento", "Categoria Radar", "Report precedente", "Report attuale",
-                "Settimana precedente", "Oggi", "Δ Score", "Cosa è cambiato",
+                "Priorità", "Strumento", "Categoria Radar", "Report attuale", "Report precedente",
+                "Oggi", "Settimana precedente", "Δ Score", "Cosa è cambiato",
                 "Verdetto", "Lettura operativa",
                 "Origine Flow 1W precedente", "Origine Flow 1W",
                 "Δ Long 1W precedente", "Δ Long 1W", "Δ Short 1W precedente", "Δ Short 1W",
@@ -5691,7 +5695,7 @@ def render_weekly_change_radar_tab(results_df: pd.DataFrame, radar_frame: pd.Dat
         radar_filtered = radar_filtered.iloc[0:0]
 
     visible_columns = [
-        "Priorità", "Strumento", "Settimana precedente", "Oggi", "Δ Score",
+        "Priorità", "Strumento", "Oggi", "Settimana precedente", "Δ Score",
         "Cosa è cambiato", "Verdetto", "Lettura operativa",
     ]
     radar_display = radar_filtered[visible_columns].copy()
@@ -5888,6 +5892,7 @@ def render_focus_operativo_tab(results_df: pd.DataFrame, focus_frame: pd.DataFra
             f"In MONITORARE entrano anche i CONFERMATI con Score {FOCUS_WATCH_MIN_SCORE}–{FOCUS_MIN_SCORE-1}, i REVERSAL WATCH con 3/3 recente + estremo COT ancora presente + Daily21 coerente, gli EARLY WARNING forti (3/3 + Daily21, prezzo Weekly che anticipa il COT, oppure cambio COT 2/3 significativo prima del prezzo), i WARNING BASE 2/3 + Daily21 e gli altri setup in maturazione. "
             f"La Daily21 anticipa; la Weekly21 resta la conferma strutturale. Il sistema non riempie la tabella per forza e mostra al massimo {FOCUS_MAX_MARKETS} candidati FOCUS complessivi."
         )
+        st.caption("Nella colonna Tipo opportunità usiamo volutamente parole semplici: descrive in italiano comune cosa sta succedendo; i dettagli tecnici restano nelle colonne Stato, Regime, Daily21 e Perché è qui.")
 
     st.caption(
         "Focus, alternative, punti da monitorare, verifica precedente e test Price Action Timing sono inclusi nel Report Settimanale Excel unico disponibile sopra le schede."
