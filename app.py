@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 # CONFIGURAZIONE PAGINA
 # =============================================================================
 st.set_page_config(
-    page_title="COT Smart Money V6.34 — Python",
+    page_title="COT Smart Money V6.35 — Python",
     page_icon="🛡️",
     layout="wide",
 )
@@ -48,7 +48,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🛡️ COT Smart Money — Python V6.34")
+st.title("🛡️ COT Smart Money — Python V6.35")
 st.caption(
     "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale con Weekly Change Radar, Focus Operativo e test Price Action Timing. "
     "Il motore è allineato a TradingView G. COT Smart Money Engine V1.5.48 e seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
@@ -2710,21 +2710,27 @@ def screener_status(
     smart: dict[str, Any],
     price: dict[str, Any],
     alignment: dict[str, Any],
+    daily_price: dict[str, Any] | None = None,
 ) -> tuple[str, str]:
-    """Classificazione pubblica rigorosa, coerente con la gerarchia TradingView V1.5.48."""
-    # 0) I dati troppo vecchi non possono produrre uno Stato operativo, anche se le
-    #    vecchie serie storiche mostrano una direzione apparentemente chiara.
+    """Classificazione pubblica con Daily21 anticipatore separato dalla conferma Weekly.
+
+    La EMA21 Daily osservata alla chiusura della settimana può anticipare un 3/3, ma un
+    semplice Alignment 2/3 resta soltanto un warning e non cambia la Direzione principale.
+    La conferma piena continua a richiedere la struttura Weekly prevista dal motore.
+    """
+    daily_price = daily_price or {}
+
+    # 0) I dati troppo vecchi non possono produrre uno Stato operativo.
     if int(smart.get("age_days", 0) or 0) > 17:
         return "DATI COT DATATI — NON UTILIZZARE", "NEUTRALE"
 
-    # 1) Configurazione COT già confermata, estrema e con prezzo concorde: non inseguire.
+    # 1) Configurazione COT già confermata, estrema e con prezzo Weekly concorde: non inseguire.
     if smart.get("crowded_long") and price.get("long_confirmed"):
         return "LONG CONFERMATO — NON INSEGUIRE", "LONG"
     if smart.get("crowded_short") and price.get("short_confirmed"):
         return "SHORT CONFERMATO — NON INSEGUIRE", "SHORT"
 
-    # 2) Conferma completa. Un cambio di regime 156W diventa direzione principale
-    #    soltanto quando è realmente confermato (Alignment 3/3 + flusso + struttura + prezzo).
+    # 2) Conferma completa: la Weekly resta la conferma strutturale.
     if smart.get("alignment_bull_regime_confirmed"):
         return "LONG CONFERMATO", "LONG"
     if smart.get("alignment_bear_regime_confirmed"):
@@ -2735,30 +2741,31 @@ def screener_status(
         return "SHORT CONFERMATO", "SHORT"
 
     # 3) Un regime contrarian IN SVILUPPO può diventare Stato principale in costruzione.
-    #    Un semplice 3/3 grezzo resta invece un warning separato nella colonna Regime 156W:
-    #    non deve ribaltare da solo la direzione corrente dello screener.
     if smart.get("alignment_bull_regime_developing"):
         return "LONG IN COSTRUZIONE", "LONG"
     if smart.get("alignment_bear_regime_developing"):
         return "SHORT IN COSTRUZIONE", "SHORT"
 
-    # 4) Struttura COT istituzionale già confermata ma prezzo non ancora concorde.
+    # 4) V6.35: 3/3 grezzo + chiusura settimanale dalla parte corretta della EMA21 Daily
+    #    diventa una COSTRUZIONE ANTICIPATA. Il 2/3 NON passa di Stato e resta warning.
+    if smart.get("alignment_bull_3") and daily_price.get("long_confirmed"):
+        return "LONG IN COSTRUZIONE", "LONG"
+    if smart.get("alignment_bear_3") and daily_price.get("short_confirmed"):
+        return "SHORT IN COSTRUZIONE", "SHORT"
+
+    # 5) Struttura COT istituzionale già confermata ma prezzo Weekly non ancora concorde.
     if smart.get("confirmed_long"):
         return "LONG IN COSTRUZIONE", "LONG"
     if smart.get("confirmed_short"):
         return "SHORT IN COSTRUZIONE", "SHORT"
 
-    # 5) Configurazioni istituzionali parziali: usa le condizioni
-    #    smart_partial_long / smart_partial_short del motore TradingView V1.5.48.
+    # 6) Configurazioni istituzionali parziali.
     if smart.get("partial_long"):
         return "LONG IN COSTRUZIONE", "LONG"
     if smart.get("partial_short"):
         return "SHORT IN COSTRUZIONE", "SHORT"
 
-    # 6) Persistenza direzionale forte, ma senza conferma istituzionale completa.
-    #    Questo NON equivale a "confermato": serve soltanto a non classificare come
-    #    neutrale un mercato in cui 1W, 3W, 6W e prezzo Weekly puntano tutti dalla
-    #    stessa parte. È molto più severo del vecchio fallback V6.12/V6.13.
+    # 7) Persistenza direzionale forte con prezzo Weekly concorde.
     flow_1w = float(smart.get("trend_flow_1w", 0) or 0)
     flow_3w = float(smart.get("trend_flow_3w", 0) or 0)
     flow_6w = float(smart.get("trend_flow_6w", 0) or 0)
@@ -2812,11 +2819,78 @@ def weekly_price_snapshot(weekly: pd.DataFrame, report_date_value: Any) -> pd.Da
     return weekly.loc[weekly.index <= cutoff].copy()
 
 
+def daily_ema21_snapshot(daily: pd.DataFrame, report_date_value: Any) -> dict[str, Any]:
+    """Conferma anticipata: chiusura dell'ultima seduta della settimana vs EMA21 Daily.
+
+    Il cutoff è il venerdì associato al report COT. Se il venerdì è festivo usa l'ultima
+    seduta disponibile prima del cutoff. È un contesto Python separato dal motore COT/TV.
+    """
+    unavailable = {
+        "available": False,
+        "text": "PREZZO DAILY21 NON DISPONIBILE",
+        "detail": "Manca una serie Daily valida per la conferma anticipata.",
+        "long_confirmed": False,
+        "short_confirmed": False,
+        "above_ema": False,
+        "below_ema": False,
+        "close": math.nan,
+        "ema21": math.nan,
+        "date": "",
+    }
+    if daily is None or daily.empty or "close" not in daily.columns:
+        return unavailable
+    cutoff = pd.Timestamp(cot_snapshot_reference_date(report_date_value))
+    history = daily.loc[pd.to_datetime(daily.index) <= cutoff].copy()
+    if len(history) < 22:
+        return unavailable
+    close = pd.to_numeric(history["close"], errors="coerce").dropna()
+    if len(close) < 22:
+        return unavailable
+    ema21_series = close.ewm(span=21, adjust=False).mean()
+    current_close = float(close.iloc[-1])
+    ema21 = float(ema21_series.iloc[-1])
+    session_date = pd.Timestamp(close.index[-1]).date()
+    above = current_close > ema21
+    below = current_close < ema21
+    if above:
+        text = "CHIUSURA SETTIMANA SOPRA EMA21 DAILY"
+    elif below:
+        text = "CHIUSURA SETTIMANA SOTTO EMA21 DAILY"
+    else:
+        text = "CHIUSURA SETTIMANA SULLA EMA21 DAILY"
+    return {
+        "available": True,
+        "text": text,
+        "detail": f"Seduta: {session_date.isoformat()} | Close D: {current_close:.4f} | EMA21 D: {ema21:.4f}",
+        "long_confirmed": above,
+        "short_confirmed": below,
+        "above_ema": above,
+        "below_ema": below,
+        "close": current_close,
+        "ema21": ema21,
+        "date": session_date.isoformat(),
+    }
+
+
+def daily21_alignment_context(alignment: dict[str, Any], daily_price: dict[str, Any]) -> str:
+    """Combina Alignment 156W e Daily21 senza promuovere un semplice 2/3 a Stato operativo."""
+    if not daily_price.get("available"):
+        return "NO"
+    bull = int(alignment.get("bull_score", 0) or 0)
+    bear = int(alignment.get("bear_score", 0) or 0)
+    if daily_price.get("long_confirmed") and bull >= 2 and bull >= bear:
+        return f"RIALZISTA {min(bull, 3)}/3"
+    if daily_price.get("short_confirmed") and bear >= 2 and bear >= bull:
+        return f"RIBASSISTA {min(bear, 3)}/3"
+    return "NO"
+
+
 def calculate_screener_score(
     smart: dict[str, Any],
     price: dict[str, Any],
     alignment: dict[str, Any],
     oi_threshold: float,
+    daily_price: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Score di qualità 0-100, separato dallo Stato e coerente con la direzione.
 
@@ -2826,9 +2900,12 @@ def calculate_screener_score(
     3) l'Open Interest 1W non viene contato due volte: NUOVI LONG/SHORT lo incorpora
        già, quindi lo Score OI usa la partecipazione 3-6W;
     4) una persistenza coerente 1W+3W+6W+prezzo può essere "IN COSTRUZIONE",
-       ma con Score motore ridotto finché manca la conferma istituzionale completa.
+       ma con Score motore ridotto finché manca la conferma istituzionale completa;
+    5) la EMA21 Daily alla chiusura della settimana è un'anticipazione prezzo: un 3/3 può
+       diventare IN COSTRUZIONE, mentre un 2/3 resta soltanto warning.
     """
-    status, direction = screener_status(smart, price, alignment)
+    daily_price = daily_price or {}
+    status, direction = screener_status(smart, price, alignment, daily_price)
     flow_signal = screener_flow_signal(smart)
 
     # STADIO DEL SETUP: misura la maturità, non decide la direzione.
@@ -2940,23 +3017,39 @@ def calculate_screener_score(
         regime_score -= 3
     alignment_score = regime_score  # alias mantenuto per compatibilità con export/storico.
 
-    # PREZZO WEEKLY: conferma esterna al COT.
+    # PREZZO: Weekly = conferma strutturale; Daily21 alla chiusura della settimana = conferma anticipata.
+    # La Daily21 non può creare da sola un setup da un 2/3, ma evita che la lentezza della
+    # EMA21 Weekly penalizzi eccessivamente un 3/3 che sta iniziando a girare.
+    daily_long = bool(daily_price.get("long_confirmed"))
+    daily_short = bool(daily_price.get("short_confirmed"))
     if direction == "LONG":
         if price.get("long_confirmed"):
             price_score = 15
+        elif daily_long and price.get("above_ema"):
+            price_score = 10
+        elif daily_long:
+            price_score = 5
         elif price.get("above_ema"):
             price_score = 8
         elif price.get("short_confirmed"):
             price_score = -10
+        elif daily_short:
+            price_score = -5
         else:
             price_score = 0
     elif direction == "SHORT":
         if price.get("short_confirmed"):
             price_score = 15
+        elif daily_short and price.get("below_ema"):
+            price_score = 10
+        elif daily_short:
+            price_score = 5
         elif price.get("below_ema"):
             price_score = 8
         elif price.get("long_confirmed"):
             price_score = -10
+        elif daily_long:
+            price_score = -5
         else:
             price_score = 0
     else:
@@ -3053,13 +3146,16 @@ def analyze_market_for_screener(
     rows, market_name, resolution = fetch_market_history(spec.specific_report, spec, history_limit)
     history_df, _ = build_history_df(rows, spec.specific_report, spec, cot_lookback)
     weekly_price, price_error = fetch_weekly_price(spec.yahoo_ticker)
+    daily_ohlc, daily_error = fetch_daily_ohlc(spec.yahoo_ticker)
     price = analyze_price(weekly_price)
     smart = analyze_smart_money(history_df, spec, price, oi_threshold, cot_lookback, "Compatto", False)
     alignment = analyze_alignment_map(history_df, spec)
     if not smart.get("available"):
         raise CFTCError(smart.get("final_detail", "Analisi non disponibile."))
 
-    scoring = calculate_screener_score(smart, price, alignment, oi_threshold)
+    daily_price = daily_ema21_snapshot(daily_ohlc, smart["report_date"])
+    daily_alignment = daily21_alignment_context(alignment, daily_price)
+    scoring = calculate_screener_score(smart, price, alignment, oi_threshold, daily_price)
     matching_alignment = alignment.get("bull_score", 0) if scoring["Direzione"] == "LONG" else alignment.get("bear_score", 0) if scoring["Direzione"] == "SHORT" else max(alignment.get("bull_score", 0), alignment.get("bear_score", 0))
     price_confirmed = (
         scoring["Direzione"] == "LONG" and price.get("long_confirmed")
@@ -3093,6 +3189,8 @@ def analyze_market_for_screener(
         "Regime 156W precedente": "NON DISPONIBILE",
         "Prezzo anticipa COT precedente": "NO",
         "Prezzo Weekly precedente": "PREZZO WEEKLY NON DISPONIBILE",
+        "Prezzo Daily21 precedente": "PREZZO DAILY21 NON DISPONIBILE",
+        "Daily21 + Alignment precedente": "NO",
         "Partecipazione OI 3-6W precedente": "OI NON DISPONIBILE",
     }
     if len(history_df) >= 8:
@@ -3105,8 +3203,10 @@ def analyze_market_for_screener(
             "Compatto", False, analysis_date=cot_snapshot_reference_date(previous_report_date),
         )
         previous_alignment = analyze_alignment_map(previous_history, spec)
+        previous_daily = daily_ema21_snapshot(daily_ohlc, previous_report_date)
+        previous_daily_alignment = daily21_alignment_context(previous_alignment, previous_daily)
         if previous_smart.get("available"):
-            previous_scoring = calculate_screener_score(previous_smart, previous_price, previous_alignment, oi_threshold)
+            previous_scoring = calculate_screener_score(previous_smart, previous_price, previous_alignment, oi_threshold, previous_daily)
             previous_snapshot = {
                 "available": True,
                 "Data COT precedente": previous_report_date.isoformat(),
@@ -3134,6 +3234,8 @@ def analyze_market_for_screener(
                     else "NO"
                 ),
                 "Prezzo Weekly precedente": previous_price.get("text", "PREZZO WEEKLY NON DISPONIBILE"),
+                "Prezzo Daily21 precedente": previous_daily.get("text", "PREZZO DAILY21 NON DISPONIBILE"),
+                "Daily21 + Alignment precedente": previous_daily_alignment,
                 "Partecipazione OI 3-6W precedente": previous_smart.get("oi_quality", "OI NON DISPONIBILE"),
             }
 
@@ -3167,6 +3269,8 @@ def analyze_market_for_screener(
         "OI Index 52W": smart.get("oi_index_52w", math.nan),
         "Stato OI 52W": smart.get("oi_index_52w_state", "NON DISPONIBILE"),
         "Prezzo Weekly": price["text"],
+        "Prezzo Daily21": daily_price.get("text", "PREZZO DAILY21 NON DISPONIBILE"),
+        "Daily21 + Alignment": daily_alignment,
         "Prezzo confermato": bool(price_confirmed),
         "Alignment rialzista": int(alignment.get("bull_score", 0)),
         "Alignment ribassista": int(alignment.get("bear_score", 0)),
@@ -3214,11 +3318,13 @@ def analyze_market_for_screener(
         "Regime 156W precedente": previous_snapshot["Regime 156W precedente"],
         "Prezzo anticipa COT precedente": previous_snapshot["Prezzo anticipa COT precedente"],
         "Prezzo Weekly precedente": previous_snapshot["Prezzo Weekly precedente"],
+        "Prezzo Daily21 precedente": previous_snapshot["Prezzo Daily21 precedente"],
+        "Daily21 + Alignment precedente": previous_snapshot["Daily21 + Alignment precedente"],
         "Partecipazione OI 3-6W precedente": previous_snapshot["Partecipazione OI 3-6W precedente"],
         "Mercato CFTC": market_name,
         "Risoluzione nome": resolution,
         "Ticker Yahoo": spec.yahoo_ticker,
-        "Errore prezzo": price_error or "",
+        "Errore prezzo": " | ".join([x for x in (price_error, daily_error) if x]) if (price_error or daily_error) else "",
     }
     return row, history_df
 
@@ -3312,7 +3418,12 @@ def _radar_change_text(row: pd.Series) -> str:
     old_price = str(row.get("Prezzo Weekly precedente", ""))
     new_price = str(row.get("Prezzo Weekly", ""))
     if old_price != new_price and len(changes) < 5:
-        changes.append(f"Prezzo: {old_price} → {new_price}")
+        changes.append(f"Prezzo Weekly: {old_price} → {new_price}")
+
+    old_daily = str(row.get("Daily21 + Alignment precedente", "NO"))
+    new_daily = str(row.get("Daily21 + Alignment", "NO"))
+    if old_daily != new_daily and len(changes) < 5:
+        changes.append(f"Daily21 + Alignment: {old_daily} → {new_daily}")
 
     old_regime = str(row.get("Regime 156W precedente", ""))
     new_regime = str(row.get("Regime 156W", ""))
@@ -3343,7 +3454,9 @@ def build_weekly_change_radar(results: pd.DataFrame) -> pd.DataFrame:
         "Contesto OI 1W precedente", "Contesto OI 1W",
         "Segnale flusso motore precedente", "Segnale flusso motore",
         "Prezzo anticipa COT precedente", "Prezzo anticipa COT",
-        "Prezzo Weekly precedente", "Prezzo Weekly", "Regime 156W precedente", "Regime 156W",
+        "Prezzo Weekly precedente", "Prezzo Weekly",
+        "Prezzo Daily21 precedente", "Prezzo Daily21", "Daily21 + Alignment precedente", "Daily21 + Alignment",
+        "Regime 156W precedente", "Regime 156W",
     ]
     if results.empty:
         return pd.DataFrame(columns=columns)
@@ -3379,6 +3492,10 @@ def build_weekly_change_radar(results: pd.DataFrame) -> pd.DataFrame:
         previous_price_leads = str(row.get("Prezzo anticipa COT precedente", "NO"))
         current_price = str(row.get("Prezzo Weekly", ""))
         previous_price = str(row.get("Prezzo Weekly precedente", ""))
+        current_daily_price = str(row.get("Prezzo Daily21", "PREZZO DAILY21 NON DISPONIBILE"))
+        previous_daily_price = str(row.get("Prezzo Daily21 precedente", "PREZZO DAILY21 NON DISPONIBILE"))
+        current_daily_alignment = str(row.get("Daily21 + Alignment", "NO"))
+        previous_daily_alignment = str(row.get("Daily21 + Alignment precedente", "NO"))
         current_regime = str(row.get("Regime 156W", ""))
         previous_regime = str(row.get("Regime 156W precedente", ""))
         current_regime_rank, current_regime_direction = _radar_regime_stage(current_regime)
@@ -3398,6 +3515,10 @@ def build_weekly_change_radar(results: pd.DataFrame) -> pd.DataFrame:
         price_newly_confirmed = (
             (current_direction == "LONG" and current_price == "CONFERMA RIALZISTA" and previous_price != "CONFERMA RIALZISTA")
             or (current_direction == "SHORT" and current_price == "CONFERMA RIBASSISTA" and previous_price != "CONFERMA RIBASSISTA")
+        )
+        daily_newly_aligned = (
+            current_daily_alignment != "NO"
+            and current_daily_alignment != previous_daily_alignment
         )
         same_direction = current_direction in ("LONG", "SHORT") and current_direction == previous_direction
         same_confirmed_direction = same_direction and previous_kind in ("CONFERMATO", "NON_INSEGUIRE")
@@ -3429,7 +3550,7 @@ def build_weekly_change_radar(results: pd.DataFrame) -> pd.DataFrame:
                 verdict = "PERDE INTERESSE"
                 order = 3
                 reading = "La direzione resta confermata, ma la qualità è peggiorata in modo sensibile rispetto alla settimana scorsa. Riduci la priorità."
-            elif (not pd.isna(delta_score) and delta_score >= RADAR_CONFIRMED_STRENGTH_DELTA) or coherent_new_flow or price_newly_confirmed or regime_progressed:
+            elif (not pd.isna(delta_score) and delta_score >= RADAR_CONFIRMED_STRENGTH_DELTA) or coherent_new_flow or price_newly_confirmed or daily_newly_aligned or regime_progressed:
                 priority = "⚡ SETUP CONFERMATO IN RAFFORZAMENTO"
                 verdict = "DA APPROFONDIRE" if current_score >= RADAR_ACTIONABLE_SCORE else "DA MONITORARE"
                 order = 1
@@ -3455,7 +3576,7 @@ def build_weekly_change_radar(results: pd.DataFrame) -> pd.DataFrame:
                 verdict = "PERDE INTERESSE"
                 order = 3
                 reading = "Il setup è ancora in costruzione ma ha perso qualità. Riduci il tempo dedicato finché non torna a migliorare."
-            elif (not pd.isna(delta_score) and delta_score >= RADAR_ACCELERATION_DELTA) or coherent_new_flow or price_newly_confirmed or regime_progressed:
+            elif (not pd.isna(delta_score) and delta_score >= RADAR_ACCELERATION_DELTA) or coherent_new_flow or price_newly_confirmed or daily_newly_aligned or regime_progressed:
                 priority = "⚡ SETUP IN ACCELERAZIONE"
                 verdict = "DA MONITORARE"
                 order = 2
@@ -3484,6 +3605,14 @@ def build_weekly_change_radar(results: pd.DataFrame) -> pd.DataFrame:
                 reading = (
                     f"Il prezzo Weekly sta anticipando un possibile cambio contrarian {direction_text} con Alignment 156W 3/3, "
                     "ma il COT non ha ancora confermato con nuovi Long/Short e variazione coerente della Net Position. Monitoralo senza anticipare."
+                )
+            elif current_daily_alignment.endswith("2/3") and current_daily_alignment != previous_daily_alignment:
+                priority = "⚠️ COT 2/3 + DAILY21"
+                verdict = "DA MONITORARE"
+                order = 2
+                reading = (
+                    "Il COT mostra un Alignment 156W 2/3 e la chiusura settimanale è ora dalla stessa parte della EMA21 Daily. "
+                    "È una conferma prezzo anticipata, ma il 2/3 resta soltanto un warning e non diventa Stato operativo."
                 )
             elif regime_progressed:
                 priority = "⚠️ POSSIBILE CAMBIO DI REGIME"
@@ -3532,6 +3661,10 @@ def build_weekly_change_radar(results: pd.DataFrame) -> pd.DataFrame:
                 "Prezzo anticipa COT": current_price_leads,
                 "Prezzo Weekly precedente": previous_price,
                 "Prezzo Weekly": current_price,
+                "Prezzo Daily21 precedente": previous_daily_price,
+                "Prezzo Daily21": current_daily_price,
+                "Daily21 + Alignment precedente": previous_daily_alignment,
+                "Daily21 + Alignment": current_daily_alignment,
                 "Regime 156W precedente": previous_regime,
                 "Regime 156W": current_regime,
             }
@@ -3665,7 +3798,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
     columns = [
         "Ordine Focus", "Ruolo settore", "Ordine settore", "Priorità", "Strumento", "Categoria", "Direzione", "Tipo opportunità",
         "Stato", "Qualità", "Score", "Δ Score", "Origine Flow 1W", "Segnale flusso motore",
-        "Regime 156W", "Prezzo Weekly", "Decisione", "Perché è qui", "Data COT", "Ticker Yahoo",
+        "Regime 156W", "Prezzo Weekly", "Prezzo Daily21", "Daily21 + Alignment", "Decisione", "Perché è qui", "Data COT", "Ticker Yahoo",
     ]
     if results.empty:
         return pd.DataFrame(columns=columns)
@@ -3676,6 +3809,8 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
         direction = str(row.get("Direzione", "NEUTRALE"))
         score = float(row.get("Score", 0) or 0)
         price_text = str(row.get("Prezzo Weekly", ""))
+        daily_price_text = str(row.get("Prezzo Daily21", "PREZZO DAILY21 NON DISPONIBILE"))
+        daily_alignment = str(row.get("Daily21 + Alignment", "NO"))
         motor_flow = str(row.get("Segnale flusso motore", row.get("Tipo flusso", "")))
         origin_flow = str(row.get("Origine Flow 1W", ""))
         regime = str(row.get("Regime 156W", ""))
@@ -3694,6 +3829,10 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
         if focus_direction not in ("LONG", "SHORT") and price_leads == "RIALZISTA":
             focus_direction = "LONG"
         elif focus_direction not in ("LONG", "SHORT") and price_leads == "RIBASSISTA":
+            focus_direction = "SHORT"
+        elif focus_direction not in ("LONG", "SHORT") and daily_alignment.startswith("RIALZISTA"):
+            focus_direction = "LONG"
+        elif focus_direction not in ("LONG", "SHORT") and daily_alignment.startswith("RIBASSISTA"):
             focus_direction = "SHORT"
         price_ok = _focus_price_confirmed(focus_direction, price_text)
         structure_ok = _focus_directional_structure(row, focus_direction)
@@ -3741,14 +3880,14 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
                     f"Setup {focus_direction} confermato con Score {score:.0f}, prezzo Weekly confermato, "
                     "struttura 3-6W coerente e ultimo Flow non contrario. Il confronto con una settimana ancora precedente non è disponibile."
                 )
-        elif price_leads in ("RIALZISTA", "RIBASSISTA"):
+        elif confirmed and FOCUS_WATCH_MIN_SCORE <= score < FOCUS_MIN_SCORE:
             decision = "MONITORARE"
-            opportunity = "PUNTO DI SVOLTA — PREZZO ANTICIPA COT"
-            priority = "⚠️ PREZZO ANTICIPA COT"
+            opportunity = "SETUP CONFERMATO SOTTO SOGLIA FOCUS"
+            priority = "🟢 CONFERMATO SOTTO SOGLIA"
             type_order = 3
             why = (
-                "Alignment 156W 3/3 e prezzo Weekly stanno anticipando il possibile cambio di regime, "
-                "ma il COT non ha ancora completato la conferma richiesta dal motore."
+                f"Il setup è già {focus_direction} CONFERMATO, ma lo Score {score:.0f} è sotto la soglia Focus {FOCUS_MIN_SCORE}. "
+                "Non va nascosto: resta da monitorare finché la qualità non supera la soglia o il quadro si deteriora."
             )
         elif "IN SVILUPPO" in regime and score >= FOCUS_WATCH_MIN_SCORE:
             decision = "MONITORARE"
@@ -3759,11 +3898,38 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
                 "Il regime contrarian 156W ha già superato il semplice 3/3, ma manca ancora almeno una "
                 "delle conferme necessarie per trattarlo come setup operativo completo."
             )
+        elif price_leads in ("RIALZISTA", "RIBASSISTA"):
+            decision = "MONITORARE"
+            opportunity = "PUNTO DI SVOLTA — PREZZO WEEKLY ANTICIPA COT"
+            priority = "⚠️ PREZZO WEEKLY ANTICIPA COT"
+            type_order = 5
+            why = (
+                "Alignment 156W 3/3 e prezzo Weekly stanno anticipando il possibile cambio di regime, "
+                "ma il COT non ha ancora completato la conferma richiesta dal motore."
+            )
+        elif daily_alignment.endswith("3/3"):
+            decision = "MONITORARE"
+            opportunity = "PUNTO DI SVOLTA — 3/3 + DAILY21"
+            priority = "🟠 3/3 + DAILY21"
+            type_order = 6
+            why = (
+                f"Alignment 156W {daily_alignment.split()[-1]} e {daily_price_text.lower()}. "
+                "La Daily21 anticipa la Weekly21: il setup può entrare IN COSTRUZIONE, ma non è ancora una conferma piena."
+            )
+        elif daily_alignment.endswith("2/3"):
+            decision = "MONITORARE"
+            opportunity = "WARNING 2/3 — DAILY21 CONFERMA INIZIALE"
+            priority = "⚠️ COT 2/3 + DAILY21"
+            type_order = 7
+            why = (
+                f"Alignment 156W {daily_alignment.split()[-1]} e {daily_price_text.lower()}. "
+                "Il 2/3 resta un warning e NON cambia lo Stato, ma la chiusura settimanale rispetto alla EMA21 Daily aumenta la priorità di osservazione."
+            )
         elif construction and score >= FOCUS_WATCH_MIN_SCORE and (price_ok or structure_ok) and flow_ok:
             decision = "MONITORARE"
             opportunity = "SETUP IN MATURAZIONE"
             priority = "🟡 IN MATURAZIONE"
-            type_order = 5
+            type_order = 8
             why = (
                 f"Il setup {focus_direction} è ancora in costruzione, ma Score {score:.0f} e parte della struttura sono coerenti. "
                 "Resta in watchlist finché non arriva la conferma completa."
@@ -3789,6 +3955,8 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
             "Segnale flusso motore": motor_flow,
             "Regime 156W": regime,
             "Prezzo Weekly": price_text,
+            "Prezzo Daily21": daily_price_text,
+            "Daily21 + Alignment": daily_alignment,
             "Decisione": decision,
             "Perché è qui": why,
             "Data COT": row.get("Data COT", ""),
@@ -3825,7 +3993,12 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
         candidates["Ordine Focus"] = range(1, len(candidates) + 1)
 
     if not watch.empty:
-        watch = watch.sort_values(base_sort, ascending=base_ascending, na_position="last").head(int(max_focus)).reset_index(drop=True)
+        # Nella watchlist conta prima la maturità del motivo di osservazione (es. confermato sotto soglia,
+        # regime in sviluppo, Daily21), poi la qualità del Flow. Così i casi importanti non spariscono
+        # dietro setup meno maturi ma con Flow 1W più pulito.
+        watch_sort = ["_TipoOrdine", "_OrigineOrdine", "Score", "Δ Score", "Strumento"]
+        watch_ascending = [True, True, False, False, True]
+        watch = watch.sort_values(watch_sort, ascending=watch_ascending, na_position="last").head(int(max_focus)).reset_index(drop=True)
         watch["Ordine settore"] = watch.groupby("Categoria", sort=False).cumcount() + 1
         watch["Ruolo settore"] = "MONITORARE"
 
@@ -3862,6 +4035,8 @@ def previous_snapshot_as_results(results: pd.DataFrame) -> pd.DataFrame:
             "Regime 156W": row.get("Regime 156W precedente", ""),
             "Prezzo anticipa COT": row.get("Prezzo anticipa COT precedente", "NO"),
             "Prezzo Weekly": row.get("Prezzo Weekly precedente", ""),
+            "Prezzo Daily21": row.get("Prezzo Daily21 precedente", "PREZZO DAILY21 NON DISPONIBILE"),
+            "Daily21 + Alignment": row.get("Daily21 + Alignment precedente", "NO"),
             "Data COT": row.get("Data COT precedente", ""),
             "Ticker Yahoo": row.get("Ticker Yahoo", ""),
             "Snapshot precedente disponibile": False,
@@ -4271,7 +4446,7 @@ def build_weekly_report_excel(
         "Contesto OI 1W precedente", "Contesto OI 1W",
         "Segnale flusso motore precedente", "Segnale flusso motore",
         "Prezzo anticipa COT precedente", "Prezzo anticipa COT",
-        "Prezzo Weekly precedente", "Prezzo Weekly", "Regime 156W precedente", "Regime 156W",
+        "Prezzo Weekly precedente", "Prezzo Weekly", "Prezzo Daily21 precedente", "Prezzo Daily21", "Daily21 + Alignment precedente", "Daily21 + Alignment", "Regime 156W precedente", "Regime 156W",
     ]
     radar = radar_frame.copy()
     for column in radar_export_columns:
@@ -4380,7 +4555,7 @@ def build_screener_excel(results: pd.DataFrame, errors: pd.DataFrame) -> bytes:
         "Strumento", "Stato", "Direzione", "Qualità", "Score", "Origine Flow 1W", "Segnale flusso motore",
         "COT Index", "COT Index 26W", "COT Index 156W", "Posizione attuale", "Posizionamento", "Esposizione Long %", "Esposizione Short %",
         "Alignment rialzista", "Alignment ribassista", "Regime 156W", "Prezzo anticipa COT", "Rapid Shift 6W",
-        "Variazione OI %", "Partecipazione OI 3-6W", "OI Index 52W", "Prezzo Weekly", "Concentrazione Top 8", "Data COT",
+        "Variazione OI %", "Partecipazione OI 3-6W", "OI Index 52W", "Prezzo Weekly", "Prezzo Daily21", "Daily21 + Alignment", "Concentrazione Top 8", "Data COT",
     ]
 
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
@@ -4401,7 +4576,7 @@ def build_screener_excel(results: pd.DataFrame, errors: pd.DataFrame) -> bytes:
                 "Contesto OI 1W precedente", "Contesto OI 1W",
                 "Segnale flusso motore precedente", "Segnale flusso motore",
                 "Prezzo anticipa COT precedente", "Prezzo anticipa COT",
-                "Prezzo Weekly precedente", "Prezzo Weekly", "Regime 156W precedente", "Regime 156W",
+                "Prezzo Weekly precedente", "Prezzo Weekly", "Prezzo Daily21 precedente", "Prezzo Daily21", "Daily21 + Alignment precedente", "Daily21 + Alignment", "Regime 156W precedente", "Regime 156W",
             ]
             radar[radar_export_columns].to_excel(writer, sheet_name="Weekly Change Radar", index=False)
             write_weekly_radar_sector_sheets(writer, radar, radar_export_columns)
@@ -4751,7 +4926,7 @@ def build_screener_ai_prompt(top_rows: pd.DataFrame, top_n: int) -> str:
         "COT Index", "COT Index 26W", "COT Index 156W", "Posizionamento", "Posizione attuale", "Esposizione Long %", "Esposizione Short %",
         "Flow 1W", "Flow 3W", "Flow 6W", "Rapid Shift 6W", "Stato Rapid Shift",
         "Variazione OI %", "Partecipazione OI 3-6W", "OI Index 52W", "Stato OI 52W",
-        "Alignment rialzista", "Alignment ribassista", "Regime 156W", "Prezzo anticipa COT", "Dettaglio Regime 156W", "Prezzo Weekly", "Concentrazione Top 8",
+        "Alignment rialzista", "Alignment ribassista", "Regime 156W", "Prezzo anticipa COT", "Dettaglio Regime 156W", "Prezzo Weekly", "Prezzo Daily21", "Daily21 + Alignment", "Concentrazione Top 8",
         "Indicazione", "Motivazione",
     ]
     table_text = ai_rows[compact_columns].to_csv(index=False)
@@ -4844,7 +5019,7 @@ def render_screener_current_tab(results_df: pd.DataFrame, errors_df: pd.DataFram
     visible_columns = [
         "Posizione", "Strumento", "Stato", "Qualità", "Score", "Origine Flow 1W",
         "COT Index 26W", "COT Index 156W", "Alignment rialzista", "Alignment ribassista", "Regime 156W", "Prezzo anticipa COT", "Rapid Shift 6W",
-        "Variazione OI %", "Partecipazione OI 3-6W", "OI Index 52W", "Prezzo Weekly", "Concentrazione Top 8", "Data COT",
+        "Variazione OI %", "Partecipazione OI 3-6W", "OI Index 52W", "Prezzo Weekly", "Prezzo Daily21", "Daily21 + Alignment", "Concentrazione Top 8", "Data COT",
     ]
     display_df = filtered[visible_columns].copy()
     display_df["Alignment rialzista"] = display_df["Alignment rialzista"].astype(int).astype(str) + "/3"
@@ -4864,6 +5039,8 @@ def render_screener_current_tab(results_df: pd.DataFrame, errors_df: pd.DataFram
             "Alignment ribassista": "Bear",
             "Regime 156W": st.column_config.TextColumn("Regime 156W", width="large"),
             "Prezzo anticipa COT": st.column_config.TextColumn("Prezzo anticipa COT", width="medium"),
+            "Prezzo Daily21": st.column_config.TextColumn("Prezzo Daily21", width="medium"),
+            "Daily21 + Alignment": st.column_config.TextColumn("Daily21 + Alignment", width="medium"),
             "Concentrazione Top 8": st.column_config.TextColumn("Concentrazione Top 8", width="large"),
         },
     )
@@ -5127,7 +5304,8 @@ def render_weekly_change_radar_tab(results_df: pd.DataFrame, radar_frame: pd.Dat
             "Il Radar dà priorità ai passaggi a LONG/SHORT CONFERMATO, alle nuove configurazioni IN COSTRUZIONE, "
             "ai setup che accelerano e ai cambi di regime 156W che avanzano. Penalizza invece i passaggi da confermato a in costruzione/neutrale "
             "e le forti perdite di Score. Come soglie di variazione usa +10 per il rafforzamento di un setup già confermato, +15 per l'accelerazione "
-            "di un setup in costruzione e -15 per un deterioramento significativo. Un semplice 2/3 non viene promosso a opportunità operativa. "
+            "di un setup in costruzione e -15 per un deterioramento significativo. Un semplice 2/3 non viene promosso a Stato operativo; "
+            "se però la chiusura della settimana è coerente con la EMA21 Daily entra tra i warning da MONITORARE. "
             "I setup CONFERMATI — NON INSEGUIRE restano in watchlist ma non vengono classificati come opportunità da inseguire."
         )
 
@@ -5138,7 +5316,7 @@ def render_weekly_change_radar_tab(results_df: pd.DataFrame, radar_frame: pd.Dat
         "Origine Flow 1W precedente", "Origine Flow 1W",
         "Δ Long 1W precedente", "Δ Long 1W", "Δ Short 1W precedente", "Δ Short 1W",
         "Contesto OI 1W precedente", "Contesto OI 1W",
-        "Prezzo Weekly precedente", "Prezzo Weekly", "Regime 156W precedente", "Regime 156W", "Verdetto",
+        "Prezzo Weekly precedente", "Prezzo Weekly", "Prezzo Daily21 precedente", "Prezzo Daily21", "Daily21 + Alignment precedente", "Daily21 + Alignment", "Regime 156W precedente", "Regime 156W", "Verdetto",
     ]
     st.dataframe(radar_filtered[details_columns], width="stretch", hide_index=True)
 
@@ -5175,7 +5353,7 @@ def render_focus_operativo_tab(results_df: pd.DataFrame, focus_frame: pd.DataFra
     else:
         show_cols = [
             "Ordine Focus", "Strumento", "Categoria", "Direzione", "Tipo opportunità", "Stato", "Qualità", "Score", "Δ Score",
-            "Origine Flow 1W", "Regime 156W", "Prezzo Weekly", "Perché è qui",
+            "Origine Flow 1W", "Regime 156W", "Prezzo Weekly", "Prezzo Daily21", "Daily21 + Alignment", "Perché è qui",
         ]
         styled = principali[show_cols].style.map(_focus_direction_style, subset=["Direzione"])
         st.dataframe(
@@ -5200,7 +5378,7 @@ def render_focus_operativo_tab(results_df: pd.DataFrame, focus_frame: pd.DataFra
     else:
         alt_cols = [
             "Ordine Focus", "Ordine settore", "Strumento", "Categoria", "Direzione", "Tipo opportunità", "Qualità", "Score", "Δ Score",
-            "Origine Flow 1W", "Prezzo Weekly", "Perché è qui",
+            "Origine Flow 1W", "Prezzo Weekly", "Prezzo Daily21", "Daily21 + Alignment", "Perché è qui",
         ]
         st.dataframe(
             alternative[alt_cols].style.map(_focus_direction_style, subset=["Direzione"]),
@@ -5222,7 +5400,7 @@ def render_focus_operativo_tab(results_df: pd.DataFrame, focus_frame: pd.DataFra
     if watch.empty:
         st.caption("Nessun punto di svolta aggiuntivo da monitorare.")
     else:
-        watch_cols = ["Priorità", "Strumento", "Categoria", "Direzione", "Tipo opportunità", "Stato", "Qualità", "Score", "Regime 156W", "Prezzo Weekly", "Perché è qui"]
+        watch_cols = ["Priorità", "Strumento", "Categoria", "Direzione", "Tipo opportunità", "Stato", "Qualità", "Score", "Regime 156W", "Prezzo Weekly", "Prezzo Daily21", "Daily21 + Alignment", "Perché è qui"]
         st.dataframe(watch[watch_cols].style.map(_focus_direction_style, subset=["Direzione"]), width="stretch", hide_index=True)
 
     with st.expander("Criteri e ordine del Focus operativo", expanded=False):
@@ -5231,7 +5409,8 @@ def render_focus_operativo_tab(results_df: pd.DataFrame, focus_frame: pd.DataFra
             "prezzo Weekly confermato, struttura 3-6W coerente e un Flow 1W non contrario. I candidati vengono ordinati senza creare un nuovo punteggio: "
             "prima qualità dell'origine reale del Flow (nuova partecipazione → misto → covering/liquidation dominante), poi nuova conferma/continuazione, Score numerico e Δ Score. "
             "Dopo questo ordinamento, il migliore di ogni settore viene mostrato tra i Focus principali e gli altri come alternative settoriali. "
-            f"I setup non completi con Score almeno {FOCUS_WATCH_MIN_SCORE} restano in MONITORARE. Il sistema non riempie la tabella per forza e mostra al massimo {FOCUS_MAX_MARKETS} candidati FOCUS complessivi."
+            f"In MONITORARE entrano anche i CONFERMATI con Score {FOCUS_WATCH_MIN_SCORE}–{FOCUS_MIN_SCORE-1}, i warning 2/3 + Daily21, i 3/3 + Daily21 e gli altri setup in maturazione. "
+            f"La Daily21 anticipa; la Weekly21 resta la conferma strutturale. Il sistema non riempie la tabella per forza e mostra al massimo {FOCUS_MAX_MARKETS} candidati FOCUS complessivi."
         )
 
     st.caption(
@@ -5570,6 +5749,7 @@ def render_single_analysis() -> None:
             )
 
             weekly_price, price_error = fetch_weekly_price(yahoo_ticker)
+            daily_ohlc, daily_error = fetch_daily_ohlc(yahoo_ticker)
     except CFTCError as exc:
         st.error(f"Errore CFTC: {exc}")
         st.stop()
@@ -5587,6 +5767,9 @@ def render_single_analysis() -> None:
     if not smart.get("available"):
         st.error(smart.get("final_detail", "Analisi non disponibile."))
         st.stop()
+
+    daily_price_analysis = daily_ema21_snapshot(daily_ohlc, smart["report_date"])
+    daily_alignment_context = daily21_alignment_context(alignment, daily_price_analysis)
 
 
     # Una risposta AI appartiene sempre a un solo strumento e a una sola data COT.
@@ -5607,6 +5790,13 @@ def render_single_analysis() -> None:
     )
     if price_error:
         st.warning(price_error)
+    if daily_error:
+        st.warning(daily_error)
+    if daily_price_analysis.get("available"):
+        st.caption(
+            f"Conferma anticipata prezzo: {daily_price_analysis['text']} | Daily21 + Alignment: {daily_alignment_context}. "
+            "La Daily21 è un contesto anticipatore; la Weekly21 resta la conferma strutturale."
+        )
 
     col1, col2, col3, col4, col5, col6 = st.columns(6)
     col1.metric("COT Index 26W", fmt_decimal(smart["cot_index_26w"], 1), smart.get("extreme_horizons", "") or None)
@@ -5722,6 +5912,9 @@ def render_single_analysis() -> None:
         {"Voce": "Categoria trend", "Valore": spec.trend_label},
         {"Voce": "Controparte", "Valore": spec.counter_label},
         {"Voce": "Data posizioni COT", "Valore": smart["report_date"].strftime("%d/%m/%Y")},
+        {"Voce": "Prezzo Weekly — conferma strutturale", "Valore": price_analysis.get("text", "NON DISPONIBILE")},
+        {"Voce": "Prezzo Daily21 — conferma anticipata", "Valore": daily_price_analysis.get("text", "NON DISPONIBILE")},
+        {"Voce": "Daily21 + Alignment 156W", "Valore": daily_alignment_context},
         {"Voce": "Codice CFTC", "Valore": smart["cftc_code"]},
         {"Voce": f"Δ {spec.trend_label} Long", "Valore": fmt_number(smart["trend_chg_l"], signed=True)},
         {"Voce": f"Δ {spec.trend_label} Short", "Valore": fmt_number(smart["trend_chg_s"], signed=True)},
@@ -5970,9 +6163,15 @@ def render_single_analysis() -> None:
     - Segnali ribassisti: {smart['alignment_bear_count']}/3
     - Prezzo anticipa COT: {"RIALZISTA" if smart.get('alignment_bull_price_leads') else "RIBASSISTA" if smart.get('alignment_bear_price_leads') else "NO"}
 
-    PREZZO WEEKLY
+    PREZZO WEEKLY — CONFERMA STRUTTURALE
     - Stato: {price_analysis['text']}
     - Dettaglio: {price_analysis['detail']}
+
+    PREZZO DAILY21 — CONFERMA ANTICIPATA ALLA CHIUSURA DELLA SETTIMANA
+    - Stato: {daily_price_analysis.get('text', 'NON DISPONIBILE')}
+    - Dettaglio: {daily_price_analysis.get('detail', 'NON DISPONIBILE')}
+    - Daily21 + Alignment 156W: {daily_alignment_context}
+    - Regola: un 2/3 resta warning; un 3/3 coerente con Daily21 può entrare IN COSTRUZIONE anticipata; la Weekly21 resta la conferma strutturale.
 
     TERM STRUCTURE
     - Stato d'uso: {term_usage_status}
@@ -5996,6 +6195,7 @@ def render_single_analysis() -> None:
     - Se una view è incompleta, usa la conferma mancante deterministica nell’ordine prezzo → struttura 3-6W principale → Flow 1W principale → controparte 1W → controparte 3-6W.
     - Nelle valute, Dealer/Intermediary sono la normale controparte dei Leveraged Funds: quando manca la loro conferma, dichiaralo esplicitamente e non richiedere erroneamente che si muovano nella stessa direzione.
     - Un primo miglioramento/peggioramento 1W senza struttura 3-6W coerente resta “view non ancora formata”.
+    - EMA21 Daily e EMA21 Weekly hanno ruoli diversi: Daily21 è anticipatoria alla chiusura della settimana; Weekly21 è strutturale. Non promuovere mai un semplice Alignment 2/3 a Stato LONG/SHORT solo perché Daily21 è coerente.
     - Un COT Index estremo descrive la collocazione della Net Position nel proprio range storico, non necessariamente una posizione Net Long o Net Short e non un segnale automatico di inversione.
     - L'Alignment Map usato per il possibile cambio di regime è fisso a 156W e usa la stessa logica contrarian per tutte le famiglie: Trend basso + Controparte alta + Small basso per Bull; l'opposto per Bear.
     - Un Alignment 2/3 è soltanto parziale. Un 3/3 è un setup, non ancora un cambio di regime confermato.
