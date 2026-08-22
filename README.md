@@ -1,79 +1,56 @@
-# COT Smart Money Python V6.36
+# COT Smart Money Python V6.37
 
-## Novità V6.36 — Watchlist 2/3 pre-prezzo + tabelle verifica più leggibili
+## Novità V6.37 — Reversal Watch con memoria 3/3 + spiegazioni metriche più leggibili
 
-La V6.36 mantiene il motore Smart Money, lo Stato, lo Score, il Weekly Change Radar, il Focus e il Price Action Timing della V6.35, ma aggiunge una regola mirata alla watchlist e riordina le due tabelle di verifica.
+La V6.37 mantiene invariati motore Smart Money, Stato, Score, Weekly Change Radar, Focus confermato, Verifica Focus e algoritmo del Price Action Timing della V6.36. Aggiunge soltanto una nuova regola di **MONITORARE** e migliora la leggibilità delle spiegazioni MFE/MAE a video e nell’Excel.
 
-### 1. Alignment 2/3 pre-prezzo
+### 1. REVERSAL WATCH — memoria del 3/3 recente
 
-La Daily21 resta la conferma prezzo anticipata e la Weekly21 resta la conferma strutturale. Tuttavia un 2/3 può ora entrare in **MONITORARE anche prima della Daily21** quando il COT mostra un cambio significativo e causale rispetto alla settimana precedente.
+Per evitare di perdere casi come 6N, il sistema conserva una memoria causale dei **6 report precedenti**. Un mercato entra in `MONITORARE` come:
 
-La regola è volutamente stretta e simmetrica:
+`⚠️ PREZZO ANTICIPA COT — REVERSAL WATCH`
 
-- esiste un Alignment 156W **2/3** nella nuova direzione;
-- la settimana precedente esisteva un setup direzionale opposto **CONFERMATO o IN COSTRUZIONE**;
-- quel setup ha perso la precedente direzione;
-- lo Score è diminuito di almeno **20 punti**;
-- il Flow 1W si muove nella direzione del nuovo 2/3.
+soltanto quando sono vere insieme queste condizioni:
 
-Il risultato è soltanto **MONITORARE**:
+- almeno uno dei 6 report precedenti aveva un Alignment contrarian **3/3** nella direzione del reversal;
+- la categoria seguita (Managed Money / Leveraged Funds) è **ancora all’estremo 156W opposto**;
+- la chiusura del venerdì è già coerente con il reversal rispetto alla **EMA21 Daily**;
+- il regime contrarian non è già completamente confermato.
 
-- bearish: `COT IN DETERIORAMENTO — PREZZO NON CONFERMA`;
-- bullish: `COT IN MIGLIORAMENTO — PREZZO NON CONFERMA`.
+Il 3/3 **non deve essere ancora presente nel report corrente**. È proprio questo il punto: il prezzo può iniziare a girare mentre il COT resta ancora estremo e l’Alignment 3/3 si è già dissolto.
 
-Non cambia Stato o Score. Se in seguito la Daily21 diventa coerente, il mercato sale di priorità nella watchlist come `COT 2/3 + DAILY21`. Questa regola copre il caso tipo Copper/HG senza trasformare un semplice 2/3 in un segnale Short/Long.
+Questa regola:
+
+- non cambia `Stato`;
+- non cambia `Score`;
+- non crea un `FOCUS`;
+- non è un ingresso automatico;
+- serve soltanto a far comparire prima il mercato nella watchlist.
+
+La regola 2/3 pre-prezzo della V6.36 resta attiva e separata.
 
 ### 2. Confermato sotto soglia Focus
 
-Resta la regola V6.35: un LONG/SHORT CONFERMATO, non `NON INSEGUIRE`, con Score **50–64** compare in `Da monitorare` come `CONFERMATO SOTTO SOGLIA FOCUS`. La soglia FOCUS resta 65.
+Resta invariata la regola introdotta per il caso tipo 6N: un LONG/SHORT CONFERMATO, non `NON INSEGUIRE`, con Score **50–64** compare in `Da monitorare` come `CONFERMATO SOTTO SOGLIA FOCUS`. La soglia FOCUS resta 65.
 
-## Tabelle Verifica Focus e Timing Price Action
+## Verifica Focus — spiegazione MFE/MAE
 
-La tabella **Verifica Focus precedente** è ora mostrata in questo ordine:
+Sotto la tabella la spiegazione è ora spezzata su tre righe:
 
-1. Strumento
-2. Direzione
-3. Tipo
-4. Esito
-5. Rendimento dir. %
-6. Stato attuale
-7. Score attuale
-8. Report Focus
-9. Data ingresso
-10. Apertura riferimento
-11. Data uscita
-12. Chiusura riferimento
-13. MFE %
-14. MAE %
+**MFE % (Maximum Favorable Excursion)** = massimo movimento percentuale raggiunto A FAVORE della direzione Focus dopo l’ingresso.
 
-Sotto la tabella viene spiegato che:
+**MAE % (Maximum Adverse Excursion)** = massimo movimento percentuale raggiunto CONTRO la direzione Focus dopo l’ingresso; viene mostrato negativo.
 
-- **MFE %** = Maximum Favorable Excursion, massimo movimento percentuale a favore della direzione dopo l’ingresso;
-- **MAE %** = Maximum Adverse Excursion, massimo movimento percentuale contro la direzione dopo l’ingresso, mostrato negativo.
+**MFE e MAE** descrivono il percorso del prezzo durante la settimana: non sono rendimento realizzato, target o stop loss.
 
-MFE e MAE non sono rendimento realizzato, target o stop loss.
+## Timing Price Action — spiegazione più leggibile
 
-La tabella **Timing Price Action — test** segue ora questo ordine:
+Anche la legenda sotto la tabella Timing Price Action è ora su righe separate:
 
-1. Strumento
-2. Direzione
-3. Stato Timing PA
-4. Esito PA
-5. Data inizio pullback
-6. Data segnale PA
-7. Data ingresso PA
-8. Ingresso PA
-9. Sedute attesa
-10. Rend. passivo %
-11. Rend. PA %
-12. Δ Rend. PA
-13. MAE passivo %
-14. MAE PA %
-15. Δ MAE PA
-16. MFE passivo %
-17. MFE PA %
-
-Sotto la tabella sono spiegati rendimento passivo/PA, differenza di rendimento, MAE passivo/PA, Δ MAE e MFE passivo/PA. Un **Δ MAE positivo** significa che il Timing PA ha ridotto l’escursione contraria; negativo significa peggioramento.
+- rendimento passivo / rendimento PA / differenza di rendimento;
+- MAE passivo / MAE PA / differenza MAE;
+- MFE passivo / MFE PA;
+- nota finale: MFE e MAE descrivono il percorso del prezzo e non sono rendimento realizzato, target o stop loss.
 
 ## Excel settimanale
 
@@ -87,18 +64,20 @@ Sotto la tabella sono spiegati rendimento passivo/PA, differenza di rendimento, 
 6. Timing Price Action
 7. Radar completo
 
-Nei fogli `Verifica precedente` e `Timing Price Action` le colonne sono nello stesso ordine delle tabelle Streamlit e, sotto i dati, è presente una legenda testuale delle metriche MFE/MAE e del confronto PA.
+Nei fogli `Verifica precedente` e `Timing Price Action` la legenda in fondo è aggiornata con la stessa formulazione più chiara utilizzata a video.
 
 ## Cosa resta invariato
 
 - motore Smart Money allineato a TradingView G. COT Smart Money Engine V1.5.48;
-- Stato e Score dello Screener, salvo la già esistente logica Daily21 V6.35;
+- Stato e Score dello Screener;
 - soglia Focus 65 e massimo 8 candidati;
 - priorità settoriale PRINCIPALE / ALTERNATIVA SETTORE;
 - ordinamento Focus basato sulla qualità reale dell’Origine Flow;
 - Weekly Change Radar;
 - benchmark Verifica Focus precedente;
-- regola del Price Action Timing V6.34;
+- algoritmo del Price Action Timing V6.34;
+- Daily21 anticipatoria e Weekly21 strutturale;
+- warning 2/3 pre-prezzo V6.36;
 - esclusione HO — Heating Oil e ZO — Oats;
 - refresh cache CFTC a ogni nuova scansione.
 

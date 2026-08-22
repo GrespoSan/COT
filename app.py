@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 # CONFIGURAZIONE PAGINA
 # =============================================================================
 st.set_page_config(
-    page_title="COT Smart Money V6.36 — Python",
+    page_title="COT Smart Money V6.37 — Python",
     page_icon="🛡️",
     layout="wide",
 )
@@ -48,7 +48,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🛡️ COT Smart Money — Python V6.36")
+st.title("🛡️ COT Smart Money — Python V6.37")
 st.caption(
     "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale con Weekly Change Radar, Focus Operativo e test Price Action Timing. "
     "Il motore è allineato a TradingView G. COT Smart Money Engine V1.5.48 e seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
@@ -2885,6 +2885,47 @@ def daily21_alignment_context(alignment: dict[str, Any], daily_price: dict[str, 
     return "NO"
 
 
+REVERSAL_WATCH_RECENT_REPORTS = 6
+
+
+def recent_alignment_3of3_context(df: pd.DataFrame, lookback_reports: int = REVERSAL_WATCH_RECENT_REPORTS) -> dict[str, Any]:
+    """Memoria causale dei 3/3 contrarian delle settimane precedenti.
+
+    Cerca soltanto nei report PRECEDENTI all'ultimo (massimo `lookback_reports`) e usa
+    esclusivamente gli indici 156W già presenti nello storico. Serve alla watchlist:
+    non modifica Stato, Score, Focus o motore Smart Money.
+    """
+    result = {
+        "bull_recent": False, "bear_recent": False,
+        "bull_age": math.nan, "bear_age": math.nan,
+        "bull_date": "", "bear_date": "",
+    }
+    required = {"date", "trend_index_156w", "counter_index_156w", "small_index_156w"}
+    if df is None or df.empty or not required.issubset(df.columns) or len(df) < 2:
+        return result
+
+    previous = df.iloc[:-1].tail(max(1, int(lookback_reports))).copy()
+    if previous.empty:
+        return result
+
+    for age, (_, r) in enumerate(previous.iloc[::-1].iterrows(), start=1):
+        trend = pd.to_numeric(pd.Series([r.get("trend_index_156w")]), errors="coerce").iloc[0]
+        counter = pd.to_numeric(pd.Series([r.get("counter_index_156w")]), errors="coerce").iloc[0]
+        small = pd.to_numeric(pd.Series([r.get("small_index_156w")]), errors="coerce").iloc[0]
+        if any(pd.isna(v) for v in (trend, counter, small)):
+            continue
+        bull_score = int(trend <= ALIGNMENT_LOWER) + int(counter >= ALIGNMENT_UPPER) + int(small <= ALIGNMENT_LOWER)
+        bear_score = int(trend >= ALIGNMENT_UPPER) + int(counter <= ALIGNMENT_LOWER) + int(small >= ALIGNMENT_UPPER)
+        report_date = pd.Timestamp(r.get("date")).date().isoformat()
+        if bull_score == 3 and not result["bull_recent"]:
+            result.update({"bull_recent": True, "bull_age": age, "bull_date": report_date})
+        if bear_score == 3 and not result["bear_recent"]:
+            result.update({"bear_recent": True, "bear_age": age, "bear_date": report_date})
+        if result["bull_recent"] and result["bear_recent"]:
+            break
+    return result
+
+
 def calculate_screener_score(
     smart: dict[str, Any],
     price: dict[str, Any],
@@ -3155,6 +3196,22 @@ def analyze_market_for_screener(
 
     daily_price = daily_ema21_snapshot(daily_ohlc, smart["report_date"])
     daily_alignment = daily21_alignment_context(alignment, daily_price)
+    recent_3of3 = recent_alignment_3of3_context(history_df)
+    trend_index_156w = pd.to_numeric(pd.Series([smart.get("alignment_trend_index_156w", math.nan)]), errors="coerce").iloc[0]
+    reversal_watch_bull = bool(
+        recent_3of3.get("bull_recent")
+        and not pd.isna(trend_index_156w) and float(trend_index_156w) <= ALIGNMENT_LOWER
+        and daily_price.get("long_confirmed")
+        and int(alignment.get("bull_score", 0) or 0) < 3
+        and not smart.get("alignment_bull_regime_confirmed")
+    )
+    reversal_watch_bear = bool(
+        recent_3of3.get("bear_recent")
+        and not pd.isna(trend_index_156w) and float(trend_index_156w) >= ALIGNMENT_UPPER
+        and daily_price.get("short_confirmed")
+        and int(alignment.get("bear_score", 0) or 0) < 3
+        and not smart.get("alignment_bear_regime_confirmed")
+    )
     scoring = calculate_screener_score(smart, price, alignment, oi_threshold, daily_price)
     matching_alignment = alignment.get("bull_score", 0) if scoring["Direzione"] == "LONG" else alignment.get("bear_score", 0) if scoring["Direzione"] == "SHORT" else max(alignment.get("bull_score", 0), alignment.get("bear_score", 0))
     price_confirmed = (
@@ -3271,6 +3328,16 @@ def analyze_market_for_screener(
         "Prezzo Weekly": price["text"],
         "Prezzo Daily21": daily_price.get("text", "PREZZO DAILY21 NON DISPONIBILE"),
         "Daily21 + Alignment": daily_alignment,
+        "Reversal Watch": (
+            "RIALZISTA" if reversal_watch_bull
+            else "RIBASSISTA" if reversal_watch_bear
+            else "NO"
+        ),
+        "3/3 recente": (
+            f"RIALZISTA {int(recent_3of3['bull_age'])} report fa ({recent_3of3['bull_date']})" if reversal_watch_bull
+            else f"RIBASSISTA {int(recent_3of3['bear_age'])} report fa ({recent_3of3['bear_date']})" if reversal_watch_bear
+            else "NO"
+        ),
         "Prezzo confermato": bool(price_confirmed),
         "Alignment rialzista": int(alignment.get("bull_score", 0)),
         "Alignment ribassista": int(alignment.get("bear_score", 0)),
@@ -3815,6 +3882,8 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
         origin_flow = str(row.get("Origine Flow 1W", ""))
         regime = str(row.get("Regime 156W", ""))
         price_leads = str(row.get("Prezzo anticipa COT", "NO"))
+        reversal_watch = str(row.get("Reversal Watch", "NO"))
+        recent_3of3 = str(row.get("3/3 recente", "NO"))
         previous_status = str(row.get("Stato precedente", ""))
         previous_direction = str(row.get("Direzione precedente", "NEUTRALE"))
         previous_score = pd.to_numeric(pd.Series([row.get("Score precedente", math.nan)]), errors="coerce").iloc[0]
@@ -3824,7 +3893,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
         bear_alignment = pd.to_numeric(pd.Series([row.get("Alignment ribassista", 0)]), errors="coerce").fillna(0).iloc[0]
         flow_1w = pd.to_numeric(pd.Series([row.get("Flow 1W", math.nan)]), errors="coerce").iloc[0]
 
-        # V6.36: un 2/3 può entrare nella watchlist anche prima della Daily21, ma solo quando
+        # V6.37: un 2/3 può entrare nella watchlist anche prima della Daily21, ma solo quando
         # esiste un deterioramento/miglioramento COT significativo e causale rispetto allo snapshot
         # precedente. Non modifica Stato o Score: serve esclusivamente a non perdere un turning point
         # mentre il prezzo non ha ancora confermato. La Daily21 resta l'upgrade di priorità.
@@ -3849,6 +3918,10 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
         elif focus_direction not in ("LONG", "SHORT") and daily_alignment.startswith("RIALZISTA"):
             focus_direction = "LONG"
         elif focus_direction not in ("LONG", "SHORT") and daily_alignment.startswith("RIBASSISTA"):
+            focus_direction = "SHORT"
+        elif focus_direction not in ("LONG", "SHORT") and reversal_watch == "RIALZISTA":
+            focus_direction = "LONG"
+        elif focus_direction not in ("LONG", "SHORT") and reversal_watch == "RIBASSISTA":
             focus_direction = "SHORT"
         elif focus_direction not in ("LONG", "SHORT") and preprice_23_direction:
             focus_direction = preprice_23_direction
@@ -3916,11 +3989,21 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
                 "Il regime contrarian 156W ha già superato il semplice 3/3, ma manca ancora almeno una "
                 "delle conferme necessarie per trattarlo come setup operativo completo."
             )
+        elif reversal_watch in ("RIALZISTA", "RIBASSISTA"):
+            decision = "MONITORARE"
+            opportunity = f"REVERSAL WATCH {focus_direction} — 3/3 RECENTE + DAILY21"
+            priority = "⚠️ PREZZO ANTICIPA COT — REVERSAL WATCH"
+            type_order = 5
+            why = (
+                f"Un Alignment contrarian 3/3 era presente di recente ({recent_3of3}); la categoria seguita resta ancora su un estremo 156W e "
+                f"la chiusura del venerdì è già coerente con il possibile reversal {focus_direction} rispetto alla EMA21 Daily. "
+                "Il 3/3 non deve essere ancora presente oggi: questa è memoria del setup, non conferma COT. Resta MONITORARE e non modifica Stato o Score."
+            )
         elif price_leads in ("RIALZISTA", "RIBASSISTA"):
             decision = "MONITORARE"
             opportunity = "PUNTO DI SVOLTA — PREZZO WEEKLY ANTICIPA COT"
             priority = "⚠️ PREZZO WEEKLY ANTICIPA COT"
-            type_order = 5
+            type_order = 6
             why = (
                 "Alignment 156W 3/3 e prezzo Weekly stanno anticipando il possibile cambio di regime, "
                 "ma il COT non ha ancora completato la conferma richiesta dal motore."
@@ -3929,7 +4012,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
             decision = "MONITORARE"
             opportunity = "PUNTO DI SVOLTA — 3/3 + DAILY21"
             priority = "🟠 3/3 + DAILY21"
-            type_order = 6
+            type_order = 7
             why = (
                 f"Alignment 156W {daily_alignment.split()[-1]} e {daily_price_text.lower()}. "
                 "La Daily21 anticipa la Weekly21: il setup può entrare IN COSTRUZIONE, ma non è ancora una conferma piena."
@@ -3938,7 +4021,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
             decision = "MONITORARE"
             opportunity = "WARNING 2/3 — DAILY21 CONFERMA INIZIALE"
             priority = "⚠️ COT 2/3 + DAILY21"
-            type_order = 7
+            type_order = 8
             why = (
                 f"Alignment 156W {daily_alignment.split()[-1]} e {daily_price_text.lower()}. "
                 "Il 2/3 resta un warning e NON cambia lo Stato, ma la chiusura settimanale rispetto alla EMA21 Daily aumenta la priorità di osservazione."
@@ -3951,7 +4034,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
                 if preprice_23_direction == "SHORT"
                 else "⚠️ COT IN MIGLIORAMENTO — PREZZO NON CONFERMA"
             )
-            type_order = 8
+            type_order = 9
             why = (
                 f"Alignment 156W {preprice_23_direction} 2/3 mentre il precedente setup {previous_direction} ha perso la sua direzione, "
                 f"lo Score è sceso di {abs(delta_score):.0f} punti e il Flow 1W si è mosso verso {preprice_23_direction}. "
@@ -3961,7 +4044,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
             decision = "MONITORARE"
             opportunity = "SETUP IN MATURAZIONE"
             priority = "🟡 IN MATURAZIONE"
-            type_order = 9
+            type_order = 10
             why = (
                 f"Il setup {focus_direction} è ancora in costruzione, ma Score {score:.0f} e parte della struttura sono coerenti. "
                 "Resta in watchlist finché non arriva la conferma completa."
@@ -4585,9 +4668,9 @@ def build_weekly_report_excel(
         verification_ws.merge_cells(start_row=v_start, start_column=1, end_row=v_start, end_column=v_last_col)
         verification_ws.cell(v_start, 1, "COME LEGGERE MFE % E MAE %").font = Font(bold=True, color="1F4E78")
         verification_notes = [
-            ("MFE %", "Massimo movimento percentuale raggiunto A FAVORE della direzione Focus dopo l'ingresso. Non è il rendimento realizzato né un target."),
-            ("MAE %", "Massimo movimento percentuale raggiunto CONTRO la direzione Focus dopo l'ingresso; viene mostrato negativo. Non è uno stop loss."),
-            ("Nota", "MFE e MAE descrivono il percorso del prezzo durante la finestra di verifica, non il risultato finale del trade."),
+            ("MFE %", "Maximum Favorable Excursion = massimo movimento percentuale raggiunto A FAVORE della direzione Focus dopo l'ingresso."),
+            ("MAE %", "Maximum Adverse Excursion = massimo movimento percentuale raggiunto CONTRO la direzione Focus dopo l'ingresso; viene mostrato negativo."),
+            ("Nota", "MFE e MAE descrivono il percorso del prezzo durante la settimana: non sono rendimento realizzato, target o stop loss."),
         ]
         for offset, (label, text) in enumerate(verification_notes, start=1):
             row = v_start + offset
@@ -4604,9 +4687,10 @@ def build_weekly_report_excel(
             ("Rend. passivo %", "Rendimento dal primo Open utile della settimana fino alla chiusura di riferimento."),
             ("Rend. PA %", "Rendimento dallo specifico ingresso generato dal Timing Price Action fino alla stessa chiusura di riferimento."),
             ("Δ Rend. PA", "Rend. PA − Rend. passivo: positivo = il timing ha migliorato il rendimento; negativo = ha sacrificato rendimento."),
-            ("MAE passivo % / MAE PA %", "Massima escursione percentuale CONTRO la direzione dal rispettivo ingresso."),
+            ("MAE passivo % / MAE PA %", "Maximum Adverse Excursion = massima escursione percentuale CONTRO la direzione dal rispettivo ingresso; viene mostrata negativa."),
             ("Δ MAE PA", "MAE PA − MAE passivo: positivo = miglioramento, perché il MAE PA è meno negativo; negativo = peggioramento."),
-            ("MFE passivo % / MFE PA %", "Massima escursione percentuale A FAVORE della direzione dal rispettivo ingresso. Non è un target."),
+            ("MFE passivo % / MFE PA %", "Maximum Favorable Excursion = massima escursione percentuale A FAVORE della direzione dal rispettivo ingresso."),
+            ("Nota", "MFE e MAE descrivono il percorso del prezzo: non sono rendimento realizzato, target o stop loss."),
         ]
         for offset, (label, text) in enumerate(timing_notes, start=1):
             row = t_start + offset
@@ -5506,7 +5590,7 @@ def render_focus_operativo_tab(results_df: pd.DataFrame, focus_frame: pd.DataFra
             "prezzo Weekly confermato, struttura 3-6W coerente e un Flow 1W non contrario. I candidati vengono ordinati senza creare un nuovo punteggio: "
             "prima qualità dell'origine reale del Flow (nuova partecipazione → misto → covering/liquidation dominante), poi nuova conferma/continuazione, Score numerico e Δ Score. "
             "Dopo questo ordinamento, il migliore di ogni settore viene mostrato tra i Focus principali e gli altri come alternative settoriali. "
-            f"In MONITORARE entrano anche i CONFERMATI con Score {FOCUS_WATCH_MIN_SCORE}–{FOCUS_MIN_SCORE-1}, i warning 2/3 + Daily21, i 3/3 + Daily21, i 2/3 con cambio COT significativo prima della conferma prezzo e gli altri setup in maturazione. "
+            f"In MONITORARE entrano anche i CONFERMATI con Score {FOCUS_WATCH_MIN_SCORE}–{FOCUS_MIN_SCORE-1}, i REVERSAL WATCH con 3/3 recente + estremo COT ancora presente + Daily21 coerente, i warning 2/3 + Daily21, i 3/3 + Daily21, i 2/3 con cambio COT significativo prima della conferma prezzo e gli altri setup in maturazione. "
             f"La Daily21 anticipa; la Weekly21 resta la conferma strutturale. Il sistema non riempie la tabella per forza e mostra al massimo {FOCUS_MAX_MARKETS} candidati FOCUS complessivi."
         )
 
@@ -5559,8 +5643,8 @@ def render_focus_verification_tab(results_df: pd.DataFrame, verification_frame: 
         "Questo resta il benchmark passivo e non viene sostituito dal Timing Price Action: serve proprio per confrontare le due modalità senza cambiare il passato."
     )
     st.caption(
-        "MFE % (Maximum Favorable Excursion) = massimo movimento percentuale raggiunto A FAVORE della direzione Focus dopo l'ingresso. "
-        "MAE % (Maximum Adverse Excursion) = massimo movimento percentuale raggiunto CONTRO la direzione Focus dopo l'ingresso; viene mostrato negativo. "
+        "MFE % (Maximum Favorable Excursion) = massimo movimento percentuale raggiunto A FAVORE della direzione Focus dopo l'ingresso.  \n"
+        "MAE % (Maximum Adverse Excursion) = massimo movimento percentuale raggiunto CONTRO la direzione Focus dopo l'ingresso; viene mostrato negativo.  \n"
         "MFE e MAE descrivono il percorso del prezzo durante la settimana: non sono rendimento realizzato, target o stop loss."
     )
 
@@ -5616,9 +5700,10 @@ def render_price_action_timing_tab(results_df: pd.DataFrame, timing_frame: pd.Da
         },
     )
     st.caption(
-        "Rend. passivo % = rendimento dal primo Open utile della settimana; Rend. PA % = rendimento dall'ingresso generato dal Timing Price Action; Δ Rend. PA = Rend. PA − Rend. passivo, quindi un valore positivo indica un miglioramento del timing. "
-        "MAE passivo % / MAE PA % = massima escursione percentuale CONTRO la direzione dal rispettivo ingresso. Δ MAE PA = MAE PA − MAE passivo: positivo = rischio percorso migliorato (MAE meno negativo), negativo = peggiorato. "
-        "MFE passivo % / MFE PA % = massima escursione percentuale A FAVORE della direzione dal rispettivo ingresso. MFE e MAE non sono target o stop loss."
+        "Rend. passivo % = rendimento dal primo Open utile della settimana; Rend. PA % = rendimento dall'ingresso generato dal Timing Price Action; Δ Rend. PA = Rend. PA − Rend. passivo, quindi un valore positivo indica un miglioramento del timing.  \n"
+        "MAE passivo % / MAE PA % = massima escursione percentuale CONTRO la direzione dal rispettivo ingresso. Δ MAE PA = MAE PA − MAE passivo: positivo = rischio percorso migliorato (MAE meno negativo), negativo = peggiorato.  \n"
+        "MFE passivo % / MFE PA % = massima escursione percentuale A FAVORE della direzione dal rispettivo ingresso.  \n"
+        "MFE e MAE descrivono il percorso del prezzo: non sono rendimento realizzato, target o stop loss."
     )
 
     with st.expander('Regola sperimentale esatta — nessun hindsight', expanded=False):
