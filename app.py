@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 # CONFIGURAZIONE PAGINA
 # =============================================================================
 st.set_page_config(
-    page_title="COT Smart Money V6.35 — Python",
+    page_title="COT Smart Money V6.36 — Python",
     page_icon="🛡️",
     layout="wide",
 )
@@ -48,7 +48,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🛡️ COT Smart Money — Python V6.35")
+st.title("🛡️ COT Smart Money — Python V6.36")
 st.caption(
     "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale con Weekly Change Radar, Focus Operativo e test Price Action Timing. "
     "Il motore è allineato a TradingView G. COT Smart Money Engine V1.5.48 e seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
@@ -2746,7 +2746,7 @@ def screener_status(
     if smart.get("alignment_bear_regime_developing"):
         return "SHORT IN COSTRUZIONE", "SHORT"
 
-    # 4) V6.35: 3/3 grezzo + chiusura settimanale dalla parte corretta della EMA21 Daily
+    # 4) V6.35+: 3/3 grezzo + chiusura settimanale dalla parte corretta della EMA21 Daily
     #    diventa una COSTRUZIONE ANTICIPATA. Il 2/3 NON passa di Stato e resta warning.
     if smart.get("alignment_bull_3") and daily_price.get("long_confirmed"):
         return "LONG IN COSTRUZIONE", "LONG"
@@ -3820,6 +3820,22 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
         previous_score = pd.to_numeric(pd.Series([row.get("Score precedente", math.nan)]), errors="coerce").iloc[0]
         delta_score = score - float(previous_score) if not pd.isna(previous_score) else math.nan
         has_previous_context = bool(row.get("Snapshot precedente disponibile", row.get("Confronto precedente disponibile", True)))
+        bull_alignment = pd.to_numeric(pd.Series([row.get("Alignment rialzista", 0)]), errors="coerce").fillna(0).iloc[0]
+        bear_alignment = pd.to_numeric(pd.Series([row.get("Alignment ribassista", 0)]), errors="coerce").fillna(0).iloc[0]
+        flow_1w = pd.to_numeric(pd.Series([row.get("Flow 1W", math.nan)]), errors="coerce").iloc[0]
+
+        # V6.36: un 2/3 può entrare nella watchlist anche prima della Daily21, ma solo quando
+        # esiste un deterioramento/miglioramento COT significativo e causale rispetto allo snapshot
+        # precedente. Non modifica Stato o Score: serve esclusivamente a non perdere un turning point
+        # mentre il prezzo non ha ancora confermato. La Daily21 resta l'upgrade di priorità.
+        previous_long_directional = previous_direction == "LONG" and ("CONFERMATO" in previous_status or "IN COSTRUZIONE" in previous_status)
+        previous_short_directional = previous_direction == "SHORT" and ("CONFERMATO" in previous_status or "IN COSTRUZIONE" in previous_status)
+        lost_previous_long = previous_long_directional and direction != "LONG"
+        lost_previous_short = previous_short_directional and direction != "SHORT"
+        score_deterioration = bool(not pd.isna(delta_score) and delta_score <= -20)
+        preprice_bear_23 = bool(bear_alignment == 2 and lost_previous_long and score_deterioration and not pd.isna(flow_1w) and float(flow_1w) < 0)
+        preprice_bull_23 = bool(bull_alignment == 2 and lost_previous_short and score_deterioration and not pd.isna(flow_1w) and float(flow_1w) > 0)
+        preprice_23_direction = "SHORT" if preprice_bear_23 else "LONG" if preprice_bull_23 else ""
 
         stale = "DATI COT DATATI" in status
         non_inseguire = "NON INSEGUIRE" in status
@@ -3834,6 +3850,8 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
             focus_direction = "LONG"
         elif focus_direction not in ("LONG", "SHORT") and daily_alignment.startswith("RIBASSISTA"):
             focus_direction = "SHORT"
+        elif focus_direction not in ("LONG", "SHORT") and preprice_23_direction:
+            focus_direction = preprice_23_direction
         price_ok = _focus_price_confirmed(focus_direction, price_text)
         structure_ok = _focus_directional_structure(row, focus_direction)
         flow_ok = _focus_flow_coherent(focus_direction, motor_flow)
@@ -3925,11 +3943,25 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
                 f"Alignment 156W {daily_alignment.split()[-1]} e {daily_price_text.lower()}. "
                 "Il 2/3 resta un warning e NON cambia lo Stato, ma la chiusura settimanale rispetto alla EMA21 Daily aumenta la priorità di osservazione."
             )
+        elif preprice_23_direction:
+            decision = "MONITORARE"
+            opportunity = "WARNING 2/3 — CAMBIO COT PRE-PREZZO"
+            priority = (
+                "⚠️ COT IN DETERIORAMENTO — PREZZO NON CONFERMA"
+                if preprice_23_direction == "SHORT"
+                else "⚠️ COT IN MIGLIORAMENTO — PREZZO NON CONFERMA"
+            )
+            type_order = 8
+            why = (
+                f"Alignment 156W {preprice_23_direction} 2/3 mentre il precedente setup {previous_direction} ha perso la sua direzione, "
+                f"lo Score è sceso di {abs(delta_score):.0f} punti e il Flow 1W si è mosso verso {preprice_23_direction}. "
+                "Il prezzo non ha ancora confermato con la Daily21: resta quindi solo MONITORARE. Se la Daily21 diventa coerente, la priorità sale a COT 2/3 + DAILY21."
+            )
         elif construction and score >= FOCUS_WATCH_MIN_SCORE and (price_ok or structure_ok) and flow_ok:
             decision = "MONITORARE"
             opportunity = "SETUP IN MATURAZIONE"
             priority = "🟡 IN MATURAZIONE"
-            type_order = 8
+            type_order = 9
             why = (
                 f"Il setup {focus_direction} è ancora in costruzione, ma Score {score:.0f} e parte della struttura sono coerenti. "
                 "Resta in watchlist finché non arriva la conferma completa."
@@ -3994,7 +4026,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
 
     if not watch.empty:
         # Nella watchlist conta prima la maturità del motivo di osservazione (es. confermato sotto soglia,
-        # regime in sviluppo, Daily21), poi la qualità del Flow. Così i casi importanti non spariscono
+        # regime in sviluppo, Daily21, 2/3 pre-prezzo significativo), poi la qualità del Flow. Così i casi importanti non spariscono
         # dietro setup meno maturi ma con Flow 1W più pulito.
         watch_sort = ["_TipoOrdine", "_OrigineOrdine", "Score", "Δ Score", "Strumento"]
         watch_ascending = [True, True, False, False, True]
@@ -4453,13 +4485,34 @@ def build_weekly_report_excel(
         if column not in radar.columns:
             radar[column] = ""
 
+    verification_export_columns = [
+        "Strumento", "Direzione", "Tipo", "Esito", "Rendimento direzionale %", "Stato attuale", "Score attuale",
+        "Report Focus", "Data ingresso", "Ingresso riferimento", "Data uscita", "Uscita riferimento", "MFE %", "MAE %",
+    ]
+    timing_export_columns = [
+        "Strumento", "Direzione", "Stato Timing PA", "Esito PA", "Data inizio pullback", "Data segnale PA", "Data ingresso PA", "Ingresso PA",
+        "Sedute attesa", "Rendimento passivo %", "Rendimento PA %", "Δ rendimento PA vs passivo",
+        "MAE passivo %", "MAE PA %", "Miglioramento MAE PA (p.p.)", "MFE passivo %", "MFE PA %",
+    ]
+    verification_export = verification_frame.reindex(columns=verification_export_columns).rename(columns={
+        "Rendimento direzionale %": "Rendimento dir. %",
+        "Ingresso riferimento": "Apertura riferimento",
+        "Uscita riferimento": "Chiusura riferimento",
+    })
+    timing_export = timing_frame.reindex(columns=timing_export_columns).rename(columns={
+        "Rendimento passivo %": "Rend. passivo %",
+        "Rendimento PA %": "Rend. PA %",
+        "Δ rendimento PA vs passivo": "Δ Rend. PA",
+        "Miglioramento MAE PA (p.p.)": "Δ MAE PA",
+    })
+
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         focus_all.to_excel(writer, sheet_name="Focus settimana", index=False)
         focus_main.to_excel(writer, sheet_name="Focus principali", index=False)
         focus_alt.to_excel(writer, sheet_name="Alternative settore", index=False)
         focus_watch.to_excel(writer, sheet_name="Da monitorare", index=False)
-        verification_frame.to_excel(writer, sheet_name="Verifica precedente", index=False)
-        timing_frame.to_excel(writer, sheet_name="Timing Price Action", index=False)
+        verification_export.to_excel(writer, sheet_name="Verifica precedente", index=False)
+        timing_export.to_excel(writer, sheet_name="Timing Price Action", index=False)
         radar[radar_export_columns].to_excel(writer, sheet_name="Radar completo", index=False)
 
         from openpyxl.styles import Alignment, Font, PatternFill
@@ -4467,9 +4520,10 @@ def build_weekly_report_excel(
 
         header_fill = PatternFill("solid", fgColor="1F4E78")
         header_font = Font(color="FFFFFF", bold=True)
+        table_last_rows = {ws.title: ws.max_row for ws in writer.book.worksheets}
         for ws in writer.book.worksheets:
             ws.freeze_panes = "A2"
-            ws.auto_filter.ref = ws.dimensions
+            ws.auto_filter.ref = f"A1:{get_column_letter(ws.max_column)}{table_last_rows[ws.title]}"
             for cell in ws[1]:
                 cell.fill = header_fill
                 cell.font = header_font
@@ -4513,11 +4567,54 @@ def build_weekly_report_excel(
                 delta_col = get_column_letter(headers["Δ Score"])
                 for cell in ws[delta_col][1:]:
                     cell.number_format = '+0;-0;0'
-            for pct_header in ("Rendimento direzionale %", "MFE %", "MAE %", "Rendimento passivo %", "MFE passivo %", "MAE passivo %", "Rendimento PA %", "MFE PA %", "MAE PA %", "Δ rendimento PA vs passivo", "Miglioramento MAE PA (p.p.)"):
+            for pct_header in (
+                "Rendimento direzionale %", "Rendimento dir. %", "MFE %", "MAE %",
+                "Rendimento passivo %", "Rend. passivo %", "MFE passivo %", "MAE passivo %",
+                "Rendimento PA %", "Rend. PA %", "MFE PA %", "MAE PA %",
+                "Δ rendimento PA vs passivo", "Δ Rend. PA", "Miglioramento MAE PA (p.p.)", "Δ MAE PA",
+            ):
                 if pct_header in headers:
                     pct_col = get_column_letter(headers[pct_header])
-                    for cell in ws[pct_col][1:]:
+                    for cell in ws[pct_col][1:table_last_rows[ws.title]]:
                         cell.number_format = '+0.00;-0.00;0.00'
+
+        # Legenda leggibile direttamente nell'Excel, sotto le due tabelle di verifica.
+        verification_ws = writer.book["Verifica precedente"]
+        v_start = table_last_rows["Verifica precedente"] + 3
+        v_last_col = verification_ws.max_column
+        verification_ws.merge_cells(start_row=v_start, start_column=1, end_row=v_start, end_column=v_last_col)
+        verification_ws.cell(v_start, 1, "COME LEGGERE MFE % E MAE %").font = Font(bold=True, color="1F4E78")
+        verification_notes = [
+            ("MFE %", "Massimo movimento percentuale raggiunto A FAVORE della direzione Focus dopo l'ingresso. Non è il rendimento realizzato né un target."),
+            ("MAE %", "Massimo movimento percentuale raggiunto CONTRO la direzione Focus dopo l'ingresso; viene mostrato negativo. Non è uno stop loss."),
+            ("Nota", "MFE e MAE descrivono il percorso del prezzo durante la finestra di verifica, non il risultato finale del trade."),
+        ]
+        for offset, (label, text) in enumerate(verification_notes, start=1):
+            row = v_start + offset
+            verification_ws.cell(row, 1, label).font = Font(bold=True)
+            verification_ws.merge_cells(start_row=row, start_column=2, end_row=row, end_column=v_last_col)
+            verification_ws.cell(row, 2, text).alignment = Alignment(vertical="top", wrap_text=True)
+
+        timing_ws = writer.book["Timing Price Action"]
+        t_start = table_last_rows["Timing Price Action"] + 3
+        t_last_col = timing_ws.max_column
+        timing_ws.merge_cells(start_row=t_start, start_column=1, end_row=t_start, end_column=t_last_col)
+        timing_ws.cell(t_start, 1, "COME LEGGERE LE METRICHE DEL TIMING PRICE ACTION").font = Font(bold=True, color="1F4E78")
+        timing_notes = [
+            ("Rend. passivo %", "Rendimento dal primo Open utile della settimana fino alla chiusura di riferimento."),
+            ("Rend. PA %", "Rendimento dallo specifico ingresso generato dal Timing Price Action fino alla stessa chiusura di riferimento."),
+            ("Δ Rend. PA", "Rend. PA − Rend. passivo: positivo = il timing ha migliorato il rendimento; negativo = ha sacrificato rendimento."),
+            ("MAE passivo % / MAE PA %", "Massima escursione percentuale CONTRO la direzione dal rispettivo ingresso."),
+            ("Δ MAE PA", "MAE PA − MAE passivo: positivo = miglioramento, perché il MAE PA è meno negativo; negativo = peggioramento."),
+            ("MFE passivo % / MFE PA %", "Massima escursione percentuale A FAVORE della direzione dal rispettivo ingresso. Non è un target."),
+        ]
+        for offset, (label, text) in enumerate(timing_notes, start=1):
+            row = t_start + offset
+            timing_ws.cell(row, 1, label).font = Font(bold=True)
+            timing_ws.merge_cells(start_row=row, start_column=2, end_row=row, end_column=t_last_col)
+            timing_ws.cell(row, 2, text).alignment = Alignment(vertical="top", wrap_text=True)
+        for ws in (verification_ws, timing_ws):
+            ws.column_dimensions["A"].width = max(ws.column_dimensions["A"].width or 10, 28)
     return output.getvalue()
 
 
@@ -5409,7 +5506,7 @@ def render_focus_operativo_tab(results_df: pd.DataFrame, focus_frame: pd.DataFra
             "prezzo Weekly confermato, struttura 3-6W coerente e un Flow 1W non contrario. I candidati vengono ordinati senza creare un nuovo punteggio: "
             "prima qualità dell'origine reale del Flow (nuova partecipazione → misto → covering/liquidation dominante), poi nuova conferma/continuazione, Score numerico e Δ Score. "
             "Dopo questo ordinamento, il migliore di ogni settore viene mostrato tra i Focus principali e gli altri come alternative settoriali. "
-            f"In MONITORARE entrano anche i CONFERMATI con Score {FOCUS_WATCH_MIN_SCORE}–{FOCUS_MIN_SCORE-1}, i warning 2/3 + Daily21, i 3/3 + Daily21 e gli altri setup in maturazione. "
+            f"In MONITORARE entrano anche i CONFERMATI con Score {FOCUS_WATCH_MIN_SCORE}–{FOCUS_MIN_SCORE-1}, i warning 2/3 + Daily21, i 3/3 + Daily21, i 2/3 con cambio COT significativo prima della conferma prezzo e gli altri setup in maturazione. "
             f"La Daily21 anticipa; la Weekly21 resta la conferma strutturale. Il sistema non riempie la tabella per forza e mostra al massimo {FOCUS_MAX_MARKETS} candidati FOCUS complessivi."
         )
 
@@ -5442,9 +5539,8 @@ def render_focus_verification_tab(results_df: pd.DataFrame, verification_frame: 
         c4.metric("MFE / MAE medi", f"{avg_mfe:+.2f}% / {avg_mae:+.2f}%")
 
     display_cols = [
-        "Strumento", "Direzione", "Tipo", "Report Focus", "Data ingresso", "Ingresso riferimento",
-        "Data uscita", "Uscita riferimento", "Rendimento direzionale %", "MFE %", "MAE %", "Esito",
-        "Stato attuale", "Score attuale",
+        "Strumento", "Direzione", "Tipo", "Esito", "Rendimento direzionale %", "Stato attuale", "Score attuale",
+        "Report Focus", "Data ingresso", "Ingresso riferimento", "Data uscita", "Uscita riferimento", "MFE %", "MAE %",
     ]
     st.dataframe(
         verification[display_cols].style.map(_focus_direction_style, subset=["Direzione"]),
@@ -5460,7 +5556,12 @@ def render_focus_verification_tab(results_df: pd.DataFrame, verification_frame: 
     )
     st.caption(
         "Regola fissa di verifica: apertura della prima seduta successiva al venerdì associato al report COT precedente, fino all'ultima seduta giornaliera completamente chiusa prima del nuovo ciclo. "
-        "MFE = massimo movimento favorevole; MAE = massimo movimento contrario. Questo resta il benchmark passivo e non viene sostituito dal Timing Price Action: serve proprio per confrontare le due modalità senza cambiare il passato."
+        "Questo resta il benchmark passivo e non viene sostituito dal Timing Price Action: serve proprio per confrontare le due modalità senza cambiare il passato."
+    )
+    st.caption(
+        "MFE % (Maximum Favorable Excursion) = massimo movimento percentuale raggiunto A FAVORE della direzione Focus dopo l'ingresso. "
+        "MAE % (Maximum Adverse Excursion) = massimo movimento percentuale raggiunto CONTRO la direzione Focus dopo l'ingresso; viene mostrato negativo. "
+        "MFE e MAE descrivono il percorso del prezzo durante la settimana: non sono rendimento realizzato, target o stop loss."
     )
 
 
@@ -5493,9 +5594,9 @@ def render_price_action_timing_tab(results_df: pd.DataFrame, timing_frame: pd.Da
             c4.metric('Δ rendimento mediano', 'n/d')
 
     display_cols = [
-        'Strumento', 'Direzione', 'Stato Timing PA', 'Data inizio pullback', 'Data segnale PA', 'Data ingresso PA', 'Ingresso PA',
+        'Strumento', 'Direzione', 'Stato Timing PA', 'Esito PA', 'Data inizio pullback', 'Data segnale PA', 'Data ingresso PA', 'Ingresso PA',
         'Sedute attesa', 'Rendimento passivo %', 'Rendimento PA %', 'Δ rendimento PA vs passivo',
-        'MAE passivo %', 'MAE PA %', 'Miglioramento MAE PA (p.p.)', 'MFE passivo %', 'MFE PA %', 'Esito PA',
+        'MAE passivo %', 'MAE PA %', 'Miglioramento MAE PA (p.p.)', 'MFE passivo %', 'MFE PA %',
     ]
     st.dataframe(
         timing[display_cols].style.map(_focus_direction_style, subset=['Direzione']),
@@ -5513,6 +5614,11 @@ def render_price_action_timing_tab(results_df: pd.DataFrame, timing_frame: pd.Da
             'MFE passivo %': st.column_config.NumberColumn('MFE passivo %', format='%+.2f'),
             'MFE PA %': st.column_config.NumberColumn('MFE PA %', format='%+.2f'),
         },
+    )
+    st.caption(
+        "Rend. passivo % = rendimento dal primo Open utile della settimana; Rend. PA % = rendimento dall'ingresso generato dal Timing Price Action; Δ Rend. PA = Rend. PA − Rend. passivo, quindi un valore positivo indica un miglioramento del timing. "
+        "MAE passivo % / MAE PA % = massima escursione percentuale CONTRO la direzione dal rispettivo ingresso. Δ MAE PA = MAE PA − MAE passivo: positivo = rischio percorso migliorato (MAE meno negativo), negativo = peggiorato. "
+        "MFE passivo % / MFE PA % = massima escursione percentuale A FAVORE della direzione dal rispettivo ingresso. MFE e MAE non sono target o stop loss."
     )
 
     with st.expander('Regola sperimentale esatta — nessun hindsight', expanded=False):
