@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 # CONFIGURAZIONE PAGINA
 # =============================================================================
 st.set_page_config(
-    page_title="COT Smart Money V6.41 — Python",
+    page_title="COT Smart Money V6.42 — Python",
     page_icon="🛡️",
     layout="wide",
 )
@@ -48,7 +48,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🛡️ COT Smart Money — Python V6.41")
+st.title("🛡️ COT Smart Money — Python V6.42")
 st.caption(
     "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale con Weekly Change Radar, Focus Operativo, test Price Action Timing e Replay storico causale. "
     "Il motore è allineato a TradingView G. COT Smart Money Engine V1.5.48 e seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
@@ -71,6 +71,11 @@ CFTC_API_BASES = (
 TERM_OPTIONS = ["Non disponibile", "Contango", "Backwardation", "Curva piatta"]
 AI_PROMPT_FILENAME = "PROMPT.TXT"
 AI_SCREENER_PROMPT_FILENAME = "PROMPT_SCREENER.TXT"
+
+# Groq free/on-demand for openai/gpt-oss-120b has an 8K TPM ceiling.
+# Keep a conservative completion budget and use compact-but-equivalent prompts
+# so a single request does not exceed the organization token-per-minute limit.
+GROQ_MAX_COMPLETION_TOKENS = 900
 ALIGNMENT_UPPER = 80.0
 ALIGNMENT_LOWER = 20.0
 OI_INDEX_LOOKBACK = 52
@@ -4173,7 +4178,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
         bear_alignment = pd.to_numeric(pd.Series([row.get("Alignment ribassista", 0)]), errors="coerce").fillna(0).iloc[0]
         flow_1w = pd.to_numeric(pd.Series([row.get("Flow 1W", math.nan)]), errors="coerce").iloc[0]
 
-        # V6.41: un 2/3 può entrare nella watchlist anche prima della Daily21, ma solo quando
+        # V6.42: un 2/3 può entrare nella watchlist anche prima della Daily21, ma solo quando
         # esiste un deterioramento/miglioramento COT significativo e causale rispetto allo snapshot
         # precedente. Non modifica Stato o Score: serve esclusivamente a non perdere un turning point
         # mentre il prezzo non ha ancora confermato. La Daily21 resta l'upgrade di priorità.
@@ -5324,6 +5329,70 @@ def build_screener_jpg(
     return output.getvalue()
 
 
+
+def groq_compact_operational_prompt() -> str:
+    """Versione compatta equivalente di PROMPT.TXT per il limite Groq 8K TPM.
+
+    Non cambia il responso deterministico: riduce solo istruzioni ripetute e liste
+    esemplificative che sono già presenti nei dati strutturati della dashboard.
+    """
+    return """
+LETTURA COT — REGOLE OBBLIGATORIE (VERSIONE COMPATTA GROQ)
+
+Usa SOLO i dati strutturati della dashboard. Scrivi in italiano semplice, adatto a un neofita. Non inventare prezzi, supporti, resistenze, POC o altri livelli tecnici. Il COT non è un segnale immediato d'ingresso.
+
+1) CLASSIFICAZIONE PRINCIPALE
+Usa ESATTAMENTE lo Stato deterministico fornito: LONG/SHORT CONFERMATO, LONG/SHORT IN COSTRUZIONE, NEUTRALE / POCO CHIARO, oppure LONG/SHORT CONFERMATO — NON INSEGUIRE. Non promuovere mai uno stato. Top 8 da solo non cambia lo Stato.
+
+2) POSIZIONE ATTUALE
+Descrivila dalle percentuali Long/Short della categoria principale, non dal COT Index. Il COT Index indica dove si trova la Net Position nel proprio range storico, non se i Fondi siano automaticamente Net Long o Net Short.
+
+3) ORIGINE FLOW 1W E OI
+Interpreta Origine Flow 1W SOLO da Δ Long, Δ Short e variazione della Net Position. Mantieni il significato della frase deterministica della dashboard. OI 1W è un contesto SEPARATO di partecipazione e non definisce l'origine del Flow. Non chiamare automaticamente un Flow positivo "nuovi Long" né uno negativo "nuovi Short". Short covering = chiusura Short; Long liquidation = chiusura Long. Se un quadro è già confermato, covering/liquidation riduce la qualità dell'ultimo impulso ma non annulla automaticamente la direzione.
+
+4) STRUTTURA 3–6W, COT INDEX, OI, TOP 8
+Riporta separatamente 3W e 6W. Spiega COT Index 26W/156W come collocazione storica della Net Position. Un estremo non è da solo inversione. Riporta OI 3–6W e OI Index 52W come partecipazione, non direzione. Top 8 misura fragilità/concentrazione, non direzione.
+
+5) ALIGNMENT CONTRARIAN 156W
+Gerarchia obbligatoria: 0/3–1/3 = nessun cambio evidente; 2/3 = segnali parziali, NON cambio di regime; 3/3 = possibile cambio in costruzione, NON confermato; 3/3 + prezzo che anticipa ma COT non ancora coerente = divergenza prezzo/COT; 3/3 + Flow coerente = IN SVILUPPO; CONFERMATO richiede anche prezzo Weekly e struttura 3–6W coerenti. Usa lo stato deterministico già fornito e non promuoverlo. Daily21 è solo un contesto anticipatore: un 2/3 resta parziale e un 3/3 resta separato finché il motore non conferma.
+Per 3/3: se Long aumentano ma Net peggiora, gli Short crescono più rapidamente; se Short aumentano ma Net migliora, i Long crescono più rapidamente. Short covering senza aumento Long non è accumulazione Long; Long liquidation senza aumento Short non è accumulazione Short. Le classificazioni dominanti liquidation/covering richiedono Long e Short entrambi in diminuzione oltre alla Net coerente.
+
+6) PREZZO E COSA FARE
+Rispetta la frase deterministica "Indicazione/Cosa fare" della dashboard. Se manca conferma, spiega quale manca senza inventare livelli. Per il timing usa soltanto concetti generici come pullback, rimbalzo e nuova conferma. Se i dati COT sono troppo vecchi, nessuna view operativa.
+
+OUTPUT A — LETTURA OPERATIVA COMPLETA
+Titolo: STRUMENTO — CLASSIFICAZIONE PRINCIPALE.
+Poi: Stato attuale; Prospettiva; Grado di conferma; Elemento favorevole; Elemento contrario; Conferma necessaria; Invalidazione.
+Quindi, in ordine: posizione Fondi; ultimo report (Origine Flow + OI separato); struttura 3–6W; COT Index 26W/156W; OI 3–6W e 52W; Top 8; possibile cambio di regime; Lettura semplice; Cosa fare. Term Structure solo se applicabile/disponibile.
+
+OUTPUT B — VERSIONE BREVE PER POST SOCIAL
+Massimo 6–8 righe: strumento, classificazione, Origine Flow + OI, struttura 3–6W, eventuale regime significativo, conferma prezzo e riga finale "Cosa fare". Niente numeri inutili.
+""".strip()
+
+
+def build_groq_compact_screener_prompt(top_rows: pd.DataFrame, top_n: int) -> str:
+    """Prompt Screener ridotto per Groq mantenendo i dati decisionali essenziali."""
+    ai_rows = top_rows.copy()
+    ai_rows["Classificazione AI"] = ai_rows["Stato"].map(screener_ai_classification)
+    cols = [
+        "Strumento", "Stato", "Classificazione AI", "Direzione", "Qualità", "Score",
+        "Origine Flow 1W", "Δ Long 1W", "Δ Short 1W", "Contesto OI 1W",
+        "Flow 3W", "Flow 6W", "Regime 156W", "Prezzo anticipa COT",
+        "Prezzo Weekly", "Prezzo Daily21", "Daily21 + Alignment",
+        "Concentrazione Top 8", "Indicazione", "Motivazione",
+    ]
+    table_text = ai_rows[cols].to_csv(index=False)
+    return f"""
+SCREENER COT — SPIEGAZIONE TOP {top_n} — VERSIONE COMPATTA GROQ
+
+Usa solo i dati CSV. Non modificare Stato, Score o Classificazione AI. Ogni strumento deve restare nella classificazione deterministica assegnata. Non inventare livelli tecnici. COT Index/Alignment sono contesto, non ingresso automatico. Origine Flow 1W deriva da Δ Long, Δ Short e Net Position; OI è contesto separato. Covering/liquidation non equivalgono a nuova accumulazione. 2/3 è solo warning; 3/3 non è conferma; "prezzo anticipa COT" resta non confermato finché il motore non lo conferma.
+
+Per ogni mercato spiega in linguaggio semplice: cosa dice oggi, perché merita o non merita attenzione, qualità del flusso, conferme mancanti e cosa osservare. Poi chiudi con una breve priorità complessiva. Non riclassificare i mercati.
+
+DATI
+{table_text}
+""".strip()
+
 def call_ai_provider(provider: str, model: str, prompt: str) -> str:
     if provider == "Google Gemini":
         from google import genai
@@ -5358,6 +5427,7 @@ def call_ai_provider(provider: str, model: str, prompt: str) -> str:
             {"role": "user", "content": prompt},
         ],
         temperature=0.2,
+        max_completion_tokens=GROQ_MAX_COMPLETION_TOKENS,
     )
     return response.choices[0].message.content or "Nessuna risposta ricevuta da Groq."
 
@@ -5393,7 +5463,9 @@ def screener_ai_classification(status: str) -> str:
     return mapping.get(str(status), "POCO CHIARO — NESSUN VANTAGGIO OPERATIVO")
 
 
-def build_screener_ai_prompt(top_rows: pd.DataFrame, top_n: int) -> str:
+def build_screener_ai_prompt(top_rows: pd.DataFrame, top_n: int, provider: str = "Google Gemini") -> str:
+    if provider == "Groq":
+        return build_groq_compact_screener_prompt(top_rows, top_n)
     ai_rows = top_rows.copy()
     ai_rows["Classificazione AI"] = ai_rows["Stato"].map(screener_ai_classification)
     compact_columns = [
@@ -5603,7 +5675,7 @@ def render_screener_current_tab(results_df: pd.DataFrame, errors_df: pd.DataFram
         if top_rows.empty:
             st.warning("Nessun risultato disponibile con i filtri correnti.")
         else:
-            prompt = build_screener_ai_prompt(top_rows, min(int(top_n), len(top_rows)))
+            prompt = build_screener_ai_prompt(top_rows, min(int(top_n), len(top_rows)), provider=provider)
             with st.spinner(f"Interrogo {provider}..."):
                 try:
                     answer = call_ai_provider(provider, model, prompt)
@@ -6551,7 +6623,7 @@ def render_single_analysis() -> None:
             return default
 
 
-    def build_ai_prompt(user_question: str, operational_prompt: str) -> tuple[str, str]:
+    def build_ai_prompt(user_question: str, operational_prompt: str, provider: str = "Google Gemini") -> tuple[str, str]:
         """Costruisce il prompt AI in due modalità automatiche.
 
         - Campo domanda vuoto: applica integralmente PROMPT.TXT.
@@ -6574,17 +6646,23 @@ def render_single_analysis() -> None:
     """.strip()
             request_mode = "Domanda specifica — PROMPT.TXT ignorato"
         else:
+            if provider == "Groq":
+                effective_operational_prompt = groq_compact_operational_prompt()
+                prompt_source_label = f"{AI_PROMPT_FILENAME} — versione compatta equivalente per Groq"
+            else:
+                effective_operational_prompt = operational_prompt
+                prompt_source_label = AI_PROMPT_FILENAME
             instruction_block = f"""
     MODALITÀ: ANALISI COMPLETA PREIMPOSTATA
 
-    ISTRUZIONI OPERATIVE CARICATE DA {AI_PROMPT_FILENAME}
+    ISTRUZIONI OPERATIVE DA {prompt_source_label}
 
-    {operational_prompt}
+    {effective_operational_prompt}
 
     RICHIESTA
-    Applica integralmente il prompt operativo preimpostato e produci sia la lettura completa sia la versione breve per il post social.
+    Applica le istruzioni operative e produci sia la lettura completa sia la versione breve per il post social.
     """.strip()
-            request_mode = f"Analisi completa — {AI_PROMPT_FILENAME}"
+            request_mode = f"Analisi completa — {prompt_source_label}"
 
         prompt = f"""
     {instruction_block}
@@ -6731,6 +6809,12 @@ def render_single_analysis() -> None:
                 key="ai_model_groq",
             )
 
+    if ai_provider == "Groq":
+        st.caption(
+            "Groq: per rispettare il limite TPM del modello, l'app usa automaticamente una versione compatta "
+            "ma equivalente delle istruzioni PROMPT.TXT e limita la lunghezza massima della risposta."
+        )
+
     with st.form("cot_ai_form"):
         ai_question = st.text_area(
             "Domanda specifica — se compilata sostituisce PROMPT.TXT",
@@ -6749,7 +6833,7 @@ def render_single_analysis() -> None:
         ai_submit = st.form_submit_button("Genera analisi con AI", type="primary", width="stretch")
 
     if ai_submit:
-        prompt_ai, ai_request_mode = build_ai_prompt(ai_question, operational_prompt)
+        prompt_ai, ai_request_mode = build_ai_prompt(ai_question, operational_prompt, provider=ai_provider)
         with st.spinner(f"Interrogo {ai_provider}..."):
             try:
                 if ai_provider == "Google Gemini":
@@ -6783,6 +6867,7 @@ def render_single_analysis() -> None:
                             {"role": "user", "content": prompt_ai},
                         ],
                         temperature=0.2,
+                        max_completion_tokens=GROQ_MAX_COMPLETION_TOKENS,
                     )
                     answer = response.choices[0].message.content or "Nessuna risposta ricevuta da Groq."
 
@@ -6801,7 +6886,13 @@ def render_single_analysis() -> None:
                 )
             except Exception as exc:
                 error_text = str(exc)
-                if "503" in error_text or "UNAVAILABLE" in error_text.upper():
+                if ai_provider == "Groq" and ("rate_limit_exceeded" in error_text or "tokens per minute" in error_text or "Request too large" in error_text):
+                    st.error(
+                        "Groq ha rifiutato la richiesta per il limite di token al minuto. "
+                        "La V6.42 usa già il prompt compatto e un limite di risposta; attendi alcuni secondi e riprova. "
+                        f"Dettaglio: {exc}"
+                    )
+                elif "503" in error_text or "UNAVAILABLE" in error_text.upper():
                     st.warning("Il provider AI è temporaneamente non disponibile. Riprova più tardi o seleziona l'altro provider.")
                 else:
                     st.error(f"Errore durante la comunicazione con l'AI: {exc}")
