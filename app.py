@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 # CONFIGURAZIONE PAGINA
 # =============================================================================
 st.set_page_config(
-    page_title="COT Smart Money V6.37 — Python",
+    page_title="COT Smart Money V6.38 — Python",
     page_icon="🛡️",
     layout="wide",
 )
@@ -48,9 +48,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🛡️ COT Smart Money — Python V6.37")
+st.title("🛡️ COT Smart Money — Python V6.38")
 st.caption(
-    "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale con Weekly Change Radar, Focus Operativo e test Price Action Timing. "
+    "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale con Weekly Change Radar, Focus Operativo, test Price Action Timing e Replay storico causale. "
     "Il motore è allineato a TradingView G. COT Smart Money Engine V1.5.48 e seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
 )
 
@@ -3396,6 +3396,232 @@ def analyze_market_for_screener(
     return row, history_df
 
 
+
+def _historical_replay_snapshot(
+    spec: MarketSpec,
+    full_history: pd.DataFrame,
+    weekly_price: pd.DataFrame,
+    daily_ohlc: pd.DataFrame,
+    target_index: int,
+    cot_lookback: int,
+    oi_threshold: float,
+) -> dict[str, Any]:
+    """Ricostruisce uno snapshot storico usando solo informazioni disponibili a quella data.
+
+    La storia COT viene troncata al report scelto; Weekly e Daily vengono troncati al venerdì
+    associato a quel report. Lo snapshot precedente viene ricostruito allo stesso modo, così
+    anche le regole che dipendono dal cambiamento settimanale restano causali.
+    """
+    current_history = full_history.iloc[: target_index + 1].copy()
+    if current_history.empty:
+        return {}
+    report_date = pd.Timestamp(current_history.iloc[-1]["date"]).date()
+    weekly_snapshot = weekly_price_snapshot(weekly_price, report_date)
+    price = analyze_price(weekly_snapshot)
+    smart = analyze_smart_money(
+        current_history, spec, price, oi_threshold, cot_lookback,
+        "Compatto", False, analysis_date=cot_snapshot_reference_date(report_date),
+    )
+    if not smart.get("available"):
+        return {}
+    alignment = analyze_alignment_map(current_history, spec)
+    daily_price = daily_ema21_snapshot(daily_ohlc, report_date)
+    daily_alignment = daily21_alignment_context(alignment, daily_price)
+    recent_3of3 = recent_alignment_3of3_context(current_history)
+    trend_index_156w = pd.to_numeric(
+        pd.Series([smart.get("alignment_trend_index_156w", math.nan)]), errors="coerce"
+    ).iloc[0]
+    reversal_watch_bull = bool(
+        recent_3of3.get("bull_recent")
+        and not pd.isna(trend_index_156w) and float(trend_index_156w) <= ALIGNMENT_LOWER
+        and daily_price.get("long_confirmed")
+        and int(alignment.get("bull_score", 0) or 0) < 3
+        and not smart.get("alignment_bull_regime_confirmed")
+    )
+    reversal_watch_bear = bool(
+        recent_3of3.get("bear_recent")
+        and not pd.isna(trend_index_156w) and float(trend_index_156w) >= ALIGNMENT_UPPER
+        and daily_price.get("short_confirmed")
+        and int(alignment.get("bear_score", 0) or 0) < 3
+        and not smart.get("alignment_bear_regime_confirmed")
+    )
+    scoring = calculate_screener_score(smart, price, alignment, oi_threshold, daily_price)
+
+    previous = {
+        "available": False,
+        "report_date": "",
+        "status": "NON DISPONIBILE",
+        "direction": "NEUTRALE",
+        "score": math.nan,
+    }
+    if target_index >= 1:
+        previous_history = full_history.iloc[:target_index].copy()
+        previous_report_date = pd.Timestamp(previous_history.iloc[-1]["date"]).date()
+        previous_weekly = weekly_price_snapshot(weekly_price, previous_report_date)
+        previous_price = analyze_price(previous_weekly)
+        previous_smart = analyze_smart_money(
+            previous_history, spec, previous_price, oi_threshold, cot_lookback,
+            "Compatto", False, analysis_date=cot_snapshot_reference_date(previous_report_date),
+        )
+        if previous_smart.get("available"):
+            previous_alignment = analyze_alignment_map(previous_history, spec)
+            previous_daily = daily_ema21_snapshot(daily_ohlc, previous_report_date)
+            previous_scoring = calculate_screener_score(
+                previous_smart, previous_price, previous_alignment, oi_threshold, previous_daily
+            )
+            previous = {
+                "available": True,
+                "report_date": previous_report_date.isoformat(),
+                "status": previous_scoring["Stato"],
+                "direction": previous_scoring["Direzione"],
+                "score": previous_scoring["Score"],
+            }
+
+    recent_text = (
+        f"RIALZISTA {int(recent_3of3['bull_age'])} report fa ({recent_3of3['bull_date']})"
+        if reversal_watch_bull else
+        f"RIBASSISTA {int(recent_3of3['bear_age'])} report fa ({recent_3of3['bear_date']})"
+        if reversal_watch_bear else "NO"
+    )
+    row = {
+        "Strumento": spec.label,
+        "Root": spec.root,
+        "Gruppo": spec.group,
+        "Data COT": report_date.isoformat(),
+        "Venerdì snapshot": cot_snapshot_reference_date(report_date).isoformat(),
+        **scoring,
+        "Origine Flow 1W": smart.get("flow_origin_table", "NON DISPONIBILE"),
+        "Segnale flusso motore": scoring.get("Segnale flusso motore", scoring.get("Tipo flusso", "")),
+        "Flow 1W": smart.get("trend_flow_1w", math.nan),
+        "Flow 3W": smart.get("trend_flow_3w", math.nan),
+        "Flow 6W": smart.get("trend_flow_6w", math.nan),
+        "Regime 156W": regime_156w_stage(smart),
+        "Prezzo Weekly": price.get("text", "PREZZO WEEKLY NON DISPONIBILE"),
+        "Prezzo Daily21": daily_price.get("text", "PREZZO DAILY21 NON DISPONIBILE"),
+        "Daily21 + Alignment": daily_alignment,
+        "Alignment rialzista": int(alignment.get("bull_score", 0) or 0),
+        "Alignment ribassista": int(alignment.get("bear_score", 0) or 0),
+        "Prezzo anticipa COT": (
+            "RIALZISTA" if smart.get("alignment_bull_price_leads")
+            else "RIBASSISTA" if smart.get("alignment_bear_price_leads")
+            else "NO"
+        ),
+        "Reversal Watch": "RIALZISTA" if reversal_watch_bull else "RIBASSISTA" if reversal_watch_bear else "NO",
+        "3/3 recente": recent_text,
+        "Snapshot precedente disponibile": bool(previous["available"]),
+        "Stato precedente": previous["status"],
+        "Direzione precedente": previous["direction"],
+        "Score precedente": previous["score"],
+        "Ticker Yahoo": spec.yahoo_ticker,
+    }
+    focus_row = build_focus_operativo(pd.DataFrame([row]))
+    if not focus_row.empty:
+        selected = focus_row.iloc[0]
+        row["Decisione replay"] = selected.get("Decisione", "")
+        row["Priorità replay"] = selected.get("Priorità", "")
+        row["Tipo opportunità replay"] = selected.get("Tipo opportunità", "")
+        row["Perché replay"] = selected.get("Perché è qui", "")
+    else:
+        row["Decisione replay"] = "NESSUN SEGNALE"
+        row["Priorità replay"] = ""
+        row["Tipo opportunità replay"] = ""
+        row["Perché replay"] = ""
+    return row
+
+
+def build_historical_replay(
+    spec: MarketSpec,
+    cot_lookback: int,
+    oi_threshold: float,
+    report_count: int = 12,
+) -> pd.DataFrame:
+    """Replay point-in-time di un mercato: nessun dato futuro entra nello snapshot storico."""
+    requested = max(4, min(int(report_count), 30))
+    history_limit = max(int(cot_lookback) + requested + 24, 220)
+    rows, _, _ = fetch_market_history(spec.specific_report, spec, history_limit)
+    full_history, _ = build_history_df(rows, spec.specific_report, spec, int(cot_lookback))
+    weekly_price, _ = fetch_weekly_price(spec.yahoo_ticker)
+    daily_ohlc, _ = fetch_daily_ohlc(spec.yahoo_ticker)
+    if full_history.empty:
+        return pd.DataFrame()
+
+    start = max(0, len(full_history) - requested)
+    replay_rows: list[dict[str, Any]] = []
+    for idx in range(start, len(full_history)):
+        snapshot = _historical_replay_snapshot(
+            spec, full_history, weekly_price, daily_ohlc, idx, int(cot_lookback), float(oi_threshold)
+        )
+        if snapshot:
+            replay_rows.append(snapshot)
+    replay = pd.DataFrame(replay_rows)
+    if replay.empty:
+        return replay
+    replay["Prima comparsa Reversal Watch"] = ""
+    rw_mask = replay["Reversal Watch"].isin(["RIALZISTA", "RIBASSISTA"])
+    if rw_mask.any():
+        for direction in ("RIALZISTA", "RIBASSISTA"):
+            idxs = replay.index[replay["Reversal Watch"].eq(direction)].tolist()
+            if idxs:
+                replay.loc[idxs[0], "Prima comparsa Reversal Watch"] = "✅ PRIMA COMPARSA"
+    return replay.reset_index(drop=True)
+
+
+def render_historical_replay_tab(cot_lookback: int, oi_threshold: float, results_df: pd.DataFrame) -> None:
+    st.subheader("Replay storico — nessun hindsight")
+    st.caption(
+        "Ricostruisce ogni vecchio report come se fossimo davvero a quel venerdì: COT troncato al report scelto, "
+        "prezzo Weekly e Daily troncati al venerdì associato. Serve a verificare quando sarebbe apparso davvero un REVERSAL WATCH, senza usare dati successivi."
+    )
+    available_labels = [m.label for m in MARKETS]
+    default_label = "6N — New Zealand Dollar" if "6N — New Zealand Dollar" in available_labels else available_labels[0]
+    c1, c2 = st.columns([2, 1])
+    selected_label = c1.selectbox(
+        "Mercato da ricostruire", available_labels,
+        index=available_labels.index(default_label), key="historical_replay_market",
+    )
+    report_count = c2.number_input(
+        "Numero report", min_value=4, max_value=30, value=12, step=1, key="historical_replay_reports"
+    )
+    if st.button("Ricostruisci replay storico", key="run_historical_replay", type="primary"):
+        spec = MARKET_BY_LABEL[selected_label]
+        with st.spinner(f"Ricostruzione causale di {spec.label}..."):
+            try:
+                replay = build_historical_replay(spec, int(cot_lookback), float(oi_threshold), int(report_count))
+                st.session_state["historical_replay_frame"] = replay
+                st.session_state["historical_replay_label"] = selected_label
+            except Exception as exc:
+                st.session_state.pop("historical_replay_frame", None)
+                st.error(f"Replay non disponibile: {exc}")
+
+    replay = st.session_state.get("historical_replay_frame", pd.DataFrame())
+    replay_label = st.session_state.get("historical_replay_label", "")
+    if replay.empty:
+        st.info("Seleziona un mercato e premi “Ricostruisci replay storico”. Per 6N vedrai anche i report del 28/07, 04/08 e 11/08 se disponibili nel dataset CFTC.")
+        return
+    st.caption(f"Replay visualizzato: {replay_label}. Le righe sono snapshot storici indipendenti; l'ultima riga è il report più recente disponibile.")
+    display_cols = [
+        "Data COT", "Venerdì snapshot", "Stato", "Direzione", "Score",
+        "Alignment rialzista", "Alignment ribassista", "3/3 recente",
+        "Prezzo Daily21", "Daily21 + Alignment", "Reversal Watch", "Prima comparsa Reversal Watch",
+        "Decisione replay", "Priorità replay", "Tipo opportunità replay",
+        "Prezzo Weekly", "Origine Flow 1W",
+    ]
+    st.dataframe(
+        replay[display_cols].style.map(_focus_direction_style, subset=["Direzione"]),
+        width="stretch", hide_index=True,
+        column_config={"Score": st.column_config.NumberColumn("Score", format="%.0f")},
+    )
+    reversal_rows = replay[replay["Reversal Watch"].isin(["RIALZISTA", "RIBASSISTA"])]
+    if not reversal_rows.empty:
+        first = reversal_rows.iloc[0]
+        st.success(
+            f"Prima comparsa REVERSAL WATCH nel periodo ricostruito: {first['Data COT']} — {first['Reversal Watch']}. "
+            "Questa data è calcolata senza usare report o prezzi successivi."
+        )
+    else:
+        st.warning("Nel periodo ricostruito la regola REVERSAL WATCH non sarebbe mai scattata. Questo risultato è utile: evita di attribuire a posteriori un segnale che il codice non avrebbe realmente prodotto.")
+    st.caption("Per il controllo di 6N, guarda in particolare le righe 28/07/2026, 04/08/2026 e 11/08/2026: la colonna Reversal Watch risponde direttamente alla domanda ‘lo avremmo visto allora?’. ")
+
 def screener_signature(frame: pd.DataFrame) -> str:
     if frame.empty:
         return "empty"
@@ -3893,7 +4119,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
         bear_alignment = pd.to_numeric(pd.Series([row.get("Alignment ribassista", 0)]), errors="coerce").fillna(0).iloc[0]
         flow_1w = pd.to_numeric(pd.Series([row.get("Flow 1W", math.nan)]), errors="coerce").iloc[0]
 
-        # V6.37: un 2/3 può entrare nella watchlist anche prima della Daily21, ma solo quando
+        # V6.38: un 2/3 può entrare nella watchlist anche prima della Daily21, ma solo quando
         # esiste un deterioramento/miglioramento COT significativo e causale rispetto allo snapshot
         # precedente. Non modifica Stato o Score: serve esclusivamente a non perdere un turning point
         # mentre il prezzo non ha ancora confermato. La Daily21 resta l'upgrade di priorità.
@@ -5642,11 +5868,9 @@ def render_focus_verification_tab(results_df: pd.DataFrame, verification_frame: 
         "Regola fissa di verifica: apertura della prima seduta successiva al venerdì associato al report COT precedente, fino all'ultima seduta giornaliera completamente chiusa prima del nuovo ciclo. "
         "Questo resta il benchmark passivo e non viene sostituito dal Timing Price Action: serve proprio per confrontare le due modalità senza cambiare il passato."
     )
-    st.caption(
-        "MFE % (Maximum Favorable Excursion) = massimo movimento percentuale raggiunto A FAVORE della direzione Focus dopo l'ingresso.  \n"
-        "MAE % (Maximum Adverse Excursion) = massimo movimento percentuale raggiunto CONTRO la direzione Focus dopo l'ingresso; viene mostrato negativo.  \n"
-        "MFE e MAE descrivono il percorso del prezzo durante la settimana: non sono rendimento realizzato, target o stop loss."
-    )
+    st.caption("MFE % (Maximum Favorable Excursion) = massimo movimento percentuale raggiunto A FAVORE della direzione Focus dopo l'ingresso.")
+    st.caption("MAE % (Maximum Adverse Excursion) = massimo movimento percentuale raggiunto CONTRO la direzione Focus dopo l'ingresso; viene mostrato negativo.")
+    st.caption("MFE e MAE descrivono il percorso del prezzo durante la settimana: non sono rendimento realizzato, target o stop loss.")
 
 
 
@@ -5699,12 +5923,13 @@ def render_price_action_timing_tab(results_df: pd.DataFrame, timing_frame: pd.Da
             'MFE PA %': st.column_config.NumberColumn('MFE PA %', format='%+.2f'),
         },
     )
-    st.caption(
-        "Rend. passivo % = rendimento dal primo Open utile della settimana; Rend. PA % = rendimento dall'ingresso generato dal Timing Price Action; Δ Rend. PA = Rend. PA − Rend. passivo, quindi un valore positivo indica un miglioramento del timing.  \n"
-        "MAE passivo % / MAE PA % = massima escursione percentuale CONTRO la direzione dal rispettivo ingresso. Δ MAE PA = MAE PA − MAE passivo: positivo = rischio percorso migliorato (MAE meno negativo), negativo = peggiorato.  \n"
-        "MFE passivo % / MFE PA % = massima escursione percentuale A FAVORE della direzione dal rispettivo ingresso.  \n"
-        "MFE e MAE descrivono il percorso del prezzo: non sono rendimento realizzato, target o stop loss."
-    )
+    st.caption("Rend. passivo % = rendimento dal primo Open utile della settimana.")
+    st.caption("Rend. PA % = rendimento dall'ingresso generato dal Timing Price Action.")
+    st.caption("Δ Rend. PA = Rend. PA − Rend. passivo, quindi un valore positivo indica un miglioramento del timing.")
+    st.caption("MAE passivo % / MAE PA % = massima escursione percentuale CONTRO la direzione dal rispettivo ingresso.")
+    st.caption("Δ MAE PA = MAE PA − MAE passivo: positivo = rischio percorso migliorato (MAE meno negativo), negativo = peggiorato.")
+    st.caption("MFE passivo % / MFE PA % = massima escursione percentuale A FAVORE della direzione dal rispettivo ingresso.")
+    st.caption("MFE e MAE descrivono il percorso del prezzo: non sono rendimento realizzato, target o stop loss.")
 
     with st.expander('Regola sperimentale esatta — nessun hindsight', expanded=False):
         st.write(
@@ -5852,8 +6077,8 @@ def render_screener() -> None:
         "Il Timing Price Action è un esperimento parallelo e non modifica il Focus; il foglio Radar completo contiene tutti i mercati analizzati, anche quelli senza novità."
     )
 
-    tab_classifica, tab_radar, tab_focus, tab_verifica, tab_timing = st.tabs([
-        "Classifica attuale", "Cambiamenti settimanali", "Focus operativo", "Verifica Focus precedente", "Timing Price Action — test"
+    tab_classifica, tab_radar, tab_focus, tab_verifica, tab_timing, tab_replay = st.tabs([
+        "Classifica attuale", "Cambiamenti settimanali", "Focus operativo", "Verifica Focus precedente", "Timing Price Action — test", "Replay storico"
     ])
     with tab_classifica:
         render_screener_current_tab(results_df, errors_df)
@@ -5865,6 +6090,8 @@ def render_screener() -> None:
         render_focus_verification_tab(results_df, weekly_verification)
     with tab_timing:
         render_price_action_timing_tab(results_df, weekly_timing, weekly_verification)
+    with tab_replay:
+        render_historical_replay_tab(int(cot_lookback), float(oi_threshold), results_df)
 
 
 
