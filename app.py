@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+# V6.44 — allineata a TradingView V1.5.53: FX direzione solo Leveraged Funds; Dealer solo contesto; Rapid Shift controparte fisso su COT Index 156W.
+
 from dataclasses import dataclass
 from datetime import date, timedelta
 from difflib import SequenceMatcher
@@ -23,7 +25,7 @@ from PIL import Image, ImageDraw, ImageFont
 # CONFIGURAZIONE PAGINA
 # =============================================================================
 st.set_page_config(
-    page_title="COT Smart Money V6.43 — Python",
+    page_title="COT Smart Money V6.44 — Python",
     page_icon="🛡️",
     layout="wide",
 )
@@ -48,10 +50,10 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🛡️ COT Smart Money — Python V6.43")
+st.title("🛡️ COT Smart Money — Python V6.44")
 st.caption(
     "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale con Weekly Change Radar, Focus Operativo, test Price Action Timing e Replay storico causale. "
-    "Il motore è allineato a TradingView G. COT Smart Money Engine V1.5.48 e seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
+    "Il motore è allineato a TradingView G. COT Smart Money Engine V1.5.53 e seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
 )
 
 
@@ -611,10 +613,10 @@ def build_history_df(
     df["small_index"] = rolling_cot_index(df["small_net"], cot_lookback)
     df["cot_index"] = df["trend_index"]
 
-    # Due orizzonti informativi fissi, identici a TradingView V1.5.48.
+    # Due orizzonti informativi fissi, identici a TradingView V1.5.53.
     df["trend_index_26w"] = rolling_cot_index(df["trend_net"], COT_INDEX_SHORT_LOOKBACK)
     df["trend_index_156w"] = rolling_cot_index(df["trend_net"], COT_INDEX_LONG_LOOKBACK)
-    # TradingView V1.5.48 usa un Alignment contrarian fisso a 156W per tutte
+    # TradingView V1.5.53 usa un Alignment contrarian fisso a 156W per tutte
     # le famiglie: categoria trend + controparte + Small Traders.
     df["counter_index_156w"] = rolling_cot_index(df["counter_net"], COT_INDEX_LONG_LOOKBACK)
     df["small_index_156w"] = rolling_cot_index(df["small_net"], COT_INDEX_LONG_LOOKBACK)
@@ -639,8 +641,8 @@ def build_history_df(
     df["trend_extreme_26w_flag"] = new_net_extreme_flag(df["trend_net"], COT_INDEX_SHORT_LOOKBACK)
     df["trend_extreme_156w_flag"] = new_net_extreme_flag(df["trend_net"], COT_INDEX_LONG_LOOKBACK)
 
-    # Rapid Shift: variazione del COT Index della controparte in sei veri report.
-    df["counter_rapid_shift_6w"] = df["counter_index"] - df["counter_index"].shift(6)
+    # Rapid Shift: variazione del COT Index 156W della controparte in sei veri report.
+    df["counter_rapid_shift_6w"] = df["counter_index_156w"] - df["counter_index_156w"].shift(6)
 
     # OI Index 52W: posizione corrente dell'Open Interest nel range annuale.
     oi_min_52 = df["oi"].rolling(OI_INDEX_LOOKBACK, min_periods=26).min()
@@ -817,7 +819,7 @@ def analyze_price(weekly: pd.DataFrame) -> dict[str, Any]:
 # MOTORE SMART MONEY
 # =============================================================================
 def cot_zone(index_value: float) -> str:
-    """Collocazione della Net Position nel range strutturale 156W, come TradingView V1.5.48."""
+    """Collocazione della Net Position nel range strutturale 156W, come TradingView V1.5.53."""
     if pd.isna(index_value):
         return "NON DISPONIBILE"
     if index_value >= 80:
@@ -832,7 +834,7 @@ def cot_zone(index_value: float) -> str:
 
 
 def flow_origin_title(chg_l: float, chg_s: float, net: float) -> str:
-    """Origine del Flow 1W, traduzione diretta della funzione flow_origin_title V1.5.48."""
+    """Origine del Flow 1W, traduzione diretta della funzione flow_origin_title V1.5.53."""
     if pd.isna(chg_l) or pd.isna(chg_s) or pd.isna(net):
         return "DATI NON DISPONIBILI"
     a_l = abs(float(chg_l))
@@ -876,7 +878,7 @@ def flow_origin_title(chg_l: float, chg_s: float, net: float) -> str:
 
 
 def flow_origin_summary(chg_l: float, chg_s: float, net: float) -> str:
-    """Sintesi narrativa dell'origine del Flow 1W, come TradingView V1.5.48."""
+    """Sintesi narrativa dell'origine del Flow 1W, come TradingView V1.5.53."""
     if pd.isna(chg_l) or pd.isna(chg_s) or pd.isna(net):
         return ""
     a_l = abs(float(chg_l))
@@ -1077,7 +1079,7 @@ def analyze_smart_money(
     oi_index_52w = float(cur["oi_index_52w"]) if "oi_index_52w" in cur and not pd.isna(cur["oi_index_52w"]) else math.nan
     oi_index_52w_state = oi_index_state(oi_index_52w)
 
-    # TradingView V1.5.48: prima identifica la direzione uniforme dei flussi 3-6W,
+    # TradingView V1.5.53: prima identifica la direzione uniforme dei flussi 3-6W,
     # poi verifica se l'Open Interest sostiene, perde partecipazione o resta stabile.
     oi_macro_available = not pd.isna(pct_oi_3w) and not pd.isna(pct_oi_6w)
     oi_macro_up = oi_macro_available and pct_oi_3w > oi_threshold and pct_oi_6w > oi_threshold
@@ -1116,7 +1118,7 @@ def analyze_smart_money(
     short_covering = trend_flow_1w > 0 and trend_chg_s < 0 and oi_down
     long_liquidation = trend_flow_1w < 0 and trend_chg_l < 0 and oi_down
 
-    # TESTO SEMPLICE ULTIMO REPORT — V1.5.48: origine del Flow separata dall'Open Interest.
+    # TESTO SEMPLICE ULTIMO REPORT — V1.5.53: origine del Flow separata dall'Open Interest.
     smart_flow_report_available = not any(pd.isna(v) for v in (trend_flow_1w, trend_chg_l, trend_chg_s))
     flow_origin = flow_origin_title(trend_chg_l, trend_chg_s, trend_flow_1w) if smart_flow_report_available else "DATI NON DISPONIBILI"
     flow_origin_summary_text = flow_origin_summary(trend_chg_l, trend_chg_s, trend_flow_1w) if smart_flow_report_available else ""
@@ -1164,12 +1166,12 @@ def analyze_smart_money(
         else:
             counter_reading = "PRODUCER SOSTANZIALMENTE STABILI"
     elif spec.is_fx:
-        if trend_flow_1w > 0 and counter_flow_1w < 0:
-            counter_reading = "DEALER CONTROPARTE DEI LONG"
-        elif trend_flow_1w < 0 and counter_flow_1w > 0:
-            counter_reading = "DEALER CONTROPARTE DEGLI SHORT"
+        if counter_flow_1w > 0:
+            counter_reading = "DEALER NET POSITION IN AUMENTO — SOLO CONTESTO"
+        elif counter_flow_1w < 0:
+            counter_reading = "DEALER NET POSITION IN CALO — SOLO CONTESTO"
         else:
-            counter_reading = "DINAMICA DEALER NON CONCORDE"
+            counter_reading = "DEALER STABILI — SOLO CONTESTO"
     else:
         if counter_flow_1w > 0:
             counter_reading = "ASSET MANAGER AUMENTANO L'ESPOSIZIONE"
@@ -1180,8 +1182,9 @@ def analyze_smart_money(
 
     financial_long_alignment = spec.family == "financial" and not spec.is_fx and trend_flow_1w > 0 and counter_flow_1w > 0
     financial_short_alignment = spec.family == "financial" and not spec.is_fx and trend_flow_1w < 0 and counter_flow_1w < 0
-    fx_long_alignment = spec.is_fx and trend_flow_1w > 0 and counter_flow_1w < 0
-    fx_short_alignment = spec.is_fx and trend_flow_1w < 0 and counter_flow_1w > 0
+    # FX: Leveraged Funds determinano la direzione; Dealer = solo controparte/contesto.
+    fx_long_alignment = spec.is_fx and trend_flow_1w > 0
+    fx_short_alignment = spec.is_fx and trend_flow_1w < 0
     commodity_joint_long = spec.family == "commodity" and trend_flow_1w > 0 and counter_flow_1w > 0
     commodity_joint_short = spec.family == "commodity" and trend_flow_1w < 0 and counter_flow_1w < 0
     commodity_trend_long = spec.family == "commodity" and trend_flow_1w > 0 and counter_flow_1w < 0
@@ -1189,8 +1192,8 @@ def analyze_smart_money(
 
     financial_long_confirmed = financial_long_alignment and macro_long and counter_macro_long
     financial_short_confirmed = financial_short_alignment and macro_short and counter_macro_short
-    fx_long_confirmed = fx_long_alignment and macro_long and counter_macro_short
-    fx_short_confirmed = fx_short_alignment and macro_short and counter_macro_long
+    fx_long_confirmed = fx_long_alignment and macro_long
+    fx_short_confirmed = fx_short_alignment and macro_short
 
     possible_bottom = spec.family == "commodity" and cot_index <= 20 and commodity_joint_long
     possible_top = spec.family == "commodity" and cot_index >= 80 and commodity_joint_short
@@ -1215,22 +1218,16 @@ def analyze_smart_money(
         engine_detail = "Managed Money e Producer peggiorano insieme."
     elif fx_long_confirmed:
         engine_bias = "LONG VALUTA CONFERMATO"
-        engine_detail = "Leveraged Funds rialzisti e Dealer nel normale ruolo di controparte."
+        engine_detail = "Leveraged Funds rialzisti su 1W, 3W e 6W. Dealer/Intermediary sono solo controparte e contesto."
     elif fx_short_confirmed:
         engine_bias = "SHORT VALUTA CONFERMATO"
-        engine_detail = "Leveraged Funds ribassisti e Dealer nel normale ruolo di controparte."
-    elif spec.is_fx and fx_long_alignment and macro_long:
-        engine_bias = "LONG FX CON CONFERMA PARZIALE"
-        engine_detail = "Struttura Leveraged rialzista, ma Dealer non ancora concordi sulle 3-6W."
-    elif spec.is_fx and fx_short_alignment and macro_short:
-        engine_bias = "SHORT FX CON CONFERMA PARZIALE"
-        engine_detail = "Struttura Leveraged ribassista, ma Dealer non ancora concordi sulle 3-6W."
+        engine_detail = "Leveraged Funds ribassisti su 1W, 3W e 6W. Dealer/Intermediary sono solo controparte e contesto."
     elif spec.is_fx and fx_long_alignment:
         engine_bias = "RECUPERO LONG VALUTA"
-        engine_detail = "Flusso settimanale rialzista ancora da confermare sulle 3-6W."
+        engine_detail = "Leveraged Funds migliorano nell'ultimo report; serve conferma uniforme 3-6W. I Dealer non modificano il bias."
     elif spec.is_fx and fx_short_alignment:
         engine_bias = "PRESSIONE SHORT VALUTA"
-        engine_detail = "Flusso settimanale ribassista ancora da confermare sulle 3-6W."
+        engine_detail = "Leveraged Funds peggiorano nell'ultimo report; serve conferma uniforme 3-6W. I Dealer non modificano il bias."
     elif financial_long_confirmed:
         engine_bias = "LONG ISTITUZIONALE CONFERMATO"
         engine_detail = "Leveraged Funds e Asset Manager migliorano insieme anche nella struttura 3-6W."
@@ -1277,13 +1274,13 @@ def analyze_smart_money(
     partial_short_with_price = partial_short and price["short_confirmed"]
 
     # Configurazioni parziali già estese sul COT Index del motore.
-    # Servono soltanto alla gerarchia testuale di "Cosa fare", come nel Pine V1.5.48.
+    # Servono soltanto alla gerarchia testuale di "Cosa fare", come nel Pine V1.5.53.
     partial_crowded_long = partial_long and extreme_long
     partial_crowded_short = partial_short and extreme_short
 
     # =========================================================================
     # POSSIBILE FUTURO CAMBIO DI REGIME — ALIGNMENT CONTRARIAN FISSO 156W
-    # TradingView V1.5.48 unifica la regola per Commodity, FX e altri Financial:
+    # TradingView V1.5.53 unifica la regola per Commodity, FX e altri Financial:
     # Bull = Trend basso + Controparte alta + Small basso.
     # Bear = Trend alto + Controparte bassa + Small alto.
     # =========================================================================
@@ -1479,7 +1476,7 @@ def analyze_smart_money(
         if alignment_available else ""
     )
 
-    # Bias COT + prezzo — frasi allineate a TradingView V1.5.48
+    # Bias COT + prezzo — frasi allineate a TradingView V1.5.53
     combined_bias = engine_bias
     combined_detail = engine_detail
     if possible_bottom and price["long_confirmed"]:
@@ -1651,25 +1648,26 @@ def analyze_smart_money(
         concentration_detail = "L'esposizione dei Top 8 Trader è nella norma."
 
     # =========================================================================
-    # LETTURA SEMPLICE — FRASI IDENTICHE A TRADINGVIEW V1.5.48
+    # LETTURA SEMPLICE — FRASI IDENTICHE A TRADINGVIEW V1.5.53
     # =========================================================================
     short_extreme_recovery = extreme_short and trend_flow_1w > 0
     long_extreme_deterioration = extreme_long and trend_flow_1w < 0
     short_extreme_pressure = extreme_short and trend_flow_1w <= 0
     long_extreme_pressure = extreme_long and trend_flow_1w >= 0
 
-    # V1.5.48 — spiega esattamente quale conferma manca, con la relazione corretta
-    # della controparte: FX Dealer/Intermediary opposti ai Leveraged Funds; altri
-    # Financial Asset Manager nella stessa direzione; Commodity Producer/Merchant opposti.
+    # V1.5.53 — spiega esattamente quale conferma manca.
+    # FX: Dealer/Intermediary = solo contesto; altri Financial e Commodity mantengono
+    # la propria logica di controparte.
     smart_main_subject = "i Managed Money" if spec.family == "commodity" else "i Leveraged Funds"
     smart_main_subject_up = "I MANAGED MONEY" if spec.family == "commodity" else "I LEVERAGED FUNDS"
     smart_counter_subject = "i Dealer/Intermediary" if spec.is_fx else "gli Asset Manager" if spec.family == "financial" else "i Producer/Merchant"
     smart_counter_subject_up = "I DEALER/INTERMEDIARY" if spec.is_fx else "GLI ASSET MANAGER" if spec.family == "financial" else "I PRODUCER/MERCHANT"
     smart_counter_same_direction = spec.family == "financial" and not spec.is_fx
-    smart_counter_long_1w_ok = counter_flow_1w > 0 if smart_counter_same_direction else counter_flow_1w < 0
-    smart_counter_short_1w_ok = counter_flow_1w < 0 if smart_counter_same_direction else counter_flow_1w > 0
-    smart_counter_long_macro_ok = counter_macro_long if smart_counter_same_direction else counter_macro_short
-    smart_counter_short_macro_ok = counter_macro_short if smart_counter_same_direction else counter_macro_long
+    smart_counter_direction_required = not spec.is_fx
+    smart_counter_long_1w_ok = True if not smart_counter_direction_required else (counter_flow_1w > 0 if smart_counter_same_direction else counter_flow_1w < 0)
+    smart_counter_short_1w_ok = True if not smart_counter_direction_required else (counter_flow_1w < 0 if smart_counter_same_direction else counter_flow_1w > 0)
+    smart_counter_long_macro_ok = True if not smart_counter_direction_required else (counter_macro_long if smart_counter_same_direction else counter_macro_short)
+    smart_counter_short_macro_ok = True if not smart_counter_direction_required else (counter_macro_short if smart_counter_same_direction else counter_macro_long)
 
     def missing_detail(long_side: bool) -> str:
         price_ok = bool(price.get("long_confirmed")) if long_side else bool(price.get("short_confirmed"))
@@ -1721,8 +1719,6 @@ def analyze_smart_money(
         if not flow_ok:
             return f"IL PREZZO E LA STRUTTURA 3-6W RESTANO {dir_up}, MA NELL'ULTIMO REPORT {smart_main_subject_up} HANNO {main_change_up} IL POSIZIONAMENTO.\nATTENDI CHE IL FLUSSO SETTIMANALE TORNI {dir_up}."
         if not counter_1_ok:
-            if spec.is_fx:
-                return f"IL PREZZO E {smart_main_subject_up} SONO GIÀ {dir_up}.\nATTENDI CHE {smart_counter_subject_up} CONFERMINO IL NORMALE RUOLO DI CONTROPARTE NELL'ULTIMO REPORT.\n{tail}"
             return f"IL PREZZO E {smart_main_subject_up} SONO GIÀ {dir_up}.\nATTENDI CHE {smart_counter_subject_up} CONFERMINO IL MOVIMENTO NELL'ULTIMO REPORT.\n{tail}"
         if not counter_macro_ok:
             return f"IL PREZZO E {smart_main_subject_up} SONO {dir_up} A 3-6W.\nATTENDI CHE {smart_counter_subject_up} CONFERMINO ANCHE IL QUADRO 3-6W VERSO IL {counter_move_up}.\n{tail}"
@@ -1985,7 +1981,7 @@ def analyze_smart_money(
         )
 
     # =========================================================================
-    # SINTESI CHIARA DEL QUADRO — allineata alla V1.5.48
+    # SINTESI CHIARA DEL QUADRO — allineata alla V1.5.53
     # L'esposizione attuale deriva dalle percentuali Long/Short direzionali;
     # il COT Index descrive separatamente la collocazione nel range storico.
     # =========================================================================
@@ -2070,6 +2066,8 @@ def analyze_smart_money(
         counter_summary = f"{counter_subject} si sono {'invece ' if counter_opposite else ''}mossi verso lo Short."
     else:
         counter_summary = f"{counter_subject} non hanno mostrato un cambiamento netto significativo."
+    if spec.is_fx:
+        counter_summary += " Nelle valute questo dato è solo contesto e non determina il bias."
 
     if not price.get("available"):
         price_summary = "La conferma del prezzo settimanale non è disponibile."
@@ -2512,7 +2510,7 @@ def alignment_zone(value: float) -> str:
 
 
 def analyze_alignment_map(df: pd.DataFrame, spec: MarketSpec) -> dict[str, Any]:
-    """Alignment contrarian fisso 156W, unificato come TradingView V1.5.48."""
+    """Alignment contrarian fisso 156W, unificato come TradingView V1.5.53."""
     unavailable = {
         "available": False,
         "lookback": COT_INDEX_LONG_LOOKBACK,
@@ -2539,7 +2537,7 @@ def analyze_alignment_map(df: pd.DataFrame, spec: MarketSpec) -> dict[str, Any]:
     if any(pd.isna(value) for value in (speculative_index, counterparty_index, small_index)):
         return unavailable
 
-    # V1.5.48: stessa regola contrarian per tutte le famiglie.
+    # V1.5.53: stessa regola contrarian per tutte le famiglie.
     bull_speculative = speculative_index <= ALIGNMENT_LOWER
     bull_counterparty = counterparty_index >= ALIGNMENT_UPPER
     bull_small = small_index <= ALIGNMENT_LOWER
@@ -2941,7 +2939,7 @@ def calculate_screener_score(
 ) -> dict[str, Any]:
     """Score di qualità 0-100, separato dallo Stato e coerente con la direzione.
 
-    V6.27 conserva la logica di Score validata nelle versioni precedenti e la separa dalla nuova lettura pubblica Flow Origin V1.5.48:
+    V6.27 conserva la logica di Score validata nelle versioni precedenti e la separa dalla nuova lettura pubblica Flow Origin V1.5.53:
     1) un flusso opposto alla Direzione non viene premiato;
     2) i mercati davvero NEUTRALI non ricevono punti solo perché l'ultimo report è forte;
     3) l'Open Interest 1W non viene contato due volte: NUOVI LONG/SHORT lo incorpora
@@ -2958,7 +2956,7 @@ def calculate_screener_score(
     # STADIO DEL SETUP: misura la maturità, non decide la direzione.
     # I setup "in costruzione" nati soltanto da persistenza 1W+3W+6W+prezzo
     # ricevono un punteggio motore inferiore perché manca ancora la conferma
-    # istituzionale della controparte richiesta dal motore specifico di mercato.
+    # della categoria principale; nelle valute la controparte Dealer non è una conferma direzionale.
     persistence_only_long = (
         status == "LONG IN COSTRUZIONE"
         and not smart.get("confirmed_long")
@@ -6530,7 +6528,7 @@ def render_single_analysis() -> None:
     # =============================================================================
     st.header("3. COT Alignment Map")
     st.caption(
-        "Contesto contrarian fisso a 156 settimane, come TradingView V1.5.48. La regola è la stessa per Commodity, FX e altri Financial. "
+        "Contesto contrarian fisso a 156 settimane, coerente con TradingView V1.5.53. La regola è la stessa per Commodity, FX e altri Financial. "
         "Il 2/3 è soltanto parziale; il 3/3 prepara il setup, mentre flussi, Net Position, struttura 3–6W e prezzo determinano lo stadio del possibile cambio di regime."
     )
 
@@ -6836,15 +6834,15 @@ Evita ripetizioni, ma non omettere: posizione Fondi, ultimo report, struttura 3�
     - Il responso deterministico è il punto di partenza: non contraddirlo senza dichiarare chiaramente il limite dei dati.
     - Usa i valori calcolati dell'Alignment Map; non inventare screenshot o livelli tecnici. Nelle indicazioni operative usa solo pullback/rimbalzo e nuova conferma se non esiste un livello calcolato.
     - Separa sempre ORIGINE DEL FLOW 1W e OPEN INTEREST: descrivi il cambiamento di Long/Short/Net Position indipendentemente dall’OI; usa l’OI 1W solo come contesto di partecipazione.
-    - Quando disponibile, usa l’Origine Flow 1W deterministica V1.5.48 e non ridurla automaticamente a “nuovi Long/nuovi Short”.
-    - Se una view è incompleta, usa la conferma mancante deterministica nell’ordine prezzo → struttura 3-6W principale → Flow 1W principale → controparte 1W → controparte 3-6W.
-    - Nelle valute, Dealer/Intermediary sono la normale controparte dei Leveraged Funds: quando manca la loro conferma, dichiaralo esplicitamente e non richiedere erroneamente che si muovano nella stessa direzione.
+    - Quando disponibile, usa l’Origine Flow 1W deterministica V1.5.53 e non ridurla automaticamente a “nuovi Long/nuovi Short”.
+    - Se una view è incompleta, usa la conferma mancante deterministica nell’ordine prezzo → struttura 3-6W principale → Flow 1W principale. Per Commodity e Financial non-FX considera poi la controparte secondo la logica del motore.
+    - Nelle valute, la direzione è determinata esclusivamente dai Leveraged Funds. Dealer/Intermediary sono solo controparte/contesto: non possono confermare, negare o invertire il bias direzionale.
     - Un primo miglioramento/peggioramento 1W senza struttura 3-6W coerente resta “view non ancora formata”.
     - EMA21 Daily e EMA21 Weekly hanno ruoli diversi: Daily21 è anticipatoria alla chiusura della settimana; Weekly21 è strutturale. Non promuovere mai un semplice Alignment 2/3 a Stato LONG/SHORT solo perché Daily21 è coerente.
     - Un COT Index estremo descrive la collocazione della Net Position nel proprio range storico, non necessariamente una posizione Net Long o Net Short e non un segnale automatico di inversione.
     - L'Alignment Map usato per il possibile cambio di regime è fisso a 156W e usa la stessa logica contrarian per tutte le famiglie: Trend basso + Controparte alta + Small basso per Bull; l'opposto per Bear.
     - Un Alignment 2/3 è soltanto parziale. Un 3/3 è un setup, non ancora un cambio di regime confermato.
-    - V1.5.48: se Alignment 3/3 e prezzo Weekly confermato anticipano il COT ma mancano nuovi Long/Short coerenti, usa lo stato DIVERGENZA RIALZISTA/RIBASSISTA PREZZO/COT IN ATTO. È interessante ma NON è ancora un regime confermato.
+    - V1.5.53: se Alignment 3/3 e prezzo Weekly confermato anticipano il COT ma mancano nuovi Long/Short coerenti, usa lo stato DIVERGENZA RIALZISTA/RIBASSISTA PREZZO/COT IN ATTO. È interessante ma NON è ancora un regime confermato.
     - "IN SVILUPPO" richiede 3/3 + nuovi Long/Short coerenti + Net Position nella stessa direzione. "CONFERMATO" richiede inoltre prezzo Weekly e struttura macro coerenti.
     - La classificazione Long liquidation/Short covering dominante nei casi 3/3 richiede che Long e Short siano entrambi in diminuzione; non dedurla da una sola componente.
     - Non promuovere mai 2/3 o 3/3 grezzo a regime confermato. Usa lo stato deterministico già calcolato dalla dashboard.
