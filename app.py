@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 # CONFIGURAZIONE PAGINA
 # =============================================================================
 st.set_page_config(
-    page_title="COT Smart Money V6.42 — Python",
+    page_title="COT Smart Money V6.43 — Python",
     page_icon="🛡️",
     layout="wide",
 )
@@ -48,7 +48,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🛡️ COT Smart Money — Python V6.42")
+st.title("🛡️ COT Smart Money — Python V6.43")
 st.caption(
     "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale con Weekly Change Radar, Focus Operativo, test Price Action Timing e Replay storico causale. "
     "Il motore è allineato a TradingView G. COT Smart Money Engine V1.5.48 e seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
@@ -75,7 +75,8 @@ AI_SCREENER_PROMPT_FILENAME = "PROMPT_SCREENER.TXT"
 # Groq free/on-demand for openai/gpt-oss-120b has an 8K TPM ceiling.
 # Keep a conservative completion budget and use compact-but-equivalent prompts
 # so a single request does not exceed the organization token-per-minute limit.
-GROQ_MAX_COMPLETION_TOKENS = 900
+GROQ_SINGLE_MAX_COMPLETION_TOKENS = 1800
+GROQ_SCREENER_MAX_COMPLETION_TOKENS = 1200
 ALIGNMENT_UPPER = 80.0
 ALIGNMENT_LOWER = 20.0
 OI_INDEX_LOOKBACK = 52
@@ -5427,7 +5428,7 @@ def call_ai_provider(provider: str, model: str, prompt: str) -> str:
             {"role": "user", "content": prompt},
         ],
         temperature=0.2,
-        max_completion_tokens=GROQ_MAX_COMPLETION_TOKENS,
+        max_completion_tokens=GROQ_SCREENER_MAX_COMPLETION_TOKENS,
     )
     return response.choices[0].message.content or "Nessuna risposta ricevuta da Groq."
 
@@ -5944,7 +5945,7 @@ def render_focus_operativo_tab(results_df: pd.DataFrame, focus_frame: pd.DataFra
             "Sono setup COT validi, non scarti. Vengono però dopo la prima scelta del loro comparto: se il Focus principale del settore non offre un buon setup tecnico, queste sono le alternative da controllare."
         )
 
-    st.markdown("#### Punti di svolta interessanti, ma non ancora maturi")
+    st.markdown("#### Punti di svolta interessanti, da monitorare")
     if watch.empty:
         st.caption("Nessun punto di svolta aggiuntivo da monitorare.")
     else:
@@ -5952,7 +5953,12 @@ def render_focus_operativo_tab(results_df: pd.DataFrame, focus_frame: pd.DataFra
         anticipatory = watch[watch["Fase osservazione"].isin(["EARLY WARNING", "REVERSAL WATCH"])].copy()
         if not anticipatory.empty:
             names = ", ".join(anticipatory["Strumento"].astype(str).tolist())
-            st.caption(f"Segnali anticipatori prioritari da aprire sul grafico: {names}. Sono watchlist, non ingressi automatici.")
+            st.markdown(
+                f'<div style="color:#ff4b4b;font-weight:700;margin:0.15rem 0 0.55rem 0;">'
+                f"Segnali anticipatori prioritari da aprire sul grafico: {names}. Sono watchlist, non ingressi automatici."
+                f"</div>",
+                unsafe_allow_html=True,
+            )
         st.dataframe(watch[watch_cols].style.map(_focus_direction_style, subset=["Direzione"]), width="stretch", hide_index=True)
 
     with st.expander("Criteri e ordine del Focus operativo", expanded=False):
@@ -6664,6 +6670,75 @@ def render_single_analysis() -> None:
     """.strip()
             request_mode = f"Analisi completa — {prompt_source_label}"
 
+        # Groq: usa un pacchetto dati dedicato e molto più piccolo del payload Gemini.
+        # In questo modo resta spazio per una risposta realmente utile senza superare il limite TPM.
+        if provider == "Groq":
+            groq_data = f"""
+DATI ESSENZIALI DEL MERCATO
+- Strumento: {spec.label}
+- Famiglia: {spec.market_family_label}
+- Categoria principale: {spec.trend_label}
+- Controparte: {spec.counter_label}
+- Data COT: {smart['report_date'].strftime('%d/%m/%Y')}
+- Stato deterministico / bias: {smart['final_bias']}
+- Lettura semplice: {smart['simple_title']}
+- Spiegazione semplice: {smart['simple_detail']}
+- Cosa fare: {smart['plain_action']}
+- Perché: {smart['explanation']}
+
+POSIZIONAMENTO E ULTIMO REPORT
+- Posizione Fondi: {smart['current_position']} — {smart['current_position_value']}
+- Esposizione Long / Short: {fmt_pct(smart['directional_long_pct'])} / {fmt_pct(smart['directional_short_pct'])}
+- Origine Flow 1W: {smart.get('flow_origin_table', 'N/A')}
+- Δ {spec.trend_label} Long / Short: {smart['trend_chg_l']:+.0f} / {smart['trend_chg_s']:+.0f}
+- Contesto OI 1W: {smart.get('oi_1w_context', 'N/A')}
+- OI 1W: {smart['pct_delta_oi']:+.2f}%
+- Struttura Fondi 3W / 6W: {smart['trend_flow_3w']:+.0f} / {smart['trend_flow_6w']:+.0f}
+- Lettura ultimo report: {smart['last_report']}
+- Struttura 3–6W: {smart['structure']}
+
+ESTREMI, PARTECIPAZIONE E CONCENTRAZIONE
+- COT Index 26W / 156W: {fmt_decimal(smart['cot_index_26w'],1)} / {fmt_decimal(smart['cot_index_156w'],1)}
+- Posizionamento storico: {smart['positioning']}
+- OI 3–6W: {smart['oi_quality']}
+- OI Index 52W: {fmt_decimal(smart['oi_index_52w'],1)} — {smart['oi_index_52w_state']}
+- Top 8: {smart['concentration_state']}
+
+ALIGNMENT E PREZZO
+- Alignment rialzista / ribassista: {smart['alignment_bull_count']}/3 / {smart['alignment_bear_count']}/3
+- Regime 156W: {smart['future_regime_title']}
+- Dettaglio regime: {smart['future_regime_text']}
+- Prezzo anticipa COT: {"RIALZISTA" if smart.get('alignment_bull_price_leads') else "RIBASSISTA" if smart.get('alignment_bear_price_leads') else "NO"}
+- Prezzo Weekly: {price_analysis['text']} — {price_analysis['detail']}
+- Prezzo Daily21: {daily_price_analysis.get('text','NON DISPONIBILE')} — {daily_price_analysis.get('detail','NON DISPONIBILE')}
+- Daily21 + Alignment: {daily_alignment_context}
+- Term Structure: {term_usage_status} / {term_structure}
+""".strip()
+
+            if use_custom_question:
+                prompt = f"""
+MODALITÀ: DOMANDA SPECIFICA
+Rispondi esclusivamente alla domanda, in italiano semplice e senza inventare livelli tecnici.
+DOMANDA: {custom_question}
+
+{groq_data}
+""".strip()
+                return prompt, request_mode
+
+            prompt = f"""
+MODALITÀ: ANALISI COMPLETA
+
+{groq_compact_operational_prompt()}
+
+{groq_data}
+
+IMPORTANTE PER LA LUNGHEZZA
+La risposta NON deve essere telegrafica. Usa frasi complete e spiega il perché delle conclusioni.
+Produci prima OUTPUT A completo con tutte le sezioni richieste e poi OUTPUT B breve per il post social.
+Evita ripetizioni, ma non omettere: posizione Fondi, ultimo report, struttura 3–6W, estremi COT, OI, Top 8, Alignment/regime, Weekly/Daily21, elemento favorevole, elemento contrario, conferma necessaria, invalidazione e cosa fare.
+""".strip()
+            return prompt, "Analisi completa — pacchetto Groq ottimizzato"
+
         prompt = f"""
     {instruction_block}
 
@@ -6811,8 +6886,8 @@ def render_single_analysis() -> None:
 
     if ai_provider == "Groq":
         st.caption(
-            "Groq: per rispettare il limite TPM del modello, l'app usa automaticamente una versione compatta "
-            "ma equivalente delle istruzioni PROMPT.TXT e limita la lunghezza massima della risposta."
+            "Groq: l'app invia un pacchetto dati essenziale dedicato (non l'intero payload Gemini) e lascia più spazio "
+            "alla risposta. L'obiettivo è ottenere un'analisi completa senza superare il limite TPM del modello."
         )
 
     with st.form("cot_ai_form"):
@@ -6867,7 +6942,7 @@ def render_single_analysis() -> None:
                             {"role": "user", "content": prompt_ai},
                         ],
                         temperature=0.2,
-                        max_completion_tokens=GROQ_MAX_COMPLETION_TOKENS,
+                        max_completion_tokens=GROQ_SINGLE_MAX_COMPLETION_TOKENS,
                     )
                     answer = response.choices[0].message.content or "Nessuna risposta ricevuta da Groq."
 
@@ -6889,7 +6964,7 @@ def render_single_analysis() -> None:
                 if ai_provider == "Groq" and ("rate_limit_exceeded" in error_text or "tokens per minute" in error_text or "Request too large" in error_text):
                     st.error(
                         "Groq ha rifiutato la richiesta per il limite di token al minuto. "
-                        "La V6.42 usa già il prompt compatto e un limite di risposta; attendi alcuni secondi e riprova. "
+                        "La V6.43 usa un payload Groq ridotto e un budget di risposta controllato; attendi alcuni secondi e riprova. "
                         f"Dettaglio: {exc}"
                     )
                 elif "503" in error_text or "UNAVAILABLE" in error_text.upper():

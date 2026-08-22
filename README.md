@@ -1,29 +1,24 @@
-# COT Smart Money Python V6.42
+# COT Smart Money Python V6.43
 
-Base: V6.40. Modifica esclusivamente testuale nella colonna pubblica **Tipo opportunità** del Focus Operativo.
+Base: V6.42.
 
-## Novità V6.42
+## Novità V6.43
 
-La dicitura:
+### Focus operativo — testo più chiaro
+- Titolo sezione modificato da `Punti di svolta interessanti, ma non ancora maturi` a `Punti di svolta interessanti, da monitorare`.
+- La riga `Segnali anticipatori prioritari da aprire sul grafico...` viene evidenziata in rosso per renderla immediatamente visibile.
+- La riga resta una watchlist: non è un ingresso automatico.
 
-`NUOVA DIREZIONE APPENA CONFERMATA`
+### Groq — analisi completa resa di nuovo utile
+La V6.42 evitava il 413 riducendo troppo la risposta. In V6.43 la strategia cambia:
+- Gemini continua a ricevere il payload completo e `PROMPT.TXT` integrale.
+- Groq riceve un pacchetto dati dedicato molto più piccolo, con i campi decisionali essenziali già calcolati dalla dashboard.
+- Il budget massimo della risposta Groq per l'analisi singola sale da 900 a 1800 token.
+- Lo Screener Groq usa un budget separato di 1200 token.
+- La risposta completa Groq deve includere posizione Fondi, ultimo report, struttura 3–6W, estremi COT, OI, Top 8, Alignment/regime, Weekly/Daily21, elemento favorevole/contrario, conferma necessaria, invalidazione e cosa fare.
+- Anche le domande specifiche Groq usano il pacchetto dati compatto, evitando di inviare l'intero payload Gemini.
 
-è stata sostituita con:
+Questa modifica riduce i token di input invece di sacrificare quasi tutta la risposta. Non garantisce che Groq produca una qualità identica a Gemini: i due modelli restano diversi. Per l'analisi completa Gemini rimane il riferimento; Groq è un'alternativa/fallback più utilizzabile.
 
-`NUOVA DIREZIONE APPENA CONFERMATA - PUNTO DI SVOLTA`
-
-Lo scopo è rendere immediatamente evidente anche a un neofita che non si tratta soltanto di una direzione confermata, ma di un possibile **punto di svolta appena confermato**.
-
-## Logica invariata
-
-Nessuna modifica a motore Smart Money, Stato, Score, Alignment, Radar, Focus, Replay storico, Verifica Focus precedente o Price Action Timing.
-
-
-## Correzione V6.42 — Groq 413 / limite 8K TPM
-
-- Corretto l'errore Groq `413 Request too large` osservato con `openai/gpt-oss-120b` quando la richiesta superava il limite di 8.000 token/minuto.
-- Per l'analisi singola con Groq l'app usa una versione compatta ma semanticamente equivalente delle istruzioni di `PROMPT.TXT`; Gemini continua a usare il prompt completo.
-- La risposta Groq è limitata a 900 token tramite `max_completion_tokens`, così il budget totale resta prudente.
-- Anche lo Screener AI usa un payload Groq compatto e lo stesso limite di completamento.
-- Le domande specifiche restano invariate: quando compilate, `PROMPT.TXT` viene ignorato e viene inviata solo la domanda con i dati strutturati.
-- Nessuna modifica a motore COT, Stato, Score, Focus, Radar, Replay, Verifica Focus o Price Action Timing.
+## Logica quantitativa invariata
+Nessuna modifica a motore Smart Money, Stato, Score, Alignment, Radar, Focus, Early Warning/Reversal Watch, Replay storico, Verifica Focus precedente o Price Action Timing.

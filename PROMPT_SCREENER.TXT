@@ -1,5 +1,5 @@
 PROMPT SCREENER — COT SMART MONEY
-ALLINEATO A G. COT SMART MONEY ENGINE V1.5.48 E SCREENER PYTHON V6.42
+ALLINEATO A G. COT SMART MONEY ENGINE V1.5.48 E SCREENER PYTHON V6.43
 
 Analizza esclusivamente i dati dello screener forniti nella sezione DATI SCREENER in fondo al prompt.
 Non modificare Score, Stato, Direzione o Classificazione AI.
@@ -28,19 +28,19 @@ Mappatura obbligatoria:
 Usa esclusivamente le formule pubbliche “LONG/SHORT CONFERMATO — NON INSEGUIRE” ed evita etichette tecniche da addetti ai lavori.
 
 ==================================================
-COME LEGGERE LO SCREENER V6.42
+COME LEGGERE LO SCREENER V6.43
 ==================================================
 
 1. STATO E SCORE
 
 Lo Stato è deterministico e prevale sulla tua interpretazione.
 Lo Score ordina la qualità complessiva; non è un segnale automatico di ingresso.
-Nella V6.42 lo Score resta direzionale: premia un flusso soltanto se è coerente con la Direzione dello Stato e penalizza un flusso opposto.
+Nella V6.43 lo Score resta direzionale: premia un flusso soltanto se è coerente con la Direzione dello Stato e penalizza un flusso opposto.
 Lo Score OI usa la partecipazione 3-6W; la variazione OI 1W non riceve un secondo bonus perché è già usata per riconoscere NUOVI LONG/NUOVI SHORT.
 Un mercato NEUTRALE / POCO CHIARO non riceve bonus direzionali solo perché l’ultimo report mostra un flusso forte.
 Non trasformare un punteggio alto in “confermato” se lo Stato è “in costruzione”.
 Se lo Stato è “DATI COT DATATI — NON UTILIZZARE”, non ricavare alcuna view operativa: il dato è escluso dalla graduatoria utile e deve essere descritto soltanto come non utilizzabile finché non arriva un report aggiornato.
-Nella V6.42 lo Stato “IN COSTRUZIONE” resta rigoroso ma introduce una conferma prezzo anticipata separata dalla Weekly. Deriva da una configurazione COT istituzionale prevista dal motore (confirmed senza conferma prezzo, partial_long/partial_short), da un regime contrarian 156W già IN SVILUPPO, da una persistenza direzionale completa 1W+3W+6W con prezzo Weekly confermato oppure, come nuovo caso anticipato, da un Alignment 3/3 grezzo con chiusura della settimana coerente rispetto alla EMA21 Daily. Quest’ultimo caso è soltanto IN COSTRUZIONE e riceve un peso prezzo inferiore alla conferma Weekly. Un Alignment 2/3 NON cambia mai la Direzione principale solo perché la Daily21 è coerente: resta un warning da MONITORARE. La EMA21 Weekly resta la conferma strutturale; la EMA21 Daily osservata alla chiusura della settimana è soltanto anticipatoria.
+Nella V6.43 lo Stato “IN COSTRUZIONE” resta rigoroso ma introduce una conferma prezzo anticipata separata dalla Weekly. Deriva da una configurazione COT istituzionale prevista dal motore (confirmed senza conferma prezzo, partial_long/partial_short), da un regime contrarian 156W già IN SVILUPPO, da una persistenza direzionale completa 1W+3W+6W con prezzo Weekly confermato oppure, come nuovo caso anticipato, da un Alignment 3/3 grezzo con chiusura della settimana coerente rispetto alla EMA21 Daily. Quest’ultimo caso è soltanto IN COSTRUZIONE e riceve un peso prezzo inferiore alla conferma Weekly. Un Alignment 2/3 NON cambia mai la Direzione principale solo perché la Daily21 è coerente: resta un warning da MONITORARE. La EMA21 Weekly resta la conferma strutturale; la EMA21 Daily osservata alla chiusura della settimana è soltanto anticipatoria.
 
 2. POSIZIONE ATTUALE E ORIGINE FLOW 1W
 
@@ -213,24 +213,24 @@ Se compare per la prima volta “Prezzo anticipa COT = RIALZISTA/RIBASSISTA”, 
 Nel Radar la maturità del regime è: 2/3 < 3/3 grezzo < PREZZO ANTICIPA COT < IN SVILUPPO < CONFERMATO.
 Il Weekly Change Radar serve a decidere dove concentrare il tempo, non crea un nuovo Score.
 
-PREZZO DAILY21 — CONFERMA ANTICIPATA PYTHON V6.42
+PREZZO DAILY21 — CONFERMA ANTICIPATA PYTHON V6.43
 - “Prezzo Daily21” confronta la chiusura dell’ultima seduta della settimana con la EMA21 Daily. Se il venerdì è festivo usa l’ultima seduta disponibile prima del cutoff.
 - “Prezzo Weekly” mantiene il ruolo di conferma STRUTTURALE; non sostituirlo con la Daily21.
 - “Daily21 + Alignment” combina la direzione della Daily21 con l’Alignment 156W.
-- REVERSAL WATCH V6.42: se uno dei 6 report PRECEDENTI mostrava un Alignment contrarian 3/3 nella direzione del reversal, la categoria seguita è ANCORA all’estremo 156W opposto e la chiusura del venerdì è già coerente con la EMA21 Daily, il mercato entra in MONITORARE come “PREZZO ANTICIPA COT — REVERSAL WATCH”. Il 3/3 non deve essere ancora presente nel report corrente. Questa è memoria causale del setup, non conferma COT: non modifica Stato, Score o Focus.
+- REVERSAL WATCH V6.43: se uno dei 6 report PRECEDENTI mostrava un Alignment contrarian 3/3 nella direzione del reversal, la categoria seguita è ANCORA all’estremo 156W opposto e la chiusura del venerdì è già coerente con la EMA21 Daily, il mercato entra in MONITORARE come “PREZZO ANTICIPA COT — REVERSAL WATCH”. Il 3/3 non deve essere ancora presente nel report corrente. Questa è memoria causale del setup, non conferma COT: non modifica Stato, Score o Focus.
 - 2/3 + Daily21 coerente = WARNING più interessante da MONITORARE, ma Stato e Direzione restano invariati.
-- Un 2/3 può comparire prima in MONITORARE senza Daily21 soltanto con la regola PRE-PREZZO V6.42 sopra descritta; la Daily21 ne aumenta la priorità, non crea retroattivamente il warning.
+- Un 2/3 può comparire prima in MONITORARE senza Daily21 soltanto con la regola PRE-PREZZO V6.43 sopra descritta; la Daily21 ne aumenta la priorità, non crea retroattivamente il warning.
 - 3/3 + Daily21 coerente = può diventare LONG/SHORT IN COSTRUZIONE anticipato; NON è CONFERMATO.
 - Un setup CONFERMATO richiede ancora le condizioni di conferma previste dal motore, con prezzo Weekly quando richiesto.
 - Lo Score prezzo assegna peso massimo alla conferma Weekly; la Daily21 ha peso intermedio e serve a evitare che la lentezza della Weekly penalizzi eccessivamente i turning point.
 - Non descrivere la Daily21 come segnale automatico di ingresso: è un filtro di maturazione del contesto COT.
 
-FOCUS OPERATIVO SETTIMANALE — REGOLA DETERMINISTICA PYTHON V6.42
+FOCUS OPERATIVO SETTIMANALE — REGOLA DETERMINISTICA PYTHON V6.43
 Il Focus Operativo è una shortlist separata e NON deve essere reinterpretata dall'AI.
 - FOCUS: soltanto setup LONG/SHORT CONFERMATO, non NON INSEGUIRE, Score >= 65, prezzo Weekly confermato, struttura 3-6W coerente e Flow 1W non contrario.
 - MONITORARE: include anche setup già CONFERMATI con Score 50–64 (sotto la soglia Focus 65), REVERSAL WATCH con 3/3 recente + estremo COT ancora presente + Daily21 coerente, prezzo Weekly che anticipa il COT su 3/3, regime contrarian IN SVILUPPO, 3/3 + Daily21, warning 2/3 + Daily21, 2/3 con cambio COT significativo PRE-PREZZO e setup IN COSTRUZIONE sufficientemente coerenti. Un confermato sotto soglia non deve più sparire tra Focus e watchlist.
-- 2/3 PRE-PREZZO V6.42: può entrare in MONITORARE anche senza Daily21 SOLO se è un vero cambio causale rispetto allo snapshot precedente: il precedente setup direzionale opposto (CONFERMATO o IN COSTRUZIONE) ha perso la sua direzione, lo Score è sceso di almeno 20 punti e il Flow 1W si muove nella direzione del nuovo Alignment 2/3. Questo NON modifica Stato o Score e NON è un segnale operativo. Se successivamente la Daily21 diventa coerente, il warning sale di priorità a “COT 2/3 + DAILY21”.
-- Il Focus NON crea un nuovo Score. Nella V6.42 l'Origine Flow 1W prevale sullo Score nell'ordinamento: nuova partecipazione reale nella direzione del Focus → movimento misto/bilanciato → covering/liquidation dominante → nuova conferma/continuazione → Score numerico → Δ Score. Il Segnale flusso motore è solo un fallback quando l'Origine Flow non è sufficientemente dettagliata e non può promuovere a massima priorità un movimento che l'Origine Flow descrive esplicitamente come soprattutto Short covering o Long liquidation.
+- 2/3 PRE-PREZZO V6.43: può entrare in MONITORARE anche senza Daily21 SOLO se è un vero cambio causale rispetto allo snapshot precedente: il precedente setup direzionale opposto (CONFERMATO o IN COSTRUZIONE) ha perso la sua direzione, lo Score è sceso di almeno 20 punti e il Flow 1W si muove nella direzione del nuovo Alignment 2/3. Questo NON modifica Stato o Score e NON è un segnale operativo. Se successivamente la Daily21 diventa coerente, il warning sale di priorità a “COT 2/3 + DAILY21”.
+- Il Focus NON crea un nuovo Score. Nella V6.43 l'Origine Flow 1W prevale sullo Score nell'ordinamento: nuova partecipazione reale nella direzione del Focus → movimento misto/bilanciato → covering/liquidation dominante → nuova conferma/continuazione → Score numerico → Δ Score. Il Segnale flusso motore è solo un fallback quando l'Origine Flow non è sufficientemente dettagliata e non può promuovere a massima priorità un movimento che l'Origine Flow descrive esplicitamente come soprattutto Short covering o Long liquidation.
 - Dopo l'ordinamento, il miglior candidato di ogni Categoria viene marcato PRINCIPALE. Gli altri candidati validi dello stesso comparto restano FOCUS ma vengono marcati ALTERNATIVA SETTORE e vengono mostrati dopo tutte le prime scelte settoriali.
 - “ALTERNATIVA SETTORE” non significa setup COT debole o scartato: significa soltanto che esiste un candidato dello stesso settore da controllare prima.
 - Ordine Focus è una vera graduatoria sequenziale 1, 2, 3... dopo l'applicazione della priorità settoriale. Ordine settore indica invece 1°, 2°, 3° candidato all'interno dello stesso comparto.
@@ -240,7 +240,7 @@ Il Focus Operativo è una shortlist separata e NON deve essere reinterpretata da
 - MFE e MAE sono metriche di verifica della shortlist, non target o stop consigliati.
 
 
-REPLAY STORICO / SEGNALI ANTICIPATORI — PYTHON V6.42
+REPLAY STORICO / SEGNALI ANTICIPATORI — PYTHON V6.43
 - Il Replay storico è point-in-time: ogni riga usa soltanto COT e prezzi disponibili a quel venerdì. Non usare conoscenze successive per reinterpretare righe precedenti.
 - WARNING BASE = semplice 2/3 + Daily21 coerente. Resta visibile, ma NON viene contato come prima comparsa di EARLY WARNING forte perché può persistere per più report senza evolvere.
 - EARLY WARNING forte = uno dei seguenti casi: 3/3 + Daily21; prezzo Weekly che anticipa il COT su 3/3; cambio COT 2/3 PRE-PREZZO significativo e causale. È un invito prioritario ad aprire il grafico, NON un ingresso automatico e NON un Focus.
@@ -248,7 +248,7 @@ REPLAY STORICO / SEGNALI ANTICIPATORI — PYTHON V6.42
 - La tabella Replay deve distinguere “Prima comparsa Early Warning” da “Prima comparsa Reversal Watch”. Sono due date diverse e rispondono a due domande diverse: quando iniziare a osservare e quando la divergenza è diventata persistente.
 - Nella watchlist la colonna “Fase osservazione” rende esplicito se il mercato è EARLY WARNING, REVERSAL WATCH, WARNING BASE, CONFERMATO SOTTO SOGLIA, REGIME IN SVILUPPO o MATURAZIONE.
 
-PRICE ACTION TIMING — ESPERIMENTO PARALLELO V6.42
+PRICE ACTION TIMING — ESPERIMENTO PARALLELO V6.43
 - Non modifica FOCUS, Stato, Score, Direzione o Weekly Change Radar.
 - Serve soltanto a confrontare il benchmark passivo (prima apertura dopo il venerdì del report) con un ingresso Daily più selettivo.
 - LONG: dopo almeno una seduta di pullback post-Focus (Close < Close precedente oppure Low < Low precedente), una seduta SUCCESSIVA deve chiudere sopra l'High della seduta precedente; l'ingresso teorico è solo all'Open della seduta successiva.
