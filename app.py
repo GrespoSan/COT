@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 # CONFIGURAZIONE PAGINA
 # =============================================================================
 st.set_page_config(
-    page_title="COT Smart Money V6.38 — Python",
+    page_title="COT Smart Money V6.39 — Python",
     page_icon="🛡️",
     layout="wide",
 )
@@ -48,7 +48,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🛡️ COT Smart Money — Python V6.38")
+st.title("🛡️ COT Smart Money — Python V6.39")
 st.caption(
     "Due sezioni indipendenti: analisi approfondita di un singolo future e screener settimanale con Weekly Change Radar, Focus Operativo, test Price Action Timing e Replay storico causale. "
     "Il motore è allineato a TradingView G. COT Smart Money Engine V1.5.48 e seleziona automaticamente TFF per i finanziari e Disaggregated per le commodity."
@@ -3397,6 +3397,33 @@ def analyze_market_for_screener(
 
 
 
+def _replay_observation_phase(priority: str, direction: str) -> dict[str, str]:
+    """Classifica la fase anticipatrice del replay senza cambiare Stato/Score/Focus.
+
+    I replay reali mostrano che un semplice 2/3 + Daily21 può ripetersi per settimane senza
+    evolvere. Per questo resta WARNING BASE e non determina la prima comparsa di EARLY WARNING.
+    Sono invece EARLY WARNING forti: 3/3 + Daily21, prezzo Weekly che anticipa il COT e il
+    cambio 2/3 pre-prezzo significativo. REVERSAL WATCH resta una fase successiva separata.
+    """
+    p = str(priority or "")
+    d = str(direction or "").upper()
+    directional = "RIALZISTA" if d == "LONG" else "RIBASSISTA" if d == "SHORT" else "NO"
+    if p == "⚠️ PREZZO ANTICIPA COT — REVERSAL WATCH":
+        return {"phase": "REVERSAL WATCH", "early": "NO", "type": "3/3 RECENTE + DAILY21"}
+    if p == "⚠️ PREZZO WEEKLY ANTICIPA COT":
+        return {"phase": "EARLY WARNING", "early": directional, "type": "PREZZO WEEKLY ANTICIPA COT"}
+    if p == "🟠 3/3 + DAILY21":
+        return {"phase": "EARLY WARNING", "early": directional, "type": "3/3 + DAILY21"}
+    if p in (
+        "⚠️ COT IN DETERIORAMENTO — PREZZO NON CONFERMA",
+        "⚠️ COT IN MIGLIORAMENTO — PREZZO NON CONFERMA",
+    ):
+        return {"phase": "EARLY WARNING", "early": directional, "type": "CAMBIO COT 2/3 PRE-PREZZO"}
+    if p == "⚠️ COT 2/3 + DAILY21":
+        return {"phase": "WARNING BASE", "early": "NO", "type": "2/3 + DAILY21"}
+    return {"phase": "", "early": "NO", "type": ""}
+
+
 def _historical_replay_snapshot(
     spec: MarketSpec,
     full_history: pd.DataFrame,
@@ -3521,11 +3548,18 @@ def _historical_replay_snapshot(
         row["Priorità replay"] = selected.get("Priorità", "")
         row["Tipo opportunità replay"] = selected.get("Tipo opportunità", "")
         row["Perché replay"] = selected.get("Perché è qui", "")
+        observation = _replay_observation_phase(str(selected.get("Priorità", "")), str(selected.get("Direzione", "")))
+        row["Fase anticipatrice"] = observation["phase"]
+        row["Early Warning"] = observation["early"]
+        row["Tipo Early Warning"] = observation["type"]
     else:
         row["Decisione replay"] = "NESSUN SEGNALE"
         row["Priorità replay"] = ""
         row["Tipo opportunità replay"] = ""
         row["Perché replay"] = ""
+        row["Fase anticipatrice"] = ""
+        row["Early Warning"] = "NO"
+        row["Tipo Early Warning"] = ""
     return row
 
 
@@ -3556,13 +3590,17 @@ def build_historical_replay(
     replay = pd.DataFrame(replay_rows)
     if replay.empty:
         return replay
+    replay["Prima comparsa Early Warning"] = ""
+    ew_mask = replay["Early Warning"].isin(["RIALZISTA", "RIBASSISTA"])
+    if ew_mask.any():
+        first_ew_idx = replay.index[ew_mask].tolist()[0]
+        replay.loc[first_ew_idx, "Prima comparsa Early Warning"] = "✅ PRIMA COMPARSA"
+
     replay["Prima comparsa Reversal Watch"] = ""
     rw_mask = replay["Reversal Watch"].isin(["RIALZISTA", "RIBASSISTA"])
     if rw_mask.any():
-        for direction in ("RIALZISTA", "RIBASSISTA"):
-            idxs = replay.index[replay["Reversal Watch"].eq(direction)].tolist()
-            if idxs:
-                replay.loc[idxs[0], "Prima comparsa Reversal Watch"] = "✅ PRIMA COMPARSA"
+        first_rw_idx = replay.index[rw_mask].tolist()[0]
+        replay.loc[first_rw_idx, "Prima comparsa Reversal Watch"] = "✅ PRIMA COMPARSA"
     return replay.reset_index(drop=True)
 
 
@@ -3570,7 +3608,7 @@ def render_historical_replay_tab(cot_lookback: int, oi_threshold: float, results
     st.subheader("Replay storico — nessun hindsight")
     st.caption(
         "Ricostruisce ogni vecchio report come se fossimo davvero a quel venerdì: COT troncato al report scelto, "
-        "prezzo Weekly e Daily troncati al venerdì associato. Serve a verificare quando sarebbe apparso davvero un REVERSAL WATCH, senza usare dati successivi."
+        "prezzo Weekly e Daily troncati al venerdì associato. Distingue il primo EARLY WARNING forte dalla successiva eventuale fase REVERSAL WATCH, senza usare dati successivi."
     )
     available_labels = [m.label for m in MARKETS]
     default_label = "6N — New Zealand Dollar" if "6N — New Zealand Dollar" in available_labels else available_labels[0]
@@ -3602,7 +3640,9 @@ def render_historical_replay_tab(cot_lookback: int, oi_threshold: float, results
     display_cols = [
         "Data COT", "Venerdì snapshot", "Stato", "Direzione", "Score",
         "Alignment rialzista", "Alignment ribassista", "3/3 recente",
-        "Prezzo Daily21", "Daily21 + Alignment", "Reversal Watch", "Prima comparsa Reversal Watch",
+        "Prezzo Daily21", "Daily21 + Alignment",
+        "Fase anticipatrice", "Early Warning", "Tipo Early Warning", "Prima comparsa Early Warning",
+        "Reversal Watch", "Prima comparsa Reversal Watch",
         "Decisione replay", "Priorità replay", "Tipo opportunità replay",
         "Prezzo Weekly", "Origine Flow 1W",
     ]
@@ -3611,6 +3651,16 @@ def render_historical_replay_tab(cot_lookback: int, oi_threshold: float, results
         width="stretch", hide_index=True,
         column_config={"Score": st.column_config.NumberColumn("Score", format="%.0f")},
     )
+    early_rows = replay[replay["Early Warning"].isin(["RIALZISTA", "RIBASSISTA"])]
+    if not early_rows.empty:
+        first_early = early_rows.iloc[0]
+        st.info(
+            f"Prima comparsa EARLY WARNING forte nel periodo ricostruito: {first_early['Data COT']} — {first_early['Early Warning']} — {first_early['Tipo Early Warning']}. "
+            "Questa è la prima data in cui il mercato avrebbe meritato un controllo prioritario del grafico, senza essere ancora un Focus."
+        )
+    else:
+        st.caption("Nel periodo ricostruito non compare alcun EARLY WARNING forte. Un semplice 2/3 + Daily21 resta visibile come WARNING BASE, ma non viene contato come primo segnale anticipatore forte.")
+
     reversal_rows = replay[replay["Reversal Watch"].isin(["RIALZISTA", "RIBASSISTA"])]
     if not reversal_rows.empty:
         first = reversal_rows.iloc[0]
@@ -3620,7 +3670,11 @@ def render_historical_replay_tab(cot_lookback: int, oi_threshold: float, results
         )
     else:
         st.warning("Nel periodo ricostruito la regola REVERSAL WATCH non sarebbe mai scattata. Questo risultato è utile: evita di attribuire a posteriori un segnale che il codice non avrebbe realmente prodotto.")
-    st.caption("Per il controllo di 6N, guarda in particolare le righe 28/07/2026, 04/08/2026 e 11/08/2026: la colonna Reversal Watch risponde direttamente alla domanda ‘lo avremmo visto allora?’. ")
+
+    st.caption(
+        "Gerarchia del Replay: WARNING BASE = 2/3 + Daily21; EARLY WARNING forte = 3/3 + Daily21, prezzo Weekly che anticipa il COT oppure cambio COT 2/3 significativo prima del prezzo; REVERSAL WATCH = memoria di un 3/3 recente con estremo COT ancora presente e Daily21 coerente. "
+        "La distinzione evita che una sequenza persistente di semplici 2/3 + Daily21 venga scambiata automaticamente per un reversal."
+    )
 
 def screener_signature(frame: pd.DataFrame) -> str:
     if frame.empty:
@@ -4089,7 +4143,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
     visibili come ALTERNATIVA SETTORE e non vengono eliminati.
     """
     columns = [
-        "Ordine Focus", "Ruolo settore", "Ordine settore", "Priorità", "Strumento", "Categoria", "Direzione", "Tipo opportunità",
+        "Ordine Focus", "Ruolo settore", "Ordine settore", "Priorità", "Fase osservazione", "Strumento", "Categoria", "Direzione", "Tipo opportunità",
         "Stato", "Qualità", "Score", "Δ Score", "Origine Flow 1W", "Segnale flusso motore",
         "Regime 156W", "Prezzo Weekly", "Prezzo Daily21", "Daily21 + Alignment", "Decisione", "Perché è qui", "Data COT", "Ticker Yahoo",
     ]
@@ -4119,7 +4173,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
         bear_alignment = pd.to_numeric(pd.Series([row.get("Alignment ribassista", 0)]), errors="coerce").fillna(0).iloc[0]
         flow_1w = pd.to_numeric(pd.Series([row.get("Flow 1W", math.nan)]), errors="coerce").iloc[0]
 
-        # V6.38: un 2/3 può entrare nella watchlist anche prima della Daily21, ma solo quando
+        # V6.39: un 2/3 può entrare nella watchlist anche prima della Daily21, ma solo quando
         # esiste un deterioramento/miglioramento COT significativo e causale rispetto allo snapshot
         # precedente. Non modifica Stato o Score: serve esclusivamente a non perdere un turning point
         # mentre il prezzo non ha ancora confermato. La Daily21 resta l'upgrade di priorità.
@@ -4164,6 +4218,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
         opportunity = ""
         priority = ""
         why = ""
+        observation_phase = ""
         type_order = 99
 
         if stale or focus_direction not in ("LONG", "SHORT"):
@@ -4173,6 +4228,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
 
         if confirmed and score >= FOCUS_MIN_SCORE and price_ok and structure_ok and flow_ok:
             decision = "FOCUS"
+            observation_phase = "FOCUS"
             if has_previous_context and not same_previous_confirmed:
                 opportunity = "PUNTO DI SVOLTA — NUOVA CONFERMA"
                 priority = "🔥 NUOVA CONFERMA"
@@ -4199,6 +4255,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
                 )
         elif confirmed and FOCUS_WATCH_MIN_SCORE <= score < FOCUS_MIN_SCORE:
             decision = "MONITORARE"
+            observation_phase = "CONFERMATO SOTTO SOGLIA"
             opportunity = "SETUP CONFERMATO SOTTO SOGLIA FOCUS"
             priority = "🟢 CONFERMATO SOTTO SOGLIA"
             type_order = 3
@@ -4208,6 +4265,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
             )
         elif "IN SVILUPPO" in regime and score >= FOCUS_WATCH_MIN_SCORE:
             decision = "MONITORARE"
+            observation_phase = "REGIME IN SVILUPPO"
             opportunity = "PUNTO DI SVOLTA — REGIME IN SVILUPPO"
             priority = "🟡 REGIME IN SVILUPPO"
             type_order = 4
@@ -4217,6 +4275,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
             )
         elif reversal_watch in ("RIALZISTA", "RIBASSISTA"):
             decision = "MONITORARE"
+            observation_phase = "REVERSAL WATCH"
             opportunity = f"REVERSAL WATCH {focus_direction} — 3/3 RECENTE + DAILY21"
             priority = "⚠️ PREZZO ANTICIPA COT — REVERSAL WATCH"
             type_order = 5
@@ -4227,6 +4286,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
             )
         elif price_leads in ("RIALZISTA", "RIBASSISTA"):
             decision = "MONITORARE"
+            observation_phase = "EARLY WARNING"
             opportunity = "PUNTO DI SVOLTA — PREZZO WEEKLY ANTICIPA COT"
             priority = "⚠️ PREZZO WEEKLY ANTICIPA COT"
             type_order = 6
@@ -4236,6 +4296,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
             )
         elif daily_alignment.endswith("3/3"):
             decision = "MONITORARE"
+            observation_phase = "EARLY WARNING"
             opportunity = "PUNTO DI SVOLTA — 3/3 + DAILY21"
             priority = "🟠 3/3 + DAILY21"
             type_order = 7
@@ -4245,22 +4306,24 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
             )
         elif daily_alignment.endswith("2/3"):
             decision = "MONITORARE"
+            observation_phase = "WARNING BASE"
             opportunity = "WARNING 2/3 — DAILY21 CONFERMA INIZIALE"
             priority = "⚠️ COT 2/3 + DAILY21"
-            type_order = 8
+            type_order = 9
             why = (
                 f"Alignment 156W {daily_alignment.split()[-1]} e {daily_price_text.lower()}. "
                 "Il 2/3 resta un warning e NON cambia lo Stato, ma la chiusura settimanale rispetto alla EMA21 Daily aumenta la priorità di osservazione."
             )
         elif preprice_23_direction:
             decision = "MONITORARE"
+            observation_phase = "EARLY WARNING"
             opportunity = "WARNING 2/3 — CAMBIO COT PRE-PREZZO"
             priority = (
                 "⚠️ COT IN DETERIORAMENTO — PREZZO NON CONFERMA"
                 if preprice_23_direction == "SHORT"
                 else "⚠️ COT IN MIGLIORAMENTO — PREZZO NON CONFERMA"
             )
-            type_order = 9
+            type_order = 8
             why = (
                 f"Alignment 156W {preprice_23_direction} 2/3 mentre il precedente setup {previous_direction} ha perso la sua direzione, "
                 f"lo Score è sceso di {abs(delta_score):.0f} punti e il Flow 1W si è mosso verso {preprice_23_direction}. "
@@ -4268,6 +4331,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
             )
         elif construction and score >= FOCUS_WATCH_MIN_SCORE and (price_ok or structure_ok) and flow_ok:
             decision = "MONITORARE"
+            observation_phase = "MATURAZIONE"
             opportunity = "SETUP IN MATURAZIONE"
             priority = "🟡 IN MATURAZIONE"
             type_order = 10
@@ -4298,6 +4362,7 @@ def build_focus_operativo(results: pd.DataFrame, max_focus: int = FOCUS_MAX_MARK
             "Prezzo Weekly": price_text,
             "Prezzo Daily21": daily_price_text,
             "Daily21 + Alignment": daily_alignment,
+            "Fase osservazione": observation_phase,
             "Decisione": decision,
             "Perché è qui": why,
             "Data COT": row.get("Data COT", ""),
@@ -5807,7 +5872,11 @@ def render_focus_operativo_tab(results_df: pd.DataFrame, focus_frame: pd.DataFra
     if watch.empty:
         st.caption("Nessun punto di svolta aggiuntivo da monitorare.")
     else:
-        watch_cols = ["Priorità", "Strumento", "Categoria", "Direzione", "Tipo opportunità", "Stato", "Qualità", "Score", "Regime 156W", "Prezzo Weekly", "Prezzo Daily21", "Daily21 + Alignment", "Perché è qui"]
+        watch_cols = ["Priorità", "Fase osservazione", "Strumento", "Categoria", "Direzione", "Tipo opportunità", "Stato", "Qualità", "Score", "Regime 156W", "Prezzo Weekly", "Prezzo Daily21", "Daily21 + Alignment", "Perché è qui"]
+        anticipatory = watch[watch["Fase osservazione"].isin(["EARLY WARNING", "REVERSAL WATCH"])].copy()
+        if not anticipatory.empty:
+            names = ", ".join(anticipatory["Strumento"].astype(str).tolist())
+            st.caption(f"Segnali anticipatori prioritari da aprire sul grafico: {names}. Sono watchlist, non ingressi automatici.")
         st.dataframe(watch[watch_cols].style.map(_focus_direction_style, subset=["Direzione"]), width="stretch", hide_index=True)
 
     with st.expander("Criteri e ordine del Focus operativo", expanded=False):
@@ -5816,7 +5885,7 @@ def render_focus_operativo_tab(results_df: pd.DataFrame, focus_frame: pd.DataFra
             "prezzo Weekly confermato, struttura 3-6W coerente e un Flow 1W non contrario. I candidati vengono ordinati senza creare un nuovo punteggio: "
             "prima qualità dell'origine reale del Flow (nuova partecipazione → misto → covering/liquidation dominante), poi nuova conferma/continuazione, Score numerico e Δ Score. "
             "Dopo questo ordinamento, il migliore di ogni settore viene mostrato tra i Focus principali e gli altri come alternative settoriali. "
-            f"In MONITORARE entrano anche i CONFERMATI con Score {FOCUS_WATCH_MIN_SCORE}–{FOCUS_MIN_SCORE-1}, i REVERSAL WATCH con 3/3 recente + estremo COT ancora presente + Daily21 coerente, i warning 2/3 + Daily21, i 3/3 + Daily21, i 2/3 con cambio COT significativo prima della conferma prezzo e gli altri setup in maturazione. "
+            f"In MONITORARE entrano anche i CONFERMATI con Score {FOCUS_WATCH_MIN_SCORE}–{FOCUS_MIN_SCORE-1}, i REVERSAL WATCH con 3/3 recente + estremo COT ancora presente + Daily21 coerente, gli EARLY WARNING forti (3/3 + Daily21, prezzo Weekly che anticipa il COT, oppure cambio COT 2/3 significativo prima del prezzo), i WARNING BASE 2/3 + Daily21 e gli altri setup in maturazione. "
             f"La Daily21 anticipa; la Weekly21 resta la conferma strutturale. Il sistema non riempie la tabella per forza e mostra al massimo {FOCUS_MAX_MARKETS} candidati FOCUS complessivi."
         )
 
